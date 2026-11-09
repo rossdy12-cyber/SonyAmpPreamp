@@ -1,6 +1,6 @@
 workflows:
   ios-unsigned-ipa:
-    name: Build Unsigned iOS IPA (SideStore / LiveContainer)
+    name: Build & Publish Auto-Updating iOS IPA (TrueNAS SideStore)
     max_build_duration: 30
     instance_type: mac_mini_m2
     triggering:
@@ -33,5 +33,13 @@ workflows:
           mkdir -p Payload
           cp -r build/Build/Products/Release-iphoneos/SonyAmpPreamp.app Payload/
           zip -r9 SonyAmpPreamp.ipa Payload
+      - name: Publish IPA & Update SideStore Source on TrueNAS
+        script: |
+          VERSION=$(python3 -c 'import re; print(re.search(r"MARKETING_VERSION:\s*\"([^\"]+)\"", open("project.yml").read()).group(1))')
+          NOTES=$(git log -1 --pretty=%s | python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))')
+          curl -fsSL -X POST \
+            -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
+            --data-binary @SonyAmpPreamp.ipa \
+            "https://navidrome.nas-server.co.uk/sidestore-upload?version=${VERSION}&notes=${NOTES}"
     artifacts:
       - SonyAmpPreamp.ipa

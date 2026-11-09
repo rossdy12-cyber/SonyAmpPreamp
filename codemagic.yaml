@@ -23,7 +23,8 @@ workflows:
           cur_bld = int(re.search(r'CURRENT_PROJECT_VERSION:\s*"([^"]+)"', proj).group(1))
 
           try:
-              with urllib.request.urlopen("https://navidrome.nas-server.co.uk/sidestore/source.json", timeout=10) as r:
+              req = urllib.request.Request("https://navidrome.nas-server.co.uk/sidestore/source.json", headers={"User-Agent": "SideStore/0.7.0"})
+              with urllib.request.urlopen(req, timeout=10) as r:
                   src = json.loads(r.read().decode())
               existing = {v["version"] for v in src["apps"][0].get("versions", [])}
           except Exception:

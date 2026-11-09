@@ -2,39 +2,23 @@
   "name": "Ross's Hi-Fi Audio Lab",
   "identifier": "com.rossdymond.sidestore.repo",
   "subtitle": "Custom iOS Hi-Fi Audio & TrueNAS Apps",
-  "description": "Custom native iOS apps built for iPhone 16 and TrueNAS.",
-  "iconURL": "https://raw.githubusercontent.com/rossdy12-cyber/SonyAmpPreamp/main/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+  "description": "Custom native iOS apps built for iPhone 16 and TrueNAS, hosted directly on TrueNAS.",
+  "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
   "apps": [
     {
       "name": "Sony Amp DSP",
       "bundleIdentifier": "com.rossdymond.sonyamppreamp",
       "developerName": "Ross Dymond",
       "subtitle": "Auto USB-C to 3.5mm Line-Driver Pre-Amp & 10-Band EQ",
-      "localizedDescription": "Automatically detects the iPhone 16 USB-C to 3.5mm DAC adapter and engages a 32-bit floating-point +7.5dB to +12dB Pre-Amp Line-Driver Boost (0.5Vrms -> 2.0Vrms) with Apple CoreAudio Brickwall Peak Limiting, 65Hz Sony MegaBass Sub-Harmonic Exciter, 10-band Parametric EQ, and direct TrueNAS Navidrome lossless FLAC streaming.",
-      "iconURL": "https://raw.githubusercontent.com/rossdy12-cyber/SonyAmpPreamp/main/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+      "localizedDescription": "Automatically detects the iPhone 16 USB-C to 3.5mm DAC adapter and engages a 32-bit floating-point +7.5dB to +12dB Pre-Amp Line-Driver Boost (0.5Vrms -> 2.0Vrms) with Apple CoreAudio Brickwall Peak Limiting, 65Hz Sony MegaBass Sub-Harmonic Exciter, 10-band Parametric EQ, and direct TrueNAS Navidrome Subsonic streaming.",
+      "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
           "version": "1.2.0",
           "date": "2026-11-09",
-          "localizedDescription": "v1.2.0: Added AVAudioMixerNode hardware sample-rate converter (44.1kHz / 96kHz -> 48kHz USB-C DAC) and fixed Navidrome album playback.",
-          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v1.2.0/SonyAmpPreamp.ipa",
+          "localizedDescription": "v1.2.0: Added AVAudioMixerNode hardware sample-rate converter (44.1kHz / 96kHz -> 48kHz USB-C DAC), instant MP3 transcoding stream, and fixed Navidrome album playback.",
+          "downloadURL": "https://navidrome.nas-server.co.uk/sidestore/SonyAmpPreamp.ipa",
           "size": 351530,
-          "minOSVersion": "16.0"
-        },
-        {
-          "version": "1.1.0",
-          "date": "2026-11-09",
-          "localizedDescription": "v1.1.0: Pre-configured for https://navidrome.nas-server.co.uk with automatic zero-config library loading on launch.",
-          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v1.1.0/SonyAmpPreamp.ipa",
-          "size": 350000,
-          "minOSVersion": "16.0"
-        },
-        {
-          "version": "1.0.0",
-          "date": "2026-11-09",
-          "localizedDescription": "Initial release with automatic USB-C DAC detection, +12dB Line-Driver Pre-Amp, CoreAudio Peak Limiter, 10-band EQ, 6 Sony Amp presets, built-in Calibration Signal Generator, and TrueNAS Navidrome Subsonic FLAC streaming.",
-          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v1.0.0/SonyAmpPreamp.ipa",
-          "size": 349765,
           "minOSVersion": "16.0"
         }
       ],

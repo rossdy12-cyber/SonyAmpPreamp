@@ -1,16 +1,66 @@
-name: Build Unsigned iOS IPA
+name: Build & Publish Auto-Updating iOS IPA
 
 on:
   push:
     branches: [ main, master ]
+    paths-ignore:
+      - 'sidestore-source.json'
+      - 'README.md'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-ipa:
     runs-on: macos-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine & Bump App Version
+        id: version
+        run: |
+          python3 - << 'EOF'
+          import json, re, subprocess, os
+
+          with open("project.yml", "r") as f:
+              proj = f.read()
+
+          m_ver = re.search(r'MARKETING_VERSION:\s*"([^"]+)"', proj)
+          m_bld = re.search(r'CURRENT_PROJECT_VERSION:\s*"([^"]+)"', proj)
+          cur_ver = m_ver.group(1) if m_ver else "1.2.0"
+          cur_bld = int(m_bld.group(1)) if m_bld else 1
+
+          with open("sidestore-source.json", "r") as f:
+              src = json.load(f)
+
+          existing_versions = {v["version"] for v in src["apps"][0].get("versions", [])}
+
+          if cur_ver in existing_versions:
+              parts = [int(x) for x in cur_ver.split(".")]
+              while len(parts) < 3:
+                  parts.append(0)
+              while f"{parts[0]}.{parts[1]}.{parts[2]}" in existing_versions:
+                  parts[2] += 1
+              new_ver = f"{parts[0]}.{parts[1]}.{parts[2]}"
+              new_bld = cur_bld + 1
+              proj = re.sub(r'MARKETING_VERSION:\s*"[^"]+"', f'MARKETING_VERSION: "{new_ver}"', proj)
+              proj = re.sub(r'CURRENT_PROJECT_VERSION:\s*"[^"]+"', f'CURRENT_PROJECT_VERSION: "{new_bld}"', proj)
+              with open("project.yml", "w") as f:
+                  f.write(proj)
+          else:
+              new_ver = cur_ver
+              new_bld = cur_bld
+
+          print(f"Using version {new_ver} (build {new_bld})")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"version={new_ver}\n")
+              out.write(f"build={new_bld}\n")
+          EOF
 
       - name: Generate Xcode Project with XcodeGen
         run: |
@@ -19,7 +69,7 @@ jobs:
           fi
           xcodegen generate
 
-      - name: Build Release iOS App (Unsigned for SideStore/AltStore)
+      - name: Build Release iOS App (Unsigned for SideStore/LiveContainer)
         run: |
           xcodebuild clean build \
             -project SonyAmpPreamp.xcodeproj \
@@ -36,6 +86,61 @@ jobs:
           mkdir -p Payload
           cp -r build/Build/Products/Release-iphoneos/SonyAmpPreamp.app Payload/
           zip -r9 SonyAmpPreamp.ipa Payload
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            gh release upload "v${VERSION}" SonyAmpPreamp.ipa --clobber
+          else
+            gh release create "v${VERSION}" SonyAmpPreamp.ipa \
+              --title "Sony Amp DSP v${VERSION}" \
+              --notes "Automated build from commit: ${COMMIT_MSG}" \
+              --latest
+          fi
+
+      - name: Update sidestore-source.json & Commit to Repo
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python3 - << 'EOF'
+          import json, os, datetime, subprocess
+
+          ver = os.environ["VERSION"]
+          ipa_size = os.path.getsize("SonyAmpPreamp.ipa")
+          today = datetime.date.today().isoformat()
+          commit_msg = subprocess.check_output(["git", "log", "-1", "--pretty=%s"]).decode().strip()
+
+          with open("sidestore-source.json", "r") as f:
+              src = json.load(f)
+
+          versions = src["apps"][0].get("versions", [])
+          versions = [v for v in versions if v.get("version") != ver]
+          versions.insert(0, {
+              "version": ver,
+              "date": today,
+              "localizedDescription": f"v{ver}: {commit_msg}",
+              "downloadURL": f"https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v{ver}/SonyAmpPreamp.ipa",
+              "size": ipa_size,
+              "minOSVersion": "16.0"
+          })
+          src["apps"][0]["versions"] = versions
+
+          with open("sidestore-source.json", "w") as f:
+              json.dump(src, f, indent=2)
+              f.write("\n")
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add project.yml sidestore-source.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): publish v${VERSION} to SideStore/LiveContainer source [skip ci]"
+            git push origin HEAD:main
+          fi
 
       - name: Upload SonyAmpPreamp.ipa Artifact
         uses: actions/upload-artifact@v4

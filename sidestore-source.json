@@ -14,6 +14,14 @@
       "iconURL": "https://raw.githubusercontent.com/rossdy12-cyber/SonyAmpPreamp/main/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
       "versions": [
         {
+          "version": "1.2.0",
+          "date": "2026-11-09",
+          "localizedDescription": "v1.2.0: Added AVAudioMixerNode hardware sample-rate converter (44.1kHz / 96kHz -> 48kHz USB-C DAC) and fixed Navidrome album playback.",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v1.2.0/SonyAmpPreamp.ipa",
+          "size": 351530,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "1.1.0",
           "date": "2026-11-09",
           "localizedDescription": "v1.1.0: Pre-configured for https://navidrome.nas-server.co.uk with automatic zero-config library loading on launch.",

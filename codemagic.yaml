@@ -11,8 +11,41 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Generate Xcode Project with XcodeGen
+      - name: Auto-Bump Version & Generate Xcode Project
         script: |
+          python3 - << 'EOF'
+          import urllib.request, json, re
+
+          with open("project.yml", "r") as f:
+              proj = f.read()
+
+          cur_ver = re.search(r'MARKETING_VERSION:\s*"([^"]+)"', proj).group(1)
+          cur_bld = int(re.search(r'CURRENT_PROJECT_VERSION:\s*"([^"]+)"', proj).group(1))
+
+          try:
+              with urllib.request.urlopen("https://navidrome.nas-server.co.uk/sidestore/source.json", timeout=10) as r:
+                  src = json.loads(r.read().decode())
+              existing = {v["version"] for v in src["apps"][0].get("versions", [])}
+          except Exception:
+              existing = set()
+
+          if cur_ver in existing:
+              parts = [int(x) for x in cur_ver.split(".")]
+              while len(parts) < 3:
+                  parts.append(0)
+              while f"{parts[0]}.{parts[1]}.{parts[2]}" in existing:
+                  parts[2] += 1
+              cur_ver = f"{parts[0]}.{parts[1]}.{parts[2]}"
+              cur_bld += 1
+              proj = re.sub(r'MARKETING_VERSION:\s*"[^"]+"', f'MARKETING_VERSION: "{cur_ver}"', proj)
+              proj = re.sub(r'CURRENT_PROJECT_VERSION:\s*"[^"]+"', f'CURRENT_PROJECT_VERSION: "{cur_bld}"', proj)
+              with open("project.yml", "w") as f:
+                  f.write(proj)
+
+          with open(".build_version", "w") as f:
+              f.write(cur_ver)
+          print(f"Building version {cur_ver} (build {cur_bld})")
+          EOF
           if ! command -v xcodegen &> /dev/null; then
             brew install xcodegen
           fi
@@ -35,7 +68,7 @@ workflows:
           zip -r9 SonyAmpPreamp.ipa Payload
       - name: Publish IPA & Update SideStore Source on TrueNAS
         script: |
-          VERSION=$(python3 -c 'import re; print(re.search(r"MARKETING_VERSION:\s*\"([^\"]+)\"", open("project.yml").read()).group(1))')
+          VERSION=$(cat .build_version)
           NOTES=$(git log -1 --pretty=%s | python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))')
           curl -fsSL -X POST \
             -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \

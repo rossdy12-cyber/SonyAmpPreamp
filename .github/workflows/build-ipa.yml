@@ -1,0 +1,45 @@
+name: Build Unsigned iOS IPA
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-14
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project with XcodeGen
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+
+      - name: Build Release iOS App (Unsigned for SideStore/AltStore)
+        run: |
+          xcodebuild clean build \
+            -project SonyAmpPreamp.xcodeproj \
+            -scheme SonyAmpPreamp \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package Payload into SonyAmpPreamp.ipa
+        run: |
+          mkdir -p Payload
+          cp -r build/Build/Products/Release-iphoneos/SonyAmpPreamp.app Payload/
+          zip -r9 SonyAmpPreamp.ipa Payload
+
+      - name: Upload SonyAmpPreamp.ipa Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SonyAmpPreamp-IPA
+          path: SonyAmpPreamp.ipa
+          if-no-files-found: error

@@ -64,6 +64,7 @@ final class AudioPreampEngine: ObservableObject {
     // MARK: - CoreAudio / AVAudioEngine Nodes
     private let engine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
+    private let inputMixer = AVAudioMixerNode()
     private let parametricEQ = AVAudioUnitEQ(numberOfBands: 10)
     private let exciterEQ = AVAudioUnitEQ(numberOfBands: 2)
     private let peakLimiter: AVAudioUnitEffect
@@ -195,6 +196,7 @@ final class AudioPreampEngine: ObservableObject {
     // MARK: - AVAudioEngine 32-Bit Float DSP Graph
     private func setupAudioEngineGraph() {
         engine.attach(playerNode)
+        engine.attach(inputMixer)
         engine.attach(parametricEQ)
         engine.attach(exciterEQ)
         engine.attach(peakLimiter)
@@ -232,7 +234,8 @@ final class AudioPreampEngine: ObservableObject {
         airBand.bypass = false
 
         let format = engine.outputNode.inputFormat(forBus: 0)
-        engine.connect(playerNode, to: parametricEQ, format: format)
+        engine.connect(playerNode, to: inputMixer, format: nil)
+        engine.connect(inputMixer, to: parametricEQ, format: format)
         engine.connect(parametricEQ, to: exciterEQ, format: format)
         engine.connect(exciterEQ, to: peakLimiter, format: format)
         engine.connect(peakLimiter, to: meterMixer, format: format)
@@ -374,6 +377,9 @@ final class AudioPreampEngine: ObservableObject {
             self.seekFrameOffset = 0
             self.currentTime = 0
 
+            // Reconnect playerNode -> inputMixer using the file's exact processingFormat (e.g. 44.1kHz -> 48kHz SRC)
+            engine.connect(playerNode, to: inputMixer, format: audioFile.processingFormat)
+
             if !engine.isRunning {
                 try engine.start()
             }
@@ -403,11 +409,12 @@ final class AudioPreampEngine: ObservableObject {
             audioFile,
             startingFrame: startFrame,
             frameCount: AVAudioFrameCount(remainingFrames),
-            at: nil
-        ) { [weak self] in
+            at: nil,
+            completionCallbackType: .dataPlayedBack
+        ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self = self, self.scheduleGeneration == expectedGen else { return }
-                if self.isPlaying && !self.isTestTonePlaying {
+                if self.isPlaying && !self.isTestTonePlaying && self.currentTime >= max(1.0, self.duration - 2.0) {
                     self.nextTrack()
                 }
             }
@@ -498,6 +505,7 @@ final class AudioPreampEngine: ObservableObject {
         }
 
         let format = engine.outputNode.inputFormat(forBus: 0)
+        engine.connect(playerNode, to: inputMixer, format: format)
         let sr = Float(format.sampleRate > 0 ? format.sampleRate : 48000)
         let seconds: Float = 4.0
         let frameCount = AVAudioFrameCount(sr * seconds)

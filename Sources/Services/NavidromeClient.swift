@@ -65,7 +65,12 @@ final class NavidromeClient: ObservableObject {
     @Published var searchTracks: [SubsonicTrack] = []
 
     init() {
-        self.serverURL = UserDefaults.standard.string(forKey: "nd_server_url") ?? "http://100.85.127.42:30043"
+        let savedURL = UserDefaults.standard.string(forKey: "nd_server_url") ?? ""
+        if savedURL.isEmpty || savedURL == "http://100.85.127.42:30043" {
+            self.serverURL = "https://navidrome.nas-server.co.uk"
+        } else {
+            self.serverURL = savedURL
+        }
         self.username = UserDefaults.standard.string(forKey: "nd_username") ?? "NISES"
         self.password = UserDefaults.standard.string(forKey: "nd_password") ?? ""
     }
@@ -105,8 +110,8 @@ final class NavidromeClient: ObservableObject {
     }
 
     func pingAndLoadLibrary() async {
-        guard !password.isEmpty else {
-            errorMessage = "Enter your Navidrome password for \(username) to browse 18,800+ FLAC tracks."
+        if password.isEmpty && !serverURL.contains("nas-server.co.uk") {
+            errorMessage = "Enter your Navidrome password for \(username), or switch URL to https://navidrome.nas-server.co.uk"
             isConnected = false
             return
         }

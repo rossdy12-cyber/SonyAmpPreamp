@@ -48,7 +48,7 @@ struct ContentView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             dspEngine.navidromeClient = navidrome
-            if !navidrome.password.isEmpty && !navidrome.isConnected {
+            if !navidrome.isConnected {
                 Task { await navidrome.pingAndLoadLibrary() }
             }
         }
@@ -625,16 +625,17 @@ struct NavidromeLibraryView: View {
             if showServerConfig || !navidrome.isConnected {
                 VStack(spacing: 8) {
                     HStack(spacing: 6) {
-                        Button("Tailscale (100.85.127.42)") {
-                            navidrome.serverURL = "http://100.85.127.42:30043"
+                        Button("SSL Domain (Recommended)") {
+                            navidrome.serverURL = "https://navidrome.nas-server.co.uk"
+                            Task { await navidrome.pingAndLoadLibrary() }
                         }
                         .font(.system(size: 10, weight: .bold))
                         .padding(6)
-                        .background(Color.white.opacity(0.1))
+                        .background(goldAccent.opacity(0.25))
                         .cornerRadius(6)
 
-                        Button("Home LAN (192.168.0.x)") {
-                            navidrome.serverURL = "http://192.168.0.10:30043"
+                        Button("Tailscale (100.85.127.42)") {
+                            navidrome.serverURL = "http://100.85.127.42:30043"
                         }
                         .font(.system(size: 10, weight: .bold))
                         .padding(6)

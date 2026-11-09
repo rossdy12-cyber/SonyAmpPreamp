@@ -14,6 +14,14 @@
       "iconURL": "https://raw.githubusercontent.com/rossdy12-cyber/SonyAmpPreamp/main/Sources/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
       "versions": [
         {
+          "version": "1.1.0",
+          "date": "2026-11-09",
+          "localizedDescription": "v1.1.0: Pre-configured for https://navidrome.nas-server.co.uk with automatic zero-config library loading on launch.",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v1.1.0/SonyAmpPreamp.ipa",
+          "size": 350000,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "1.0.0",
           "date": "2026-11-09",
           "localizedDescription": "Initial release with automatic USB-C DAC detection, +12dB Line-Driver Pre-Amp, CoreAudio Peak Limiter, 10-band EQ, 6 Sony Amp presets, built-in Calibration Signal Generator, and TrueNAS Navidrome Subsonic FLAC streaming.",

@@ -67,8 +67,12 @@ final class WristOSStore: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     @Published var windowsPin: String = UserDefaults.standard.string(forKey: "watch_win_pin") ?? ""
 
     private var audioPlayer: AVAudioPlayer?
+    private var audioRecorder: AVAudioRecorder?
+    private var recordStopTask: Task<Void, Never>?
     private let healthStore = HKHealthStore()
     private var extendedSession: WKExtendedRuntimeSession?
+    @Published var isRecordingVoice: Bool = false
+    @Published var lastSpokenTranscript: String = ""
     @Published var weatherSummary: String = "14°C CLEAR"
     @Published var stayAwakePinned: Bool = true
 
@@ -378,7 +382,127 @@ final class WristOSStore: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         statusLine = "PC Volume \(delta > 0 ? "▲" : "▼") (\(cur)%)"
     }
 
-    // MARK: - J.A.R.V.I.S. Voice & Chat
+    // MARK: - J.A.R.V.I.S. Direct Wrist Microphone (AVAudioRecorder) & Voice Dictation
+    func toggleVoiceRecording() {
+        if isRecordingVoice {
+            Task { await stopAndSendVoiceRecording() }
+        } else {
+            startVoiceRecording()
+        }
+    }
+
+    func startVoiceRecording() {
+        playHaptic(.start)
+        let session = AVAudioSession.sharedInstance()
+        session.requestRecordPermission { [weak self] granted in
+            Task { @MainActor in
+                guard let self = self else { return }
+                guard granted else {
+                    self.statusLine = "Mic Permission Needed"
+                    self.startSystemDictation()
+                    return
+                }
+                do {
+                    try session.setCategory(.playAndRecord, mode: .default, options: [.duckOthers])
+                    try session.setActive(true)
+                    let url = FileManager.default.temporaryDirectory.appendingPathComponent("jarvis_wrist_cmd.wav")
+                    try? FileManager.default.removeItem(at: url)
+                    let settings: [String: Any] = [
+                        AVFormatIDKey: Int(kAudioFormatLinearPCM),
+                        AVSampleRateKey: 16000.0,
+                        AVNumberOfChannelsKey: 1,
+                        AVLinearPCMBitDepthKey: 16,
+                        AVLinearPCMIsBigEndianKey: false,
+                        AVLinearPCMIsFloatKey: false
+                    ]
+                    let rec = try AVAudioRecorder(url: url, settings: settings)
+                    rec.prepareToRecord()
+                    rec.record()
+                    self.audioRecorder = rec
+                    self.isRecordingVoice = true
+                    self.statusLine = "🎙️ LISTENING... TAP TO SEND"
+                    self.recordStopTask?.cancel()
+                    self.recordStopTask = Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 6_500_000_000)
+                        if !Task.isCancelled && self.isRecordingVoice {
+                            await self.stopAndSendVoiceRecording()
+                        }
+                    }
+                } catch {
+                    self.isRecordingVoice = false
+                    self.startSystemDictation()
+                }
+            }
+        }
+    }
+
+    func stopAndSendVoiceRecording() async {
+        recordStopTask?.cancel()
+        recordStopTask = nil
+        guard let rec = audioRecorder else {
+            isRecordingVoice = false
+            return
+        }
+        let url = rec.url
+        rec.stop()
+        audioRecorder = nil
+        isRecordingVoice = false
+        playHaptic(.stop)
+
+        guard let wavData = try? Data(contentsOf: url), wavData.count > 1000 else {
+            statusLine = "Audio too short"
+            return
+        }
+
+        isBusy = true
+        statusLine = "Transcribing voice..."
+        defer { isBusy = false }
+
+        let telemetry = "[Watch Telemetry: Glucose \(bgMmol) mmol/L (\(bgTrendArrow), 30m Forecast \(bgForecast30m) mmol/L), Tandem IOB \(String(format: "%.2f", pumpIOB)) U, HR \(heartRateBPM) BPM, Battery \(batteryPercent)%]"
+        guard let endpoint = URL(string: "http://\(truenasHost):8998/api/voice/audio") else { return }
+        var req = URLRequest(url: endpoint)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 25
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let payload: [String: Any] = [
+            "audio_base64": wavData.base64EncodedString(),
+            "telemetry": telemetry,
+            "session_id": "watch-voice"
+        ]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+
+        if let (data, resp) = try? await URLSession.shared.data(for: req),
+           let http = resp as? HTTPURLResponse, http.statusCode == 200,
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let tr = json["transcript"] as? String, !tr.isEmpty {
+                lastSpokenTranscript = tr
+            }
+            let reply = (json["reply"] as? String) ?? "Command executed, sir."
+            jarvisReply = reply
+            statusLine = "J.A.R.V.I.S. Spoke"
+            playHaptic(.success)
+            if let b64 = json["audio_base64"] as? String,
+               let outWav = Data(base64Encoded: b64) {
+                playWatchAudio(outWav)
+            }
+        } else {
+            statusLine = "Voice Hub Timeout"
+            playHaptic(.failure)
+        }
+    }
+
+    func startSystemDictation() {
+        playHaptic(.click)
+        guard let ctrl = WKExtension.shared().visibleInterfaceController else { return }
+        ctrl.presentTextInputController(withSuggestions: nil, allowedInputMode: .plain) { [weak self] results in
+            if let text = results?.first as? String, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Task { @MainActor in
+                    self?.lastSpokenTranscript = text
+                    await self?.askJarvis(text)
+                }
+            }
+        }
+    }
     func askJarvis(_ prompt: String) async {
         let q = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return }
@@ -492,6 +616,7 @@ struct WristOSRootView: View {
     var body: some View {
         TabView(selection: $store.selectedTab) {
             WatchFacesGalleryView(store: store)
+                .ignoresSafeArea(.all)
                 .tag(0)
             WatchGlucoPulseView(store: store)
                 .tag(1)
@@ -504,7 +629,8 @@ struct WristOSRootView: View {
             WatchOpsTelemetryView(store: store)
                 .tag(5)
         }
-        .background(Color.black)
+        .ignoresSafeArea(store.selectedTab == 0 ? .all : [])
+        .background(Color.black.ignoresSafeArea(.all))
         .toolbar(store.selectedTab == 0 ? .hidden : .automatic, for: .navigationBar)
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -519,7 +645,7 @@ struct WristOSRootView: View {
     }
 }
 
-// MARK: - 1. 5 Interactive Watch Faces (Digital Crown Switchable, Non-Overlapping Series 10 Layout)
+// MARK: - 1. 5 Full-Screen Edge-to-Edge Interactive Watch Faces (Series 10 Full Bezel Layout)
 struct WatchFacesGalleryView: View {
     @ObservedObject var store: WristOSStore
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
@@ -535,132 +661,145 @@ struct WatchFacesGalleryView: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
-            let availH = geo.size.height
-            let availW = geo.size.width
-            let dialSize = min(availW * 0.62, max(88.0, availH - 64.0))
+        let screen = WKInterfaceDevice.current().screenBounds
+        let fullW = screen.width
+        let fullH = screen.height
+        let dialSize = min(fullW * 0.72, fullH - 86.0)
 
-            TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 15.0 : 1.0)) { context in
-                VStack(spacing: 0) {
-                    // Top Telemetry Bar (never overlaps center dial)
-                    HStack(spacing: 4) {
-                        HStack(spacing: 3) {
-                            Image(systemName: store.stayAwakePinned ? "pin.fill" : "pin.slash")
-                                .font(.system(size: 7, weight: .bold))
-                                .foregroundColor(store.stayAwakePinned ? .cyan : .gray)
-                            Text(store.faceNames[activeIndex])
-                                .font(.system(size: 8.5, weight: .heavy, design: .monospaced))
-                                .foregroundColor(.cyan)
-                                .lineLimit(1)
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2.5)
-                        .background(Color.cyan.opacity(0.14))
-                        .overlay(Capsule().stroke(Color.cyan.opacity(0.35), lineWidth: 0.8))
-                        .clipShape(Capsule())
-                        .onTapGesture {
-                            store.playHaptic(.click)
-                            store.selectedFaceIndex = Double((activeIndex + 1) % store.faceNames.count)
-                        }
-                        .onLongPressGesture {
-                            store.toggleStayAwakePinned()
-                        }
-
-                        Spacer(minLength: 2)
-
-                        HStack(spacing: 5) {
-                            Text("🩸\(store.bgMmol)\(store.bgTrendArrow)")
-                                .font(.system(size: 9.5, weight: .heavy, design: .monospaced))
-                                .foregroundColor(bgBadgeColor)
-                                .lineLimit(1)
-                            Text("♥\(store.heartRateBPM)")
-                                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                                .foregroundColor(.red)
-                                .lineLimit(1)
-                        }
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.07))
-                        .clipShape(Capsule())
+        TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 15.0 : 1.0)) { context in
+            VStack(spacing: 0) {
+                // Top Edge Bezel Telemetry Bar
+                HStack(spacing: 4) {
+                    HStack(spacing: 3) {
+                        Image(systemName: store.stayAwakePinned ? "pin.fill" : "pin.slash")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(store.stayAwakePinned ? .cyan : .gray)
+                        Text(store.faceNames[activeIndex])
+                            .font(.system(size: 9.5, weight: .heavy, design: .monospaced))
+                            .foregroundColor(.cyan)
+                            .lineLimit(1)
                     }
-                    .padding(.horizontal, 6)
-                    .padding(.top, 2)
-
-                    Spacer(minLength: 2)
-
-                    // Center Watch Face Area (strictly bounded to dialSize so it never touches top or bottom bars)
-                    Group {
-                        switch activeIndex {
-                        case 0:
-                            StarkArcWatchFace(date: context.date, store: store, dim: isLuminanceReduced, dialSize: dialSize)
-                        case 1:
-                            GoldenEyeWatchFace(date: context.date, store: store, dim: isLuminanceReduced, dialSize: dialSize)
-                        case 2:
-                            PipBoyWatchFace(date: context.date, store: store, dim: isLuminanceReduced)
-                        case 3:
-                            NightOpsCCTVWatchFace(date: context.date, store: store, dim: isLuminanceReduced, dialSize: dialSize)
-                        default:
-                            LCARSChronoWatchFace(date: context.date, store: store, dim: isLuminanceReduced)
-                        }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color.cyan.opacity(0.16))
+                    .overlay(Capsule().stroke(Color.cyan.opacity(0.4), lineWidth: 0.8))
+                    .clipShape(Capsule())
+                    .onTapGesture {
+                        store.playHaptic(.click)
+                        store.selectedFaceIndex = Double((activeIndex + 1) % store.faceNames.count)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: dialSize + 6)
+                    .onLongPressGesture {
+                        store.toggleStayAwakePinned()
+                    }
 
-                    Spacer(minLength: 2)
+                    Spacer(minLength: 4)
 
-                    // Bottom Quick-Unlock Dock
-                    if !isLuminanceReduced {
-                        HStack(spacing: 6) {
-                            Button {
-                                Task { await store.unlockWorkPC() }
-                            } label: {
-                                HStack(spacing: 3) {
-                                    Image(systemName: "lock.open.desktopcomputer")
-                                        .font(.system(size: 9, weight: .bold))
-                                    Text("Work PC")
-                                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                                        .lineLimit(1)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 4.5)
-                                .background(Color.cyan.opacity(0.22))
-                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.cyan.opacity(0.45), lineWidth: 0.8))
-                                .foregroundColor(.cyan)
-                                .cornerRadius(8)
-                            }
-                            .buttonStyle(.plain)
+                    HStack(spacing: 5) {
+                        Text("🩸\(store.bgMmol)\(store.bgTrendArrow)")
+                            .font(.system(size: 10.5, weight: .heavy, design: .monospaced))
+                            .foregroundColor(bgBadgeColor)
+                            .lineLimit(1)
+                        Text("♥\(store.heartRateBPM)")
+                            .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+                            .foregroundColor(.red)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(Capsule())
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 16)
 
-                            Button {
-                                Task { await store.unlockBazzitePC() }
-                            } label: {
-                                HStack(spacing: 3) {
-                                    Image(systemName: "gamecontroller.fill")
-                                        .font(.system(size: 9, weight: .bold))
-                                    Text("Bazzite")
-                                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                                        .lineLimit(1)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 4.5)
-                                .background(Color.purple.opacity(0.26))
-                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.purple.opacity(0.5), lineWidth: 0.8))
-                                .foregroundColor(Color(red: 0.85, green: 0.65, blue: 1.0))
-                                .cornerRadius(8)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.bottom, 2)
-                    } else {
-                        Text("ALWAYS-ON STARK HUD • IOB \(String(format: "%.1fU", store.pumpIOB))")
-                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                            .foregroundColor(.cyan.opacity(0.5))
-                            .padding(.bottom, 4)
+                Spacer(minLength: 2)
+
+                // Full-Width Center Watch Face Area
+                Group {
+                    switch activeIndex {
+                    case 0:
+                        StarkArcWatchFace(date: context.date, store: store, dim: isLuminanceReduced, dialSize: dialSize)
+                    case 1:
+                        GoldenEyeWatchFace(date: context.date, store: store, dim: isLuminanceReduced, dialSize: dialSize)
+                    case 2:
+                        PipBoyWatchFace(date: context.date, store: store, dim: isLuminanceReduced)
+                    case 3:
+                        NightOpsCCTVWatchFace(date: context.date, store: store, dim: isLuminanceReduced, dialSize: dialSize)
+                    default:
+                        LCARSChronoWatchFace(date: context.date, store: store, dim: isLuminanceReduced)
                     }
                 }
-                .frame(width: availW, height: availH)
-                .background(Color.black)
+                .frame(maxWidth: .infinity, maxHeight: dialSize + 8)
+
+                Spacer(minLength: 2)
+
+                // Bottom Edge Quick-Unlock & Voice Mic Dock
+                if !isLuminanceReduced {
+                    HStack(spacing: 5) {
+                        Button {
+                            Task { await store.unlockWorkPC() }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "lock.open.desktopcomputer")
+                                    .font(.system(size: 9.5, weight: .bold))
+                                Text("Work PC")
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(Color.cyan.opacity(0.22))
+                            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.cyan.opacity(0.5), lineWidth: 0.8))
+                            .foregroundColor(.cyan)
+                            .cornerRadius(9)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            store.toggleVoiceRecording()
+                        } label: {
+                            Image(systemName: store.isRecordingVoice ? "stop.circle.fill" : "mic.fill")
+                                .font(.system(size: 12, weight: .heavy))
+                                .frame(width: 30, height: 26)
+                                .background(store.isRecordingVoice ? Color.red : Color.cyan.opacity(0.3))
+                                .overlay(RoundedRectangle(cornerRadius: 9).stroke(store.isRecordingVoice ? Color.red : Color.cyan, lineWidth: 1))
+                                .foregroundColor(.white)
+                                .cornerRadius(9)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            Task { await store.unlockBazzitePC() }
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "gamecontroller.fill")
+                                    .font(.system(size: 9.5, weight: .bold))
+                                Text("Bazzite")
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                                    .lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(Color.purple.opacity(0.28))
+                            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.purple.opacity(0.55), lineWidth: 0.8))
+                            .foregroundColor(Color(red: 0.85, green: 0.65, blue: 1.0))
+                            .cornerRadius(9)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 16)
+                } else {
+                    Text("ALWAYS-ON STARK HUD • IOB \(String(format: "%.1fU", store.pumpIOB))")
+                        .font(.system(size: 8.5, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.cyan.opacity(0.5))
+                        .padding(.bottom, 16)
+                }
             }
+            .frame(width: fullW, height: fullH)
+            .background(Color.black)
         }
+        .ignoresSafeArea(.all)
         .toolbar(.hidden, for: .navigationBar)
         .focusable(true)
         .digitalCrownRotation(
@@ -693,45 +832,58 @@ struct StarkArcWatchFace: View {
 
     var body: some View {
         let outerD = dialSize
-        let midD = dialSize * 0.82
-        let coreD = dialSize * 0.68
+        let midD = dialSize * 0.83
+        let coreD = dialSize * 0.69
 
         ZStack {
             Circle()
-                .stroke(Color.cyan.opacity(dim ? 0.22 : 0.45), style: StrokeStyle(lineWidth: 3.5, dash: [7, 5]))
+                .stroke(
+                    store.isRecordingVoice ? Color.red.opacity(0.85) : Color.cyan.opacity(dim ? 0.25 : 0.5),
+                    style: StrokeStyle(lineWidth: 4.5, dash: [9, 6])
+                )
                 .frame(width: outerD, height: outerD)
                 .rotationEffect(.degrees(secAngle))
 
             Circle()
-                .stroke(Color.blue.opacity(dim ? 0.22 : 0.55), style: StrokeStyle(lineWidth: 2, dash: [4, 6]))
+                .stroke(
+                    store.isRecordingVoice ? Color.orange.opacity(0.75) : Color.blue.opacity(dim ? 0.25 : 0.6),
+                    style: StrokeStyle(lineWidth: 2.5, dash: [5, 7])
+                )
                 .frame(width: midD, height: midD)
                 .rotationEffect(.degrees(-secAngle * 1.5))
 
             Circle()
-                .fill(RadialGradient(colors: [.cyan.opacity(dim ? 0.14 : 0.36), .clear], center: .center, startRadius: 2, endRadius: coreD * 0.55))
+                .fill(
+                    RadialGradient(
+                        colors: [(store.isRecordingVoice ? Color.red : Color.cyan).opacity(dim ? 0.16 : 0.42), .clear],
+                        center: .center,
+                        startRadius: 3,
+                        endRadius: coreD * 0.55
+                    )
+                )
                 .frame(width: coreD, height: coreD)
 
             VStack(spacing: 1) {
                 Text(timeFormatted)
-                    .font(.system(size: dialSize * 0.22, weight: .heavy, design: .rounded))
+                    .font(.system(size: dialSize * 0.24, weight: .heavy, design: .rounded))
                     .foregroundColor(.white)
                     .minimumScaleFactor(0.75)
                     .lineLimit(1)
 
                 Text(date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)).uppercased())
-                    .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
                     .foregroundColor(.cyan)
                     .lineLimit(1)
 
-                Text("IOB \(String(format: "%.1fU", store.pumpIOB)) • ⚡\(store.batteryPercent)%")
-                    .font(.system(size: 7.5, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.75))
+                Text(store.isRecordingVoice ? "🎙️ SPEAK NOW..." : "IOB \(String(format: "%.1fU", store.pumpIOB)) • ⚡\(store.batteryPercent)%")
+                    .font(.system(size: 8.5, weight: .semibold, design: .monospaced))
+                    .foregroundColor(store.isRecordingVoice ? .red : .white.opacity(0.8))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
-            .frame(maxWidth: midD - 10)
+            .frame(maxWidth: midD - 12)
             .onTapGesture {
-                Task { await store.askJarvis("Give me a quick status report") }
+                store.toggleVoiceRecording()
             }
         }
         .frame(width: outerD, height: outerD)
@@ -746,43 +898,43 @@ struct GoldenEyeWatchFace: View {
 
     var body: some View {
         HStack {
-            VStack(spacing: 2) {
-                ForEach(0..<7, id: \.self) { i in
+            VStack(spacing: 2.5) {
+                ForEach(0..<8, id: \.self) { i in
                     RoundedRectangle(cornerRadius: 2)
-                        .fill((7 - i) * 14 <= store.batteryPercent ? Color.orange : Color.white.opacity(0.1))
-                        .frame(width: 8, height: max(7, (dialSize - 24) / 7))
+                        .fill((8 - i) * 12 <= store.batteryPercent ? Color.orange : Color.white.opacity(0.1))
+                        .frame(width: 9, height: max(8, (dialSize - 24) / 8))
                 }
             }
             Spacer()
-            VStack(spacing: 2) {
+            VStack(spacing: 3) {
                 Text("007 // Q-BRANCH")
-                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(.orange)
                 Text(date, style: .time)
-                    .font(.system(size: 22, weight: .black, design: .monospaced))
+                    .font(.system(size: 26, weight: .black, design: .monospaced))
                     .foregroundColor(.white)
                     .minimumScaleFactor(0.8)
                     .lineLimit(1)
                 Text("BAT \(store.batteryPercent)% • IOB \(String(format: "%.1fU", store.pumpIOB))")
-                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(.cyan)
                     .lineLimit(1)
                 Text(store.statusLine)
-                    .font(.system(size: 7.5, design: .monospaced))
+                    .font(.system(size: 8, design: .monospaced))
                     .foregroundColor(.green)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
             Spacer()
-            VStack(spacing: 2) {
-                ForEach(0..<7, id: \.self) { i in
+            VStack(spacing: 2.5) {
+                ForEach(0..<8, id: \.self) { i in
                     RoundedRectangle(cornerRadius: 2)
                         .fill(i > 0 ? Color.cyan : Color.white.opacity(0.1))
-                        .frame(width: 8, height: max(7, (dialSize - 24) / 7))
+                        .frame(width: 9, height: max(8, (dialSize - 24) / 8))
                 }
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 12)
     }
 }
 
@@ -793,13 +945,13 @@ struct PipBoyWatchFace: View {
     let pipGreen = Color(red: 0.1, green: 1.0, blue: 0.45)
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 3) {
             Text("PIP-BOY 3000 MK IV")
-                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
                 .foregroundColor(pipGreen)
             Divider().background(pipGreen)
             Text(date, style: .time)
-                .font(.system(size: 22, weight: .bold, design: .monospaced))
+                .font(.system(size: 26, weight: .bold, design: .monospaced))
                 .foregroundColor(pipGreen)
                 .minimumScaleFactor(0.8)
                 .lineLimit(1)
@@ -807,17 +959,17 @@ struct PipBoyWatchFace: View {
                 Text("HP \(store.batteryPercent)/100")
                 Text("IOB \(String(format: "%.1fU", store.pumpIOB))")
             }
-            .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
             .foregroundColor(pipGreen)
             Text(store.statusLine)
-                .font(.system(size: 7.5, design: .monospaced))
+                .font(.system(size: 8, design: .monospaced))
                 .foregroundColor(pipGreen.opacity(0.8))
                 .lineLimit(1)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(pipGreen.opacity(0.6), lineWidth: 1.2))
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(pipGreen.opacity(0.6), lineWidth: 1.5))
+        .padding(.horizontal, 10)
     }
 }
 
@@ -828,25 +980,25 @@ struct NightOpsCCTVWatchFace: View {
     let dialSize: CGFloat
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 3) {
             Text(date, style: .time)
-                .font(.system(size: 16, weight: .heavy, design: .monospaced))
+                .font(.system(size: 18, weight: .heavy, design: .monospaced))
                 .foregroundColor(.red)
             if let img = store.cameraFrames["tapo_c200"] {
                 Image(uiImage: img)
                     .resizable()
                     .scaledToFit()
-                    .frame(height: max(56, dialSize - 28))
+                    .frame(height: max(68, dialSize - 28))
                     .cornerRadius(8)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red.opacity(0.6), lineWidth: 1))
             } else {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.red.opacity(0.12))
-                    .frame(height: max(56, dialSize - 28))
-                    .overlay(Text("TAPO C200 LIVE").font(.system(size: 8.5, weight: .bold, design: .monospaced)).foregroundColor(.red))
+                    .frame(height: max(68, dialSize - 28))
+                    .overlay(Text("TAPO C200 LIVE").font(.system(size: 9.5, weight: .bold, design: .monospaced)).foregroundColor(.red))
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 10)
         .task {
             while !Task.isCancelled {
                 await store.refreshCameraSnapshot("tapo_c200")
@@ -862,30 +1014,30 @@ struct LCARSChronoWatchFace: View {
     let dim: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack {
                 RoundedRectangle(cornerRadius: 5)
                     .fill(Color.orange)
-                    .frame(width: 24, height: 11)
+                    .frame(width: 28, height: 13)
                 Text("LCARS // STARDATE")
-                    .font(.system(size: 8, weight: .black, design: .monospaced))
+                    .font(.system(size: 9, weight: .black, design: .monospaced))
                     .foregroundColor(.orange)
             }
             Text(date, style: .time)
-                .font(.system(size: 22, weight: .black, design: .monospaced))
+                .font(.system(size: 26, weight: .black, design: .monospaced))
                 .foregroundColor(.yellow)
                 .minimumScaleFactor(0.8)
                 .lineLimit(1)
             HStack(spacing: 6) {
                 Text("DOCKER: \(store.activeContainers)")
-                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(.cyan)
                 Text("PAYDAY: \(store.nextPaydayDays)D")
-                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundColor(.purple)
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
     }
 }
 
@@ -1009,25 +1161,74 @@ struct WatchUnlockDeckView: View {
     }
 }
 
-// MARK: - 3. J.A.R.V.I.S. Wrist Voice & AI
+// MARK: - 3. J.A.R.V.I.S. Wrist Voice & AI (Direct Wrist Mic + Watch Dictation + Spoken Replies)
 struct WatchJarvisVoiceView: View {
     @ObservedObject var store: WristOSStore
 
     let presets = [
         ("Status Report", "Status report please Jarvis"),
+        ("Check Glucose", "How is my blood sugar and insulin on board looking?"),
         ("Check Cameras", "Check the security cameras"),
-        ("Unlock Work PC", "Unlock my work PC"),
-        ("Switch to TV", "Switch display to TV")
+        ("Unlock Work PC", "Unlock my work PC")
     ]
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 8) {
+            VStack(spacing: 7) {
                 HStack {
-                    Circle().fill(store.isBusy ? Color.orange : Color.cyan).frame(width: 8, height: 8)
-                    Text("J.A.R.V.I.S. VOICE CORE")
-                        .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                    Circle()
+                        .fill(store.isRecordingVoice ? Color.red : (store.isBusy ? Color.orange : Color.cyan))
+                        .frame(width: 8, height: 8)
+                    Text(store.isRecordingVoice ? "LISTENING ON MIC..." : (store.isBusy ? "PROCESSING..." : "J.A.R.V.I.S. VOICE CORE"))
+                        .font(.system(size: 9.5, weight: .heavy, design: .monospaced))
+                        .foregroundColor(store.isRecordingVoice ? .red : .cyan)
+                }
+
+                // Primary Push-to-Talk Wrist Microphone + Watch Dictation Buttons
+                HStack(spacing: 6) {
+                    Button {
+                        store.toggleVoiceRecording()
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: store.isRecordingVoice ? "stop.circle.fill" : "mic.circle.fill")
+                                .font(.system(size: 16, weight: .bold))
+                            Text(store.isRecordingVoice ? "TAP TO SEND" : "TAP TO SPEAK")
+                                .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(store.isRecordingVoice ? Color.red.opacity(0.85) : Color.cyan.opacity(0.28))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(store.isRecordingVoice ? Color.red : Color.cyan, lineWidth: 1.2))
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        store.startSystemDictation()
+                    } label: {
+                        VStack(spacing: 1) {
+                            Image(systemName: "waveform.badge.mic")
+                                .font(.system(size: 13, weight: .bold))
+                            Text("Dictate")
+                                .font(.system(size: 8, weight: .bold))
+                        }
+                        .frame(width: 46)
+                        .padding(.vertical, 6)
+                        .background(Color.blue.opacity(0.28))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.blue.opacity(0.6), lineWidth: 1))
                         .foregroundColor(.cyan)
+                        .cornerRadius(10)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if !store.lastSpokenTranscript.isEmpty {
+                    Text("🗣️ \"\(store.lastSpokenTranscript)\"")
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .foregroundColor(.cyan)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 4)
                 }
 
                 Text(store.jarvisReply)
@@ -1037,14 +1238,6 @@ struct WatchJarvisVoiceView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.cyan.opacity(0.14))
                     .cornerRadius(8)
-
-                TextField("Speak to J.A.R.V.I.S...", text: $store.voiceInputText)
-                    .submitLabel(.send)
-                    .onSubmit {
-                        let q = store.voiceInputText
-                        store.voiceInputText = ""
-                        Task { await store.askJarvis(q) }
-                    }
 
                 ForEach(presets, id: \.0) { p in
                     Button {
@@ -1056,6 +1249,15 @@ struct WatchJarvisVoiceView: View {
                     }
                     .tint(.blue)
                 }
+
+                TextField("Or type/scribble...", text: $store.voiceInputText)
+                    .font(.system(size: 10))
+                    .submitLabel(.send)
+                    .onSubmit {
+                        let q = store.voiceInputText
+                        store.voiceInputText = ""
+                        Task { await store.askJarvis(q) }
+                    }
             }
             .padding(.horizontal, 4)
         }

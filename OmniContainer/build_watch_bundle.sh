@@ -46,9 +46,9 @@ cat > "$APP_DIR/Info.plist" << 'EOF'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>2.2.1</string>
+  <string>2.2.2</string>
   <key>CFBundleVersion</key>
-  <string>4</string>
+  <string>5</string>
   <key>MinimumOSVersion</key>
   <string>10.0</string>
   <key>UIDeviceFamily</key>
@@ -72,6 +72,8 @@ cat > "$APP_DIR/Info.plist" << 'EOF'
     <key>NSAllowsArbitraryLoads</key>
     <true/>
   </dict>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>J.A.R.V.I.S. uses the Apple Watch microphone so you can speak voice commands directly from your wrist.</string>
   <key>NSHealthShareUsageDescription</key>
   <string>J.A.R.V.I.S. displays your live heart rate and steps on your custom Watch HUD.</string>
 </dict>
@@ -112,9 +114,9 @@ cat > "$PLUGINS_DIR/Info.plist" << 'EOF'
   <key>CFBundlePackageType</key>
   <string>XPC!</string>
   <key>CFBundleShortVersionString</key>
-  <string>2.2.1</string>
+  <string>2.2.2</string>
   <key>CFBundleVersion</key>
-  <string>4</string>
+  <string>5</string>
   <key>MinimumOSVersion</key>
   <string>10.0</string>
   <key>NSExtension</key>

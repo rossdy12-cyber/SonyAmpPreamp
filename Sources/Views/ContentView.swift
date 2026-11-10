@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @StateObject private var navidrome = NavidromeClient()
     @StateObject private var dspEngine = AudioPreampEngine()
+    @StateObject private var acqClient = AcquisitionClient()
     @State private var selectedTab: Int = 0
     @State private var showFileImporter: Bool = false
 
@@ -22,7 +23,7 @@ struct ContentView: View {
                 TabView(selection: $selectedTab) {
                     PreampRackView(dsp: dspEngine, goldAccent: goldAccent, panelBg: panelBg)
                         .tabItem {
-                            Label("Sony Amp DSP", systemImage: "slider.vertical.3")
+                            Label("Sony DSP", systemImage: "slider.vertical.3")
                         }
                         .tag(0)
 
@@ -32,11 +33,23 @@ struct ContentView: View {
                         }
                         .tag(1)
 
-                    LocalAndQueueView(dsp: dspEngine, showFileImporter: $showFileImporter, goldAccent: goldAccent, panelBg: panelBg)
+                    SoulSeekrView(acq: acqClient, goldAccent: goldAccent, panelBg: panelBg)
                         .tabItem {
-                            Label("Files & Queue", systemImage: "music.note.list")
+                            Label("SoulSeekr", systemImage: "arrow.down.doc.fill")
                         }
                         .tag(2)
+
+                    EncoreLidarrView(acq: acqClient, goldAccent: goldAccent, panelBg: panelBg)
+                        .tabItem {
+                            Label("Encore", systemImage: "opticaldisc.fill")
+                        }
+                        .tag(3)
+
+                    LocalAndQueueView(navidrome: navidrome, dsp: dspEngine, showFileImporter: $showFileImporter, goldAccent: goldAccent, panelBg: panelBg)
+                        .tabItem {
+                            Label("Offline & Queue", systemImage: "arrow.down.circle.fill")
+                        }
+                        .tag(4)
                 }
                 .tint(goldAccent)
 
@@ -825,13 +838,33 @@ struct NavidromeLibraryView: View {
 
     private func albumDetailSection(album: SubsonicAlbum) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Button {
-                selectedAlbum = nil
-                albumTracks = []
-            } label: {
-                Label("Back", systemImage: "chevron.left")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(goldAccent)
+            HStack {
+                Button {
+                    selectedAlbum = nil
+                    albumTracks = []
+                } label: {
+                    Label("Back", systemImage: "chevron.left")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(goldAccent)
+                }
+                Spacer()
+                if !albumTracks.isEmpty {
+                    Button {
+                        Task {
+                            for t in albumTracks {
+                                await navidrome.saveTrackOffline(t)
+                            }
+                        }
+                    } label: {
+                        Label("Cache Album Offline", systemImage: "arrow.down.circle.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(goldAccent)
+                            .cornerRadius(6)
+                    }
+                }
             }
 
             Text(album.name)
@@ -852,53 +885,75 @@ struct NavidromeLibraryView: View {
                 .foregroundColor(goldAccent)
 
             ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
-                Button {
-                    let playables = tracks.map { t in
-                        PlayableItem(
-                            id: t.id,
-                            title: t.title,
-                            artist: t.artist ?? "Unknown Artist",
-                            album: t.album ?? "",
-                            duration: TimeInterval(t.duration ?? 0),
-                            qualityBadge: t.qualityBadge,
-                            localURL: nil,
-                            subsonicTrack: t
-                        )
-                    }
-                    dsp.playQueue(items: playables, startIndex: index)
-                } label: {
-                    HStack(spacing: 10) {
-                        Text("\(track.track ?? (index + 1))")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundColor(.gray)
-                            .frame(width: 24)
+                let isOffline = navidrome.isTrackOffline(track)
+                let isDownloading = navidrome.downloadingTrackIds.contains(track.id)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(track.title)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.white)
-                                .lineLimit(1)
-                            Text("\(track.artist ?? "") • \(track.qualityBadge)")
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(goldAccent.opacity(0.85))
-                                .lineLimit(1)
+                HStack(spacing: 10) {
+                    Button {
+                        let playables = tracks.map { t in
+                            PlayableItem(
+                                id: t.id,
+                                title: t.title,
+                                artist: t.artist ?? "Unknown Artist",
+                                album: t.album ?? "",
+                                duration: TimeInterval(t.duration ?? 0),
+                                qualityBadge: t.qualityBadge,
+                                localURL: navidrome.isTrackOffline(t) ? navidrome.offlineFileURL(for: t) : nil,
+                                subsonicTrack: t
+                            )
                         }
-                        Spacer()
-                        Text(track.formattedDuration)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundColor(.gray)
+                        dsp.playQueue(items: playables, startIndex: index)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Text("\(track.track ?? (index + 1))")
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                .foregroundColor(.gray)
+                                .frame(width: 24)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(track.title)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                Text("\(track.artist ?? "") • \(track.qualityBadge)")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(goldAccent.opacity(0.85))
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Text(track.formattedDuration)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(.gray)
+                        }
                     }
-                    .padding(10)
-                    .background(panelBg)
-                    .cornerRadius(8)
+
+                    Button {
+                        if isOffline {
+                            navidrome.removeOfflineTrack(track)
+                        } else {
+                            Task { await navidrome.saveTrackOffline(track) }
+                        }
+                    } label: {
+                        if isDownloading {
+                            ProgressView().tint(goldAccent)
+                        } else {
+                            Image(systemName: isOffline ? "checkmark.circle.fill" : "arrow.down.circle")
+                                .font(.system(size: 18))
+                                .foregroundColor(isOffline ? .green : goldAccent)
+                        }
+                    }
                 }
+                .padding(10)
+                .background(panelBg)
+                .cornerRadius(8)
             }
         }
     }
 }
 
-// MARK: - TAB 3: LOCAL FILES & PLAYBACK QUEUE
+// MARK: - TAB 5: OFFLINE HI-FI VAULT, LOCAL FILES & PLAYBACK QUEUE
 struct LocalAndQueueView: View {
+    @ObservedObject var navidrome: NavidromeClient
     @ObservedObject var dsp: AudioPreampEngine
     @Binding var showFileImporter: Bool
     let goldAccent: Color
@@ -907,6 +962,98 @@ struct LocalAndQueueView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                // 1. Offline Cached FLAC/MP3 Vault
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Label("OFFLINE PINNED HI-FI VAULT (\(navidrome.offlineTracks.count))", systemImage: "internaldrive.fill")
+                            .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                            .foregroundColor(goldAccent)
+                        Spacer()
+                        Text(navidrome.offlineStorageSizeMB)
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundColor(.green)
+                    }
+
+                    if navidrome.offlineTracks.isEmpty {
+                        Text("Tap the download icon next to any track or album in TrueNAS Hi-Fi to pin lossless FLAC/MP3 files for offline USB-C Pre-Amp playback.")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                    } else {
+                        Button {
+                            let items = navidrome.offlineTracks.map { t in
+                                PlayableItem(
+                                    id: t.id,
+                                    title: t.title,
+                                    artist: t.artist ?? "Unknown Artist",
+                                    album: t.album ?? "",
+                                    duration: TimeInterval(t.duration ?? 0),
+                                    qualityBadge: "OFFLINE • \(t.qualityBadge)",
+                                    localURL: navidrome.offlineFileURL(for: t),
+                                    subsonicTrack: t
+                                )
+                            }
+                            dsp.playQueue(items: items, startIndex: 0)
+                        } label: {
+                            HStack {
+                                Image(systemName: "play.fill")
+                                Text("Play All Offline Tracks (\(navidrome.offlineTracks.count))")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(goldAccent)
+                            .cornerRadius(8)
+                        }
+
+                        ForEach(Array(navidrome.offlineTracks.enumerated()), id: \.element.id) { idx, t in
+                            HStack {
+                                Button {
+                                    let items = navidrome.offlineTracks.map { tr in
+                                        PlayableItem(
+                                            id: tr.id,
+                                            title: tr.title,
+                                            artist: tr.artist ?? "Unknown Artist",
+                                            album: tr.album ?? "",
+                                            duration: TimeInterval(tr.duration ?? 0),
+                                            qualityBadge: "OFFLINE • \(tr.qualityBadge)",
+                                            localURL: navidrome.offlineFileURL(for: tr),
+                                            subsonicTrack: tr
+                                        )
+                                    }
+                                    dsp.playQueue(items: items, startIndex: idx)
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(t.title)
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .lineLimit(1)
+                                        Text("\(t.artist ?? "") • \(t.qualityBadge)")
+                                            .font(.system(size: 10, design: .monospaced))
+                                            .foregroundColor(.green)
+                                            .lineLimit(1)
+                                    }
+                                }
+                                Spacer()
+                                Button {
+                                    navidrome.removeOfflineTrack(t)
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.red.opacity(0.8))
+                                }
+                            }
+                            .padding(8)
+                            .background(Color.black.opacity(0.35))
+                            .cornerRadius(8)
+                        }
+                    }
+                }
+                .padding(14)
+                .background(panelBg)
+                .cornerRadius(12)
+
+                // 2. Import Local Files
                 VStack(alignment: .leading, spacing: 8) {
                     Label("IMPORT HI-RES AUDIO FILES", systemImage: "folder.fill.badge.plus")
                         .font(.system(size: 11, weight: .heavy, design: .monospaced))
@@ -935,13 +1082,14 @@ struct LocalAndQueueView: View {
                 .background(panelBg)
                 .cornerRadius(12)
 
+                // 3. Active Queue
                 VStack(alignment: .leading, spacing: 8) {
                     Text("ACTIVE PLAYBACK QUEUE (\(dsp.queue.count))")
                         .font(.system(size: 11, weight: .heavy, design: .monospaced))
                         .foregroundColor(goldAccent)
 
                     if dsp.queue.isEmpty {
-                        Text("No tracks in queue yet. Select tracks from TrueNAS Hi-Fi, import local files, or run a Sony Amp Calibration signal on Tab 1.")
+                        Text("No tracks in queue yet. Select tracks from TrueNAS Hi-Fi, play your Offline Vault, or run a Sony Amp Calibration signal on Tab 1.")
                             .font(.system(size: 12))
                             .foregroundColor(.gray)
                             .padding(14)

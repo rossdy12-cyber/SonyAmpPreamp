@@ -63,6 +63,14 @@ final class NavidromeClient: ObservableObject {
     @Published var artists: [SubsonicArtist] = []
     @Published var recentAlbums: [SubsonicAlbum] = []
     @Published var searchTracks: [SubsonicTrack] = []
+    @Published var offlineTracks: [SubsonicTrack] = [] {
+        didSet {
+            if let data = try? JSONEncoder().encode(offlineTracks) {
+                UserDefaults.standard.set(data, forKey: "nd_offline_tracks")
+            }
+        }
+    }
+    @Published var downloadingTrackIds: Set<String> = []
 
     init() {
         let savedURL = UserDefaults.standard.string(forKey: "nd_server_url") ?? ""
@@ -73,6 +81,10 @@ final class NavidromeClient: ObservableObject {
         }
         self.username = UserDefaults.standard.string(forKey: "nd_username") ?? "NISES"
         self.password = UserDefaults.standard.string(forKey: "nd_password") ?? ""
+        if let data = UserDefaults.standard.data(forKey: "nd_offline_tracks"),
+           let saved = try? JSONDecoder().decode([SubsonicTrack].self, from: data) {
+            self.offlineTracks = saved
+        }
     }
 
     private func md5Hex(_ input: String) -> String {
@@ -228,8 +240,65 @@ final class NavidromeClient: ObservableObject {
         } catch {}
     }
 
+    private var offlineDirectory: URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let dir = docs.appendingPathComponent("OfflineMusic", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    func offlineFileURL(for track: SubsonicTrack) -> URL {
+        let ext = (track.suffix ?? "flac").lowercased()
+        return offlineDirectory.appendingPathComponent("\(track.id).\(ext)")
+    }
+
+    func isTrackOffline(_ track: SubsonicTrack) -> Bool {
+        FileManager.default.fileExists(atPath: offlineFileURL(for: track).path)
+    }
+
+    var offlineStorageSizeMB: String {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: offlineDirectory, includingPropertiesForKeys: [.fileSizeKey]) else {
+            return "0.0 MB"
+        }
+        var total: Int64 = 0
+        for f in files {
+            if let sz = try? f.resourceValues(forKeys: [.fileSizeKey]).fileSize {
+                total += Int64(sz)
+            }
+        }
+        return String(format: "%.1f MB", Double(total) / (1024.0 * 1024.0))
+    }
+
+    func saveTrackOffline(_ track: SubsonicTrack) async {
+        guard !isTrackOffline(track), !downloadingTrackIds.contains(track.id) else { return }
+        downloadingTrackIds.insert(track.id)
+        defer { downloadingTrackIds.remove(track.id) }
+
+        do {
+            let tempOrCached = try await downloadTrackForDSP(track: track)
+            let dest = offlineFileURL(for: track)
+            if tempOrCached.path != dest.path {
+                try? FileManager.default.removeItem(at: dest)
+                try FileManager.default.copyItem(at: tempOrCached, to: dest)
+            }
+            if !offlineTracks.contains(where: { $0.id == track.id }) {
+                offlineTracks.insert(track, at: 0)
+            }
+        } catch {}
+    }
+
+    func removeOfflineTrack(_ track: SubsonicTrack) {
+        try? FileManager.default.removeItem(at: offlineFileURL(for: track))
+        offlineTracks.removeAll { $0.id == track.id }
+    }
+
     /// Downloads raw bit-perfect FLAC/audio file to local cache so AVAudioEngine can process 32-bit float DSP
     func downloadTrackForDSP(track: SubsonicTrack) async throws -> URL {
+        let persistentURL = offlineFileURL(for: track)
+        if FileManager.default.fileExists(atPath: persistentURL.path) {
+            return persistentURL
+        }
+
         let ext = (track.suffix ?? "flac").lowercased()
         let cacheDir = FileManager.default.temporaryDirectory.appendingPathComponent("NavidromeCache", isDirectory: true)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)

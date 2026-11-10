@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import AVFoundation
 import AudioToolbox
 import MediaPlayer
@@ -578,23 +579,39 @@ final class AudioPreampEngine: ObservableObject {
         }
     }
 
-    // MARK: - Lock Screen & Control Center Integration
+    // MARK: - Lock Screen, Control Center, Headset & CarPlay Integration
     private func setupRemoteTransportControls() {
         let commandCenter = MPRemoteCommandCenter.shared()
+        commandCenter.playCommand.isEnabled = true
         commandCenter.playCommand.addTarget { [weak self] _ in
             Task { @MainActor in self?.playPause(forcePause: false) }
             return .success
         }
+        commandCenter.pauseCommand.isEnabled = true
         commandCenter.pauseCommand.addTarget { [weak self] _ in
             Task { @MainActor in self?.playPause(forcePause: true) }
             return .success
         }
+        commandCenter.togglePlayPauseCommand.isEnabled = true
+        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+            Task { @MainActor in self?.playPause() }
+            return .success
+        }
+        commandCenter.nextTrackCommand.isEnabled = true
         commandCenter.nextTrackCommand.addTarget { [weak self] _ in
             Task { @MainActor in self?.nextTrack() }
             return .success
         }
+        commandCenter.previousTrackCommand.isEnabled = true
         commandCenter.previousTrackCommand.addTarget { [weak self] _ in
             Task { @MainActor in self?.previousTrack() }
+            return .success
+        }
+        commandCenter.changePlaybackPositionCommand.isEnabled = true
+        commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
+            guard let posEvent = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            let target = posEvent.positionTime
+            Task { @MainActor in self?.seek(to: target) }
             return .success
         }
     }
@@ -606,12 +623,27 @@ final class AudioPreampEngine: ObservableObject {
         }
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: track.title,
-            MPMediaItemPropertyArtist: track.artist,
+            MPMediaItemPropertyArtist: "\(track.artist) • \(track.qualityBadge)",
             MPMediaItemPropertyAlbumTitle: track.album,
             MPMediaItemPropertyPlaybackDuration: duration,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0
         ]
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+
+        if let coverId = track.subsonicTrack?.coverArt,
+           let artURL = navidromeClient?.coverArtURL(id: coverId, size: 600) {
+            Task {
+                if let (data, _) = try? await URLSession.shared.data(from: artURL),
+                   let image = UIImage(data: data) {
+                    let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                    await MainActor.run {
+                        var current = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? info
+                        current[MPMediaItemPropertyArtwork] = artwork
+                        MPNowPlayingInfoCenter.default().nowPlayingInfo = current
+                    }
+                }
+            }
+        }
     }
 }

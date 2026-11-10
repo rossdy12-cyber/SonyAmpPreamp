@@ -1,6 +1,6 @@
 workflows:
   ios-unsigned-ipa:
-    name: Build & Publish GlucoPulse T1D iOS IPA (TrueNAS SideStore & LiveContainer)
+    name: Build & Publish Sony Amp DSP v2.0 + Keepwatch Ops v2.0 (TrueNAS SideStore)
     max_build_duration: 30
     instance_type: mac_mini_m2
     triggering:
@@ -11,66 +11,87 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Build & Publish GlucoPulse T1D IPA with Telemetry
+      - name: Build & Publish SonyAmpPreamp v2.0 and Keepwatch v2.0 IPAs
         script: |
           set +e
           (
             set -e
-            cd GlucoPulse
-            python3 - << 'EOF'
-          import urllib.request, json, re
-
-          with open("project.yml", "r") as f:
-              proj = f.read()
-
-          cur_ver = re.search(r'MARKETING_VERSION:\s*"([^"]+)"', proj).group(1)
-          cur_bld = int(re.search(r'CURRENT_PROJECT_VERSION:\s*"([^"]+)"', proj).group(1))
-
-          try:
-              req = urllib.request.Request("https://navidrome.nas-server.co.uk/sidestore/source.json", headers={"User-Agent": "SideStore/0.7.0"})
-              with urllib.request.urlopen(req, timeout=10) as r:
-                  src = json.loads(r.read().decode())
-              existing = set()
-              for app in src.get("apps", []):
-                  if app.get("bundleIdentifier") == "app.truenas.glucopulse":
-                      existing = {v["version"] for v in app.get("versions", [])}
-                      break
-          except Exception:
-              existing = set()
-
-          if cur_ver in existing:
-              parts = [int(x) for x in cur_ver.split(".")]
-              while len(parts) < 3:
-                  parts.append(0)
-              while f"{parts[0]}.{parts[1]}.{parts[2]}" in existing:
-                  parts[2] += 1
-              cur_ver = f"{parts[0]}.{parts[1]}.{parts[2]}"
-              cur_bld += 1
-              proj = re.sub(r'MARKETING_VERSION:\s*"[^"]+"', f'MARKETING_VERSION: "{cur_ver}"', proj)
-              proj = re.sub(r'CURRENT_PROJECT_VERSION:\s*"[^"]+"', f'CURRENT_PROJECT_VERSION: "{cur_bld}"', proj)
-              with open("project.yml", "w") as f:
-                  f.write(proj)
-
-          with open(".build_version", "w") as f:
-              f.write(cur_ver)
-          print(f"Building GlucoPulse T1D version {cur_ver} (build {cur_bld})")
-          EOF
             if ! command -v xcodegen &> /dev/null; then
               brew install xcodegen
             fi
+
+            # 1. Build SonyAmpPreamp v2.0.0 (with SoulSeekr + Encore + Offline Vault)
+            python3 - << 'EOF'
+          import urllib.request, json, re
+
+          def bump_project(proj_path, bundle_id, out_ver_file):
+              with open(proj_path, "r") as f:
+                  proj = f.read()
+              cur_ver = re.search(r'MARKETING_VERSION:\s*"([^"]+)"', proj).group(1)
+              cur_bld = int(re.search(r'CURRENT_PROJECT_VERSION:\s*"([^"]+)"', proj).group(1))
+              try:
+                  req = urllib.request.Request("https://navidrome.nas-server.co.uk/sidestore/source.json", headers={"User-Agent": "SideStore/0.7.0"})
+                  with urllib.request.urlopen(req, timeout=10) as r:
+                      src = json.loads(r.read().decode())
+                  existing = set()
+                  for app in src.get("apps", []):
+                      if app.get("bundleIdentifier") == bundle_id:
+                          existing = {v["version"] for v in app.get("versions", [])}
+                          break
+              except Exception:
+                  existing = set()
+              if cur_ver in existing:
+                  parts = [int(x) for x in cur_ver.split(".")]
+                  while len(parts) < 3:
+                      parts.append(0)
+                  while f"{parts[0]}.{parts[1]}.{parts[2]}" in existing:
+                      parts[2] += 1
+                  cur_ver = f"{parts[0]}.{parts[1]}.{parts[2]}"
+                  cur_bld += 1
+                  proj = re.sub(r'MARKETING_VERSION:\s*"[^"]+"', f'MARKETING_VERSION: "{cur_ver}"', proj)
+                  proj = re.sub(r'CURRENT_PROJECT_VERSION:\s*"[^"]+"', f'CURRENT_PROJECT_VERSION: "{cur_bld}"', proj)
+                  with open(proj_path, "w") as f:
+                      f.write(proj)
+              with open(out_ver_file, "w") as f:
+                  f.write(cur_ver)
+              print(f"Prepared {bundle_id} version {cur_ver} (build {cur_bld})")
+
+          bump_project("project.yml", "com.rossdymond.sonyamppreamp", ".sony_version")
+          bump_project("Keepwatch/project.yml", "app.keepwatch.nasdashboard", "Keepwatch/.kw_version")
+          EOF
+
             xcodegen generate
             xcodebuild clean build \
-              -project GlucoPulse.xcodeproj \
-              -scheme GlucoPulse \
+              -project SonyAmpPreamp.xcodeproj \
+              -scheme SonyAmpPreamp \
               -configuration Release \
               -sdk iphoneos \
-              -derivedDataPath build \
+              -derivedDataPath build_sony \
               CODE_SIGN_IDENTITY="" \
               CODE_SIGNING_REQUIRED=NO \
               CODE_SIGNING_ALLOWED=NO
+            rm -rf Payload
             mkdir -p Payload
-            cp -r build/Build/Products/Release-iphoneos/GlucoPulse.app Payload/
-            zip -r9 ../GlucoPulse.ipa Payload
+            cp -r build_sony/Build/Products/Release-iphoneos/SonyAmpPreamp.app Payload/
+            zip -r9 SonyAmpPreamp.ipa Payload
+
+            # 2. Build Keepwatch v2.0.0 (TrueNAS + Docker + NetRadar + SideStore CI)
+            cd Keepwatch
+            xcodegen generate
+            xcodebuild clean build \
+              -project Keepwatch.xcodeproj \
+              -scheme Keepwatch \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath build_kw \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO
+            rm -rf Payload
+            mkdir -p Payload
+            cp -r build_kw/Build/Products/Release-iphoneos/Keepwatch.app Payload/
+            zip -r9 ../Keepwatch.ipa Payload
+            cd ..
           ) > /tmp/cm_build.log 2>&1
           BUILD_STATUS=$?
 
@@ -85,11 +106,19 @@ workflows:
             exit $BUILD_STATUS
           fi
 
-          VERSION=$(cat GlucoPulse/.build_version)
+          SONY_VER=$(cat .sony_version)
+          KW_VER=$(cat Keepwatch/.kw_version)
           NOTES=$(git log -1 --pretty=%s | python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))')
+
           curl -fsSL -X POST \
             -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
-            --data-binary @GlucoPulse.ipa \
-            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=app.truenas.glucopulse&version=${VERSION}&notes=${NOTES}"
+            --data-binary @SonyAmpPreamp.ipa \
+            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=com.rossdymond.sonyamppreamp&version=${SONY_VER}&notes=${NOTES}"
+
+          curl -fsSL -X POST \
+            -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
+            --data-binary @Keepwatch.ipa \
+            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=app.keepwatch.nasdashboard&version=${KW_VER}&notes=${NOTES}"
     artifacts:
-      - GlucoPulse.ipa
+      - SonyAmpPreamp.ipa
+      - Keepwatch.ipa

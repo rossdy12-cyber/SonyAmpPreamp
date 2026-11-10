@@ -1,7 +1,7 @@
 workflows:
   ios-unsigned-ipa:
-    name: Build & Publish TrueNAS Vault Suite v2.0.0 (NASFiles + PhotoPulse + VaultScan + Enclave + LinkVault)
-    max_build_duration: 30
+    name: Build & Publish J.A.R.V.I.S. Wrist OS v2.2.1 (Apple Watch Series 10 HUD Fix)
+    max_build_duration: 15
     instance_type: mac_mini_m2
     triggering:
       events:
@@ -11,70 +11,16 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Build & Publish NASFiles v2.0.0 IPA
+      - name: Compile J.A.R.V.I.S. Wrist OS v2.2.1 & Publish to TrueNAS
         script: |
           set +e
           (
             set -e
-            if ! command -v xcodegen &> /dev/null; then
-              brew install xcodegen
-            fi
-
-            python3 - << 'EOF'
-          import urllib.request, json, re
-
-          def bump_project(proj_path, bundle_id, out_ver_file):
-              with open(proj_path, "r") as f:
-                  proj = f.read()
-              cur_ver = re.search(r'MARKETING_VERSION:\s*"([^"]+)"', proj).group(1)
-              cur_bld = int(re.search(r'CURRENT_PROJECT_VERSION:\s*"([^"]+)"', proj).group(1))
-              try:
-                  req = urllib.request.Request("https://navidrome.nas-server.co.uk/sidestore/source.json", headers={"User-Agent": "SideStore/0.7.0"})
-                  with urllib.request.urlopen(req, timeout=10) as r:
-                      src = json.loads(r.read().decode())
-                  existing = set()
-                  for app in src.get("apps", []):
-                      if app.get("bundleIdentifier") == bundle_id:
-                          existing = {v["version"] for v in app.get("versions", [])}
-                          break
-              except Exception:
-                  existing = set()
-              if cur_ver in existing:
-                  parts = [int(x) for x in cur_ver.split(".")]
-                  while len(parts) < 3:
-                      parts.append(0)
-                  while f"{parts[0]}.{parts[1]}.{parts[2]}" in existing:
-                      parts[2] += 1
-                  cur_ver = f"{parts[0]}.{parts[1]}.{parts[2]}"
-                  cur_bld += 1
-                  proj = re.sub(r'MARKETING_VERSION:\s*"[^"]+"', f'MARKETING_VERSION: "{cur_ver}"', proj)
-                  proj = re.sub(r'CURRENT_PROJECT_VERSION:\s*"[^"]+"', f'CURRENT_PROJECT_VERSION: "{cur_bld}"', proj)
-                  with open(proj_path, "w") as f:
-                      f.write(proj)
-              with open(out_ver_file, "w") as f:
-                  f.write(cur_ver)
-              print(f"Prepared {bundle_id} version {cur_ver} (build {cur_bld})")
-
-          bump_project("NASFiles/project.yml", "uk.co.rossdymond.nasfiles", "NASFiles/.nas_version")
-          EOF
-
-            cd NASFiles
-            xcodegen generate
-            xcodebuild \
-              -project NASFiles.xcodeproj \
-              -target NASFiles \
-              -configuration Release \
-              -sdk iphoneos \
-              SYMROOT="$PWD/build" \
-              CODE_SIGNING_ALLOWED=NO \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGN_IDENTITY="" \
-              build
-
-            rm -rf Payload
-            mkdir -p Payload
-            cp -R build/Release-iphoneos/NASFiles.app Payload/
-            zip -r9 ../NASFiles.ipa Payload
+            cd OmniContainer
+            mkdir -p build/Release-iphoneos/OmniContainer.app/Watch/OmniWatch.app
+            tr -d '\r' < build_watch_bundle.sh > build_watch_bundle_lf.sh
+            bash build_watch_bundle_lf.sh
+            rm -f build_watch_bundle_lf.sh
             cd ..
           ) > /tmp/cm_build.log 2>&1
           BUILD_STATUS=$?
@@ -90,12 +36,10 @@ workflows:
             exit $BUILD_STATUS
           fi
 
-          NAS_VER=$(cat NASFiles/.nas_version)
           NOTES=$(git log -1 --pretty=%s | python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))')
-
           curl -fsSL -X POST \
             -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
-            --data-binary @NASFiles.ipa \
-            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=uk.co.rossdymond.nasfiles&version=${NAS_VER}&notes=${NOTES}"
+            --data-binary @JarvisWatch.ipa \
+            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=com.ross.jarvis.watchkitapp&version=2.2.1&notes=${NOTES}"
     artifacts:
-      - NASFiles.ipa
+      - JarvisWatch.ipa

@@ -46,9 +46,9 @@ cat > "$APP_DIR/Info.plist" << 'EOF'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>2.2.0</string>
+  <string>2.2.1</string>
   <key>CFBundleVersion</key>
-  <string>3</string>
+  <string>4</string>
   <key>MinimumOSVersion</key>
   <string>10.0</string>
   <key>UIDeviceFamily</key>
@@ -112,9 +112,9 @@ cat > "$PLUGINS_DIR/Info.plist" << 'EOF'
   <key>CFBundlePackageType</key>
   <string>XPC!</string>
   <key>CFBundleShortVersionString</key>
-  <string>2.2.0</string>
+  <string>2.2.1</string>
   <key>CFBundleVersion</key>
-  <string>3</string>
+  <string>4</string>
   <key>MinimumOSVersion</key>
   <string>10.0</string>
   <key>NSExtension</key>

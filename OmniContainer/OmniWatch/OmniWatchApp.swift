@@ -22,15 +22,16 @@ struct WatchCameraEvent: Identifiable {
 }
 
 @MainActor
-final class WristOSStore: ObservableObject {
+final class WristOSStore: NSObject, ObservableObject, WKExtendedRuntimeSessionDelegate {
     @Published var truenasHost: String = "100.85.127.42"
     @Published var workPCHost: String = "100.102.4.54"
     @Published var bazziteHost: String = "100.79.246.119"
     @Published var laurenHost: String = "100.116.230.25"
 
-    // Watch Face selector (0..4)
+    // Tab & Watch Face selector (0..4)
+    @Published var selectedTab: Int = 0
     @Published var selectedFaceIndex: Double = 0.0
-    @Published var statusLine: String = "J.A.R.V.I.S. WRIST OS READY"
+    @Published var statusLine: String = "SYSTEMS ONLINE"
     @Published var jarvisReply: String = "All TrueNAS, SentryCam, Work PC, and Bazzite systems standing by, sir."
     @Published var voiceInputText: String = ""
     @Published var isBusy: Bool = false
@@ -72,14 +73,15 @@ final class WristOSStore: ObservableObject {
     @Published var stayAwakePinned: Bool = true
 
     let faceNames = [
-        "STARK ARC HUD",
-        "007 Q-BRANCH",
-        "PIP-BOY 3000",
-        "NIGHT-OPS CCTV",
-        "LCARS CHRONO"
+        "STARK ARC",
+        "007 Q-HUD",
+        "PIP-BOY",
+        "NIGHT-OPS",
+        "LCARS"
     ]
 
-    init() {
+    override init() {
+        super.init()
         updateBattery()
         requestHealthKit()
         startAlwaysOnWatchFaceSession()
@@ -90,6 +92,7 @@ final class WristOSStore: ObservableObject {
         Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 await self?.fetchNightscoutT1D()
+                self?.ensureAlwaysOnWatchFaceSession()
             }
         }
     }
@@ -165,10 +168,47 @@ final class WristOSStore: ObservableObject {
     }
 
     func startAlwaysOnWatchFaceSession() {
+        stayAwakePinned = true
+        ensureAlwaysOnWatchFaceSession()
+    }
+
+    func ensureAlwaysOnWatchFaceSession() {
+        guard stayAwakePinned else {
+            extendedSession?.invalidate()
+            extendedSession = nil
+            return
+        }
+        if let s = extendedSession, s.state == .running || s.state == .scheduled {
+            return
+        }
         let s = WKExtendedRuntimeSession()
+        s.delegate = self
         s.start()
         extendedSession = s
-        stayAwakePinned = true
+    }
+
+    func toggleStayAwakePinned() {
+        stayAwakePinned.toggle()
+        playHaptic(stayAwakePinned ? .success : .directionDown)
+        statusLine = stayAwakePinned ? "WATCH FACE LOCK ON" : "WATCH FACE LOCK OFF"
+        ensureAlwaysOnWatchFaceSession()
+    }
+
+    nonisolated func extendedRuntimeSessionDidStart(_ extendedRuntimeSession: WKExtendedRuntimeSession) {}
+
+    nonisolated func extendedRuntimeSessionWillExpire(_ extendedRuntimeSession: WKExtendedRuntimeSession) {
+        Task { @MainActor in
+            if self.stayAwakePinned {
+                self.extendedSession = nil
+                self.ensureAlwaysOnWatchFaceSession()
+            }
+        }
+    }
+
+    nonisolated func extendedRuntimeSession(_ extendedRuntimeSession: WKExtendedRuntimeSession, didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason, error: Error?) {
+        Task { @MainActor in
+            self.extendedSession = nil
+        }
     }
 
     func fetchFreeWeather() async {
@@ -446,21 +486,40 @@ final class WristOSStore: ObservableObject {
 
 struct WristOSRootView: View {
     @StateObject private var store = WristOSStore()
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
 
     var body: some View {
-        TabView {
+        TabView(selection: $store.selectedTab) {
             WatchFacesGalleryView(store: store)
+                .tag(0)
             WatchGlucoPulseView(store: store)
+                .tag(1)
             WatchUnlockDeckView(store: store)
+                .tag(2)
             WatchJarvisVoiceView(store: store)
+                .tag(3)
             WatchSentryCamView(store: store)
+                .tag(4)
             WatchOpsTelemetryView(store: store)
+                .tag(5)
         }
         .background(Color.black)
+        .toolbar(store.selectedTab == 0 ? .hidden : .automatic, for: .navigationBar)
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                store.ensureAlwaysOnWatchFaceSession()
+            }
+        }
+        .onChange(of: isLuminanceReduced) { _, reduced in
+            if reduced && store.stayAwakePinned && store.selectedTab != 0 {
+                store.selectedTab = 0
+            }
+        }
     }
 }
 
-// MARK: - 1. 5 Interactive Watch Faces (Digital Crown Switchable)
+// MARK: - 1. 5 Interactive Watch Faces (Digital Crown Switchable, Non-Overlapping Series 10 Layout)
 struct WatchFacesGalleryView: View {
     @ObservedObject var store: WristOSStore
     @Environment(\.isLuminanceReduced) var isLuminanceReduced
@@ -469,82 +528,140 @@ struct WatchFacesGalleryView: View {
         min(max(Int(store.selectedFaceIndex.rounded()), 0), store.faceNames.count - 1)
     }
 
+    var bgBadgeColor: Color {
+        if store.bgMgdL > 0 && store.bgMgdL <= 70 { return .red }
+        if store.bgMgdL >= 198 { return .orange }
+        return .green
+    }
+
     var body: some View {
-        TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 15.0 : 1.0)) { context in
-            ZStack {
-                Color.black.ignoresSafeArea()
+        GeometryReader { geo in
+            let availH = geo.size.height
+            let availW = geo.size.width
+            let dialSize = min(availW * 0.62, max(88.0, availH - 64.0))
 
-                switch activeIndex {
-                case 0:
-                    StarkArcWatchFace(date: context.date, store: store, dim: isLuminanceReduced)
-                case 1:
-                    GoldenEyeWatchFace(date: context.date, store: store, dim: isLuminanceReduced)
-                case 2:
-                    PipBoyWatchFace(date: context.date, store: store, dim: isLuminanceReduced)
-                case 3:
-                    NightOpsCCTVWatchFace(date: context.date, store: store, dim: isLuminanceReduced)
-                default:
-                    LCARSChronoWatchFace(date: context.date, store: store, dim: isLuminanceReduced)
-                }
+            TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 15.0 : 1.0)) { context in
+                VStack(spacing: 0) {
+                    // Top Telemetry Bar (never overlaps center dial)
+                    HStack(spacing: 4) {
+                        HStack(spacing: 3) {
+                            Image(systemName: store.stayAwakePinned ? "pin.fill" : "pin.slash")
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundColor(store.stayAwakePinned ? .cyan : .gray)
+                            Text(store.faceNames[activeIndex])
+                                .font(.system(size: 8.5, weight: .heavy, design: .monospaced))
+                                .foregroundColor(.cyan)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2.5)
+                        .background(Color.cyan.opacity(0.14))
+                        .overlay(Capsule().stroke(Color.cyan.opacity(0.35), lineWidth: 0.8))
+                        .clipShape(Capsule())
+                        .onTapGesture {
+                            store.playHaptic(.click)
+                            store.selectedFaceIndex = Double((activeIndex + 1) % store.faceNames.count)
+                        }
+                        .onLongPressGesture {
+                            store.toggleStayAwakePinned()
+                        }
 
-                VStack {
-                    HStack {
-                        Text(store.faceNames[activeIndex])
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundColor(.cyan.opacity(0.85))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.white.opacity(0.08))
-                            .cornerRadius(6)
-                            .onTapGesture {
-                                store.playHaptic(.click)
-                                store.selectedFaceIndex = Double((activeIndex + 1) % store.faceNames.count)
-                            }
-                        Spacer()
-                        Text("🩸\(store.bgMmol)\(store.bgTrendArrow)")
-                            .font(.system(size: 10, weight: .heavy, design: .monospaced))
-                            .foregroundColor(store.bgMgdL > 0 && store.bgMgdL <= 70 ? .red : (store.bgMgdL >= 198 ? .orange : .green))
-                        Text("♥ \(store.heartRateBPM)")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(.red)
+                        Spacer(minLength: 2)
+
+                        HStack(spacing: 5) {
+                            Text("🩸\(store.bgMmol)\(store.bgTrendArrow)")
+                                .font(.system(size: 9.5, weight: .heavy, design: .monospaced))
+                                .foregroundColor(bgBadgeColor)
+                                .lineLimit(1)
+                            Text("♥\(store.heartRateBPM)")
+                                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                                .foregroundColor(.red)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.white.opacity(0.07))
+                        .clipShape(Capsule())
                     }
                     .padding(.horizontal, 6)
-                    Spacer()
+                    .padding(.top, 2)
 
+                    Spacer(minLength: 2)
+
+                    // Center Watch Face Area (strictly bounded to dialSize so it never touches top or bottom bars)
+                    Group {
+                        switch activeIndex {
+                        case 0:
+                            StarkArcWatchFace(date: context.date, store: store, dim: isLuminanceReduced, dialSize: dialSize)
+                        case 1:
+                            GoldenEyeWatchFace(date: context.date, store: store, dim: isLuminanceReduced, dialSize: dialSize)
+                        case 2:
+                            PipBoyWatchFace(date: context.date, store: store, dim: isLuminanceReduced)
+                        case 3:
+                            NightOpsCCTVWatchFace(date: context.date, store: store, dim: isLuminanceReduced, dialSize: dialSize)
+                        default:
+                            LCARSChronoWatchFace(date: context.date, store: store, dim: isLuminanceReduced)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: dialSize + 6)
+
+                    Spacer(minLength: 2)
+
+                    // Bottom Quick-Unlock Dock
                     if !isLuminanceReduced {
                         HStack(spacing: 6) {
                             Button {
                                 Task { await store.unlockWorkPC() }
                             } label: {
-                                Label("Work PC", systemImage: "lock.open.desktopcomputer")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 5)
-                                    .background(Color.cyan.opacity(0.25))
-                                    .foregroundColor(.cyan)
-                                    .cornerRadius(8)
+                                HStack(spacing: 3) {
+                                    Image(systemName: "lock.open.desktopcomputer")
+                                        .font(.system(size: 9, weight: .bold))
+                                    Text("Work PC")
+                                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                                        .lineLimit(1)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 4.5)
+                                .background(Color.cyan.opacity(0.22))
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.cyan.opacity(0.45), lineWidth: 0.8))
+                                .foregroundColor(.cyan)
+                                .cornerRadius(8)
                             }
                             .buttonStyle(.plain)
 
                             Button {
                                 Task { await store.unlockBazzitePC() }
                             } label: {
-                                Label("Bazzite", systemImage: "gamecontroller.fill")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 5)
-                                    .background(Color.purple.opacity(0.3))
-                                    .foregroundColor(.purple)
-                                    .cornerRadius(8)
+                                HStack(spacing: 3) {
+                                    Image(systemName: "gamecontroller.fill")
+                                        .font(.system(size: 9, weight: .bold))
+                                    Text("Bazzite")
+                                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                                        .lineLimit(1)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 4.5)
+                                .background(Color.purple.opacity(0.26))
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.purple.opacity(0.5), lineWidth: 0.8))
+                                .foregroundColor(Color(red: 0.85, green: 0.65, blue: 1.0))
+                                .cornerRadius(8)
                             }
                             .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, 6)
+                        .padding(.bottom, 2)
+                    } else {
+                        Text("ALWAYS-ON STARK HUD • IOB \(String(format: "%.1fU", store.pumpIOB))")
+                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.cyan.opacity(0.5))
+                            .padding(.bottom, 4)
                     }
                 }
-                .padding(.vertical, 2)
+                .frame(width: availW, height: availH)
+                .background(Color.black)
             }
         }
+        .toolbar(.hidden, for: .navigationBar)
         .focusable(true)
         .digitalCrownRotation(
             $store.selectedFaceIndex,
@@ -562,43 +679,62 @@ struct StarkArcWatchFace: View {
     let date: Date
     @ObservedObject var store: WristOSStore
     let dim: Bool
+    let dialSize: CGFloat
 
     var secAngle: Double {
         Double(Calendar.current.component(.second, from: date)) * 6.0
     }
 
+    var timeFormatted: String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f.string(from: date)
+    }
+
     var body: some View {
+        let outerD = dialSize
+        let midD = dialSize * 0.82
+        let coreD = dialSize * 0.68
+
         ZStack {
             Circle()
-                .stroke(Color.cyan.opacity(dim ? 0.2 : 0.35), style: StrokeStyle(lineWidth: 4, dash: [8, 6]))
-                .frame(width: 138, height: 138)
+                .stroke(Color.cyan.opacity(dim ? 0.22 : 0.45), style: StrokeStyle(lineWidth: 3.5, dash: [7, 5]))
+                .frame(width: outerD, height: outerD)
                 .rotationEffect(.degrees(secAngle))
 
             Circle()
-                .stroke(Color.blue.opacity(dim ? 0.2 : 0.5), style: StrokeStyle(lineWidth: 2, dash: [4, 8]))
-                .frame(width: 112, height: 112)
+                .stroke(Color.blue.opacity(dim ? 0.22 : 0.55), style: StrokeStyle(lineWidth: 2, dash: [4, 6]))
+                .frame(width: midD, height: midD)
                 .rotationEffect(.degrees(-secAngle * 1.5))
 
             Circle()
-                .fill(RadialGradient(colors: [.cyan.opacity(dim ? 0.15 : 0.45), .clear], center: .center, startRadius: 4, endRadius: 55))
-                .frame(width: 100, height: 100)
+                .fill(RadialGradient(colors: [.cyan.opacity(dim ? 0.14 : 0.36), .clear], center: .center, startRadius: 2, endRadius: coreD * 0.55))
+                .frame(width: coreD, height: coreD)
 
             VStack(spacing: 1) {
-                Text(date, style: .time)
-                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                Text(timeFormatted)
+                    .font(.system(size: dialSize * 0.22, weight: .heavy, design: .rounded))
                     .foregroundColor(.white)
-                Text(date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)).uppercased())
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundColor(.cyan)
-                Text(store.statusLine)
-                    .font(.system(size: 8, weight: .medium, design: .monospaced))
-                    .foregroundColor(.gray)
+                    .minimumScaleFactor(0.75)
                     .lineLimit(1)
+
+                Text(date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)).uppercased())
+                    .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                    .foregroundColor(.cyan)
+                    .lineLimit(1)
+
+                Text("IOB \(String(format: "%.1fU", store.pumpIOB)) • ⚡\(store.batteryPercent)%")
+                    .font(.system(size: 7.5, weight: .semibold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.75))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
+            .frame(maxWidth: midD - 10)
             .onTapGesture {
                 Task { await store.askJarvis("Give me a quick status report") }
             }
         }
+        .frame(width: outerD, height: outerD)
     }
 }
 
@@ -606,44 +742,47 @@ struct GoldenEyeWatchFace: View {
     let date: Date
     @ObservedObject var store: WristOSStore
     let dim: Bool
+    let dialSize: CGFloat
 
     var body: some View {
         HStack {
-            // Left Health Bar (Battery %)
-            VStack(spacing: 3) {
-                ForEach(0..<8, id: \.self) { i in
+            VStack(spacing: 2) {
+                ForEach(0..<7, id: \.self) { i in
                     RoundedRectangle(cornerRadius: 2)
-                        .fill((8 - i) * 12 <= store.batteryPercent ? Color.orange : Color.white.opacity(0.1))
-                        .frame(width: 10, height: 11)
+                        .fill((7 - i) * 14 <= store.batteryPercent ? Color.orange : Color.white.opacity(0.1))
+                        .frame(width: 8, height: max(7, (dialSize - 24) / 7))
                 }
             }
             Spacer()
-            VStack(spacing: 3) {
+            VStack(spacing: 2) {
                 Text("007 // Q-BRANCH")
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                     .foregroundColor(.orange)
                 Text(date, style: .time)
-                    .font(.system(size: 24, weight: .black, design: .monospaced))
+                    .font(.system(size: 22, weight: .black, design: .monospaced))
                     .foregroundColor(.white)
-                Text("BAT \(store.batteryPercent)% • NAS OK")
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(1)
+                Text("BAT \(store.batteryPercent)% • IOB \(String(format: "%.1fU", store.pumpIOB))")
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                     .foregroundColor(.cyan)
+                    .lineLimit(1)
                 Text(store.statusLine)
-                    .font(.system(size: 8, design: .monospaced))
+                    .font(.system(size: 7.5, design: .monospaced))
                     .foregroundColor(.green)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
             Spacer()
-            // Right Armor Bar (TrueNAS / PC Health)
-            VStack(spacing: 3) {
-                ForEach(0..<8, id: \.self) { i in
+            VStack(spacing: 2) {
+                ForEach(0..<7, id: \.self) { i in
                     RoundedRectangle(cornerRadius: 2)
                         .fill(i > 0 ? Color.cyan : Color.white.opacity(0.1))
-                        .frame(width: 10, height: 11)
+                        .frame(width: 8, height: max(7, (dialSize - 24) / 7))
                 }
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 8)
     }
 }
 
@@ -654,27 +793,31 @@ struct PipBoyWatchFace: View {
     let pipGreen = Color(red: 0.1, green: 1.0, blue: 0.45)
 
     var body: some View {
-        VStack(spacing: 3) {
+        VStack(spacing: 2) {
             Text("PIP-BOY 3000 MK IV")
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
                 .foregroundColor(pipGreen)
             Divider().background(pipGreen)
             Text(date, style: .time)
-                .font(.system(size: 25, weight: .bold, design: .monospaced))
+                .font(.system(size: 22, weight: .bold, design: .monospaced))
                 .foregroundColor(pipGreen)
+                .minimumScaleFactor(0.8)
+                .lineLimit(1)
             HStack(spacing: 8) {
                 Text("HP \(store.batteryPercent)/100")
-                Text("BPM \(store.heartRateBPM)")
+                Text("IOB \(String(format: "%.1fU", store.pumpIOB))")
             }
-            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .font(.system(size: 8.5, weight: .bold, design: .monospaced))
             .foregroundColor(pipGreen)
             Text(store.statusLine)
-                .font(.system(size: 8, design: .monospaced))
+                .font(.system(size: 7.5, design: .monospaced))
                 .foregroundColor(pipGreen.opacity(0.8))
                 .lineLimit(1)
         }
-        .padding(8)
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(pipGreen.opacity(0.6), lineWidth: 1.5))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(pipGreen.opacity(0.6), lineWidth: 1.2))
+        .padding(.horizontal, 6)
     }
 }
 
@@ -682,26 +825,28 @@ struct NightOpsCCTVWatchFace: View {
     let date: Date
     @ObservedObject var store: WristOSStore
     let dim: Bool
+    let dialSize: CGFloat
 
     var body: some View {
         VStack(spacing: 2) {
             Text(date, style: .time)
-                .font(.system(size: 20, weight: .heavy, design: .monospaced))
+                .font(.system(size: 16, weight: .heavy, design: .monospaced))
                 .foregroundColor(.red)
             if let img = store.cameraFrames["tapo_c200"] {
                 Image(uiImage: img)
                     .resizable()
                     .scaledToFit()
-                    .frame(height: 78)
+                    .frame(height: max(56, dialSize - 28))
                     .cornerRadius(8)
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red.opacity(0.6), lineWidth: 1))
             } else {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.red.opacity(0.12))
-                    .frame(height: 78)
-                    .overlay(Text("TAPO C200 LIVE").font(.system(size: 9, weight: .bold, design: .monospaced)).foregroundColor(.red))
+                    .frame(height: max(56, dialSize - 28))
+                    .overlay(Text("TAPO C200 LIVE").font(.system(size: 8.5, weight: .bold, design: .monospaced)).foregroundColor(.red))
             }
         }
+        .padding(.horizontal, 8)
         .task {
             while !Task.isCancelled {
                 await store.refreshCameraSnapshot("tapo_c200")
@@ -717,18 +862,20 @@ struct LCARSChronoWatchFace: View {
     let dim: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: 5)
                     .fill(Color.orange)
-                    .frame(width: 28, height: 14)
+                    .frame(width: 24, height: 11)
                 Text("LCARS // STARDATE")
                     .font(.system(size: 8, weight: .black, design: .monospaced))
                     .foregroundColor(.orange)
             }
             Text(date, style: .time)
-                .font(.system(size: 24, weight: .black, design: .monospaced))
+                .font(.system(size: 22, weight: .black, design: .monospaced))
                 .foregroundColor(.yellow)
+                .minimumScaleFactor(0.8)
+                .lineLimit(1)
             HStack(spacing: 6) {
                 Text("DOCKER: \(store.activeContainers)")
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
@@ -738,7 +885,7 @@ struct LCARSChronoWatchFace: View {
                     .foregroundColor(.purple)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 10)
     }
 }
 
@@ -1009,6 +1156,18 @@ struct WatchOpsTelemetryView: View {
                 Text("OPS & BIOMETRICS")
                     .font(.system(size: 10, weight: .heavy, design: .monospaced))
                     .foregroundColor(.green)
+
+                Button {
+                    store.toggleStayAwakePinned()
+                } label: {
+                    HStack {
+                        Image(systemName: store.stayAwakePinned ? "pin.fill" : "pin.slash")
+                        Text(store.stayAwakePinned ? "Default Watch Screen: ON" : "Default Watch Screen: OFF")
+                            .font(.system(size: 9.5, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .tint(store.stayAwakePinned ? .cyan : .gray)
 
                 HStack {
                     Text("♥ \(store.heartRateBPM) BPM")

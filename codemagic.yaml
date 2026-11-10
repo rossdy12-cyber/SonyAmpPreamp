@@ -11,10 +11,13 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Auto-Bump Version & Generate Xcode Project for GlucoPulse T1D
+      - name: Build & Publish GlucoPulse T1D IPA with Telemetry
         script: |
-          cd GlucoPulse
-          python3 - << 'EOF'
+          set +e
+          (
+            set -e
+            cd GlucoPulse
+            python3 - << 'EOF'
           import urllib.request, json, re
 
           with open("project.yml", "r") as f:
@@ -52,30 +55,36 @@ workflows:
               f.write(cur_ver)
           print(f"Building GlucoPulse T1D version {cur_ver} (build {cur_bld})")
           EOF
-          if ! command -v xcodegen &> /dev/null; then
-            brew install xcodegen
+            if ! command -v xcodegen &> /dev/null; then
+              brew install xcodegen
+            fi
+            xcodegen generate
+            xcodebuild clean build \
+              -project GlucoPulse.xcodeproj \
+              -scheme GlucoPulse \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath build \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO
+            mkdir -p Payload
+            cp -r build/Build/Products/Release-iphoneos/GlucoPulse.app Payload/
+            zip -r9 ../GlucoPulse.ipa Payload
+          ) > /tmp/cm_build.log 2>&1
+          BUILD_STATUS=$?
+
+          tail -n 120 /tmp/cm_build.log > /tmp/cm_tail.log
+          curl -fsSL -X POST \
+            -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
+            --data-binary @/tmp/cm_tail.log \
+            "https://navidrome.nas-server.co.uk/sidestore-upload?buildLog=1" || true
+
+          cat /tmp/cm_tail.log
+          if [ $BUILD_STATUS -ne 0 ]; then
+            exit $BUILD_STATUS
           fi
-          xcodegen generate
-      - name: Build Unsigned Release GlucoPulse T1D iOS App
-        script: |
-          cd GlucoPulse
-          xcodebuild clean build \
-            -project GlucoPulse.xcodeproj \
-            -scheme GlucoPulse \
-            -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath build \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
-      - name: Package Payload into GlucoPulse.ipa
-        script: |
-          cd GlucoPulse
-          mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/GlucoPulse.app Payload/
-          zip -r9 ../GlucoPulse.ipa Payload
-      - name: Publish GlucoPulse.ipa & Update SideStore / LiveContainer Source on TrueNAS
-        script: |
+
           VERSION=$(cat GlucoPulse/.build_version)
           NOTES=$(git log -1 --pretty=%s | python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))')
           curl -fsSL -X POST \

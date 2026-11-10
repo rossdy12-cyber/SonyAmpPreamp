@@ -24,6 +24,8 @@ targets:
       - path: App
       - path: Views
       - path: Resources
+        excludes:
+          - Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.truenas.glucopulse

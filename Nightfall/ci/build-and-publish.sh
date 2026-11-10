@@ -63,7 +63,7 @@ if [[ "$STATUS" -ne 0 ]]; then exit "$STATUS"; fi
 QUERY=$(python3 - "$APP_ROOT/packages/mobile/app.json" <<'PY'
 import json, sys, urllib.parse
 app=json.load(open(sys.argv[1]))['expo']
-print(urllib.parse.urlencode({'bundleId':app['ios']['bundleIdentifier'],'version':app['version'],'notes':'Nightfall gothic iPhone browser: first release'}))
+print(urllib.parse.urlencode({'bundleId':app['ios']['bundleIdentifier'],'version':app['version'],'notes':'Fix website text and search-field contrast; preserve page layouts; add per-site original appearance.'}))
 PY
 )
 # Do not automatically retry this write: a lost response needs a catalog check.

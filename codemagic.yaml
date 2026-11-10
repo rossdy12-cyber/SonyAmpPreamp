@@ -10,6 +10,10 @@ workflows:
         - pattern: 'main'
           include: true
           source: true
+    when:
+      changeset:
+        includes:
+          - 'OmniContainer/**'
     scripts:
       - name: Compile J.A.R.V.I.S. Wrist OS v2.2.4 & Publish to TrueNAS
         script: |

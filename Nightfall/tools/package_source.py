@@ -5,7 +5,7 @@ import zipfile
 root = Path(__file__).resolve().parents[1]
 output = root.parent / 'Nightfall-source.zip'
 dirs = {'packages', 'ci', 'tools', 'tests'}
-files = {'package.json', 'bun.lock', 'turbo.json', '__ports.cjs', 'design.md', 'BUILD-AND-PUBLISH.md', 'README.md', '.gitignore', 'tsconfig.json', 'ecosystem.config.cjs'}
+files = {'package.json', 'bun.lock', 'turbo.json', '__ports.cjs', 'design.md', 'BUILD-AND-PUBLISH.md', 'README.md', 'THIRD-PARTY-NOTICES.md', '.gitignore', 'tsconfig.json', 'ecosystem.config.cjs'}
 skip = {'node_modules', 'dist', 'dist-electron', '.expo', '.git', '.turbo', 'ios', 'android', 'build', '__pycache__'}
 with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
     for path in sorted(root.rglob('*')):

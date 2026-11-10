@@ -1,15 +1,16 @@
-import React, { forwardRef, useImperativeHandle, useRef, useEffect } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useEffect, useMemo } from 'react';
 import { WebView } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview';
 import { gothicScript } from '../lib/browser';
 
 export type BrowserHandle = { back: () => void; forward: () => void; reload: () => void };
-export type BrowserProps = { url: string; private: boolean; gothic: boolean; onNavigate: (state: { url: string; title: string; back: boolean; forward: boolean; loading: boolean }) => void; onNewTab: (url: string) => void; onDownload: (url: string) => void; onExternal: (url: string) => void; onError: (message: string) => void };
+export type BrowserProps = { url: string; private: boolean; gothic: boolean; originalSites: string[]; onNavigate: (state: { url: string; title: string; back: boolean; forward: boolean; loading: boolean }) => void; onNewTab: (url: string) => void; onDownload: (url: string) => void; onExternal: (url: string) => void; onError: (message: string) => void };
 
 const BrowserView = forwardRef<BrowserHandle, BrowserProps>((props, ref) => {
   const web = useRef<WebView>(null);
+  const themeScript = useMemo(() => gothicScript(props.gothic, props.originalSites), [props.gothic, props.originalSites]);
   useImperativeHandle(ref, () => ({ back: () => web.current?.goBack(), forward: () => web.current?.goForward(), reload: () => web.current?.reload() }));
-  useEffect(() => { web.current?.injectJavaScript(gothicScript(props.gothic)); }, [props.gothic]);
+  useEffect(() => { web.current?.injectJavaScript(themeScript); }, [themeScript]);
   const navigate = (state: WebViewNavigation) => props.onNavigate({ url: state.url, title: state.title, back: state.canGoBack, forward: state.canGoForward, loading: state.loading });
   return <WebView
     ref={web} source={{ uri: props.url }} style={{ flex: 1, backgroundColor: '#0C0D0E' }}
@@ -18,8 +19,9 @@ const BrowserView = forwardRef<BrowserHandle, BrowserProps>((props, ref) => {
     originWhitelist={['http://*', 'https://*']} setSupportMultipleWindows
     onOpenWindow={e => props.onNewTab(e.nativeEvent.targetUrl)}
     onNavigationStateChange={navigate}
-    injectedJavaScript={gothicScript(props.gothic)}
-    onLoadEnd={() => web.current?.injectJavaScript(gothicScript(props.gothic))}
+    injectedJavaScript={themeScript}
+    injectedJavaScriptForMainFrameOnly
+    onLoadEnd={() => web.current?.injectJavaScript(themeScript)}
     onFileDownload={e => props.onDownload(e.nativeEvent.downloadUrl)}
     onShouldStartLoadWithRequest={request => {
       if (/^https?:/i.test(request.url) || request.url === 'about:blank') return true;

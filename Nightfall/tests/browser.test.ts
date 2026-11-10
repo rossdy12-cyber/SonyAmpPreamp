@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { address, hostname, makeTab, gothicScript } from '../packages/mobile/lib/browser';
+import { address, hostname, makeTab, gothicScript, restoreSettings, websiteThemeEnabled, siteHost } from '../packages/mobile/lib/browser';
 describe('Nightfall browser helpers', () => {
   test('iOS and Android identifiers pass the installed Expo validators', () => {
     const result = Bun.spawnSync(['node', new URL('../ci/validate-config.cjs', import.meta.url).pathname]);
@@ -22,8 +22,22 @@ describe('Nightfall browser helpers', () => {
     expect(hostname('https://www.example.com/a')).toBe('example.com');
   });
   test('gothic theme removal is reversible and disable does not add a stylesheet', () => {
-    expect(gothicScript(true)).toContain("createElement('style')");
-    expect(gothicScript(false)).toContain('s.remove()');
+    expect(gothicScript(true)).toContain('engine.enable');
+    expect(gothicScript(false)).toContain('old.remove()');
+    expect(gothicScript(false)).toContain('engine.disable()');
     expect(gothicScript(false)).not.toContain("createElement('style')");
+  });
+  test('old settings safely migrate and malformed site lists are filtered', () => {
+    expect(restoreSettings({ gothic: true, search: 'google' })).toEqual({ gothic: true, search: 'google', originalSites: [] });
+    expect(restoreSettings({ originalSites: ['WWW.Google.COM', 'www.google.com', 'bad host', null as unknown as string] }).originalSites).toEqual(['www.google.com']);
+    expect(restoreSettings().gothic).toBe(false);
+  });
+  test('site exceptions apply to the exact hostname, including redirected URLs', () => {
+    const settings = restoreSettings({ gothic: true, originalSites: ['www.google.com'] });
+    expect(siteHost('https://www.google.com/search?q=test')).toBe('www.google.com');
+    expect(websiteThemeEnabled(settings, 'https://www.google.com/')).toBe(false);
+    expect(websiteThemeEnabled(settings, 'https://en.wikipedia.org/')).toBe(true);
+    expect(websiteThemeEnabled({ ...settings, gothic: false }, 'https://en.wikipedia.org/')).toBe(false);
+    expect(gothicScript(true, settings.originalSites)).toContain('location.hostname.toLowerCase()');
   });
 });

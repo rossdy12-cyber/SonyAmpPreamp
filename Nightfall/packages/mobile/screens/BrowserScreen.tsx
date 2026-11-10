@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import BrowserView, { type BrowserHandle } from '../components/BrowserView';
 import { useBrowser } from '../hooks/use-browser';
-import { palette as c, portals, hostname, address } from '../lib/browser';
+import { palette as c, portals, hostname, siteHost, address } from '../lib/browser';
 import { downloadFile, shareFile, deleteFile } from '../lib/device-files';
 
 type Icon = React.ComponentProps<typeof Ionicons>['name'];
@@ -33,6 +33,14 @@ export default function BrowserScreen() {
   const currentUrl = b.active.url ? (nav?.url || b.active.url) : '';
   const currentTitle = b.active.url ? (nav?.title || b.active.title) : b.active.title;
   const currentBookmarked = b.bookmarks.some(p => p.url === currentUrl);
+  const currentHost = siteHost(currentUrl);
+  const currentOriginalSites = b.active.private ? b.privateOriginalSites : b.settings.originalSites;
+  const toggleOriginalAppearance = (original: boolean) => {
+    if (!currentHost) return;
+    const update = (sites: string[]) => original ? [...new Set([...sites, currentHost])] : sites.filter(host => host !== currentHost);
+    if (b.active.private) b.setPrivateOriginalSites(update);
+    else b.setSettings(old => ({ ...old, originalSites: update(old.originalSites) }));
+  };
   const { storageError, setStorageError } = b;
   useEffect(() => { if (!editing) setInput(currentUrl); }, [currentUrl, b.activeId, editing]);
   useEffect(() => { if (!message) return; const timer = setTimeout(() => setMessage(''), 7000); return () => clearTimeout(timer); }, [message]);
@@ -65,7 +73,7 @@ export default function BrowserScreen() {
       {b.active.private && <View style={s.privateBar}><Ionicons name="eye-off-outline" size={13} color={c.gold} /><Text style={s.privateBarText}>PRIVATE SANCTUARY · NOT SAVED TO HISTORY</Text></View>}
       <View style={{ flex: 1 }}>
         {b.tabs.filter(t => t.url).map(tab => <View key={tab.id} style={[StyleSheet.absoluteFill, { display: tab.id === b.activeId ? 'flex' : 'none' }]}>
-          <BrowserView ref={r => { refs.current[tab.id] = r; }} url={tab.url} private={tab.private} gothic={b.settings.gothic}
+          <BrowserView ref={r => { refs.current[tab.id] = r; }} url={tab.url} private={tab.private} gothic={b.settings.gothic} originalSites={tab.private ? b.privateOriginalSites : b.settings.originalSites}
             onNavigate={state => { setNavs(old => ({ ...old, [tab.id]: state })); b.updateNavigation(tab.id, state); }}
             onNewTab={url => { if (/^https?:/i.test(url)) b.addTab(tab.private, url); }} onExternal={external} onDownload={offerDownload} onError={setMessage} />
         </View>)}
@@ -121,14 +129,16 @@ export default function BrowserScreen() {
             </>}
             {sheet === 'settings' && <>
               <Text style={s.sectionLabel}>APPEARANCE</Text>
-              <View style={s.settingRow}><View style={{ flex: 1 }}><Text style={s.itemTitle}>Gothic website styling</Text><Text style={s.settingCopy}>A reversible dark-and-gold layer for visited websites. Some layouts may look different.</Text></View><Switch accessibilityLabel="Gothic website styling" value={b.settings.gothic} onValueChange={gothic => b.setSettings(old => ({ ...old, gothic }))} trackColor={{ false: c.border, true: '#675233' }} thumbColor={c.gold} /></View>
+              <View style={s.settingRow}><View style={{ flex: 1 }}><Text style={s.itemTitle}>Gothic website styling</Text><Text style={s.settingCopy}>Optional dark-and-ivory colours that preserve website fonts and layout. Turn off for original website colours.</Text></View><Switch accessibilityLabel="Gothic website styling" value={b.settings.gothic} onValueChange={gothic => b.setSettings(old => ({ ...old, gothic }))} trackColor={{ false: c.border, true: '#675233' }} thumbColor={c.gold} /></View>
+              {!!currentHost && <View style={s.settingRow}><View style={{ flex: 1 }}><Text style={s.itemTitle}>Original appearance for this site</Text><Text style={s.settingCopy}>{currentHost}{b.active.private ? '\nOnly remembered during private browsing.' : '\nRemembered for this hostname.'} Use if a page looks wrong.</Text></View><Switch accessibilityLabel="Original appearance for this site" value={currentOriginalSites.includes(currentHost)} onValueChange={toggleOriginalAppearance} trackColor={{ false: c.border, true: '#675233' }} thumbColor={c.gold} /></View>}
+              {!!b.settings.originalSites.length && <Pressable style={s.settingRow} onPress={() => confirm('Remove all saved original-appearance exceptions? Websites will follow your Gothic styling setting.', () => b.setSettings(old => ({ ...old, originalSites: [] })))} accessibilityRole="button" accessibilityLabel="Reset site appearance exceptions"><Text style={[s.itemTitle, { flex: 1 }]}>Reset site appearance exceptions</Text><Text style={s.help}>{b.settings.originalSites.length}</Text></Pressable>}
               <Text style={[s.sectionLabel, { marginTop: 30 }]}>SEARCH ENGINE</Text>
               {(['duckduckgo', 'google'] as const).map(search => <Pressable key={search} style={s.settingRow} onPress={() => b.setSettings(old => ({ ...old, search }))}><Text style={[s.itemTitle, { flex: 1 }]}>{search === 'google' ? 'Google' : 'DuckDuckGo'}</Text><Ionicons name={b.settings.search === search ? 'radio-button-on' : 'radio-button-off'} size={22} color={c.gold} /></Pressable>)}
               <Text style={[s.sectionLabel, { marginTop: 30 }]}>BROWSER TOOLS</Text>
               <Pressable style={s.settingRow} onPress={() => setSheet('downloads')}><Ionicons name="download-outline" size={20} color={c.gold} /><Text style={[s.itemTitle, { flex: 1 }]}>Downloads</Text><Text style={s.help}>{b.downloads.length}</Text><Ionicons name="chevron-forward" size={18} color={c.muted} /></Pressable>
               <Pressable style={s.settingRow} onPress={() => { setLibrary('history'); setSheet('library'); }}><Ionicons name="time-outline" size={20} color={c.gold} /><Text style={[s.itemTitle, { flex: 1 }]}>History</Text><Ionicons name="chevron-forward" size={18} color={c.muted} /></Pressable>
               <View style={s.privacyCard}><Ionicons name="shield-checkmark-outline" size={24} color={c.gold} /><Text style={s.privacyTitle}>Private, not invisible.</Text><Text style={s.settingCopy}>Private tabs use an ephemeral WebKit session and aren’t saved to Nightfall’s history. Websites and your network can still see your activity. Bookmarks you explicitly save and downloaded files are kept.</Text></View>
-              <Text style={s.help}>Nightfall 1.0.0 · Built for iPhone{Platform.OS === 'web' ? '\nYou are viewing the interactive web preview.' : ''}</Text>
+              <Text style={s.help}>Nightfall 1.0.1 · Built for iPhone{Platform.OS === 'web' ? '\nYou are viewing the interactive web preview.' : ''}</Text>
               <Text style={s.help}>Some providers block sign-in inside embedded browsers. Nightfall cannot override provider security or guarantee Apple/Google login. Browser settings do not clear website cookies.</Text>
             </>}
             {sheet === 'downloads' && <>

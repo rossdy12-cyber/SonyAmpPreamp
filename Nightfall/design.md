@@ -21,8 +21,12 @@ Dangerous local-data deletions and leaving the app use confirmation dialogs.
 
 ## Privacy and website appearance
 
-Sites keep their normal styling unless the user enables a reversible gothic CSS
-layer. Private tabs have a wine banner, an ephemeral iOS WebView and no persisted
+Sites keep their normal styling unless the user enables locally bundled Dark Reader
+dynamic colour transformation (obsidian/ivory). Preserve site layouts and fonts;
+never force backgrounds on every container or inputs independently of text.
+Settings has an exact-hostname original-appearance exception; normal exceptions
+persist locally, private exceptions remain in memory until private tabs close.
+Private tabs have a wine banner, an ephemeral iOS WebView and no persisted
 tabs/history. Explicit bookmarks/downloads remain saved, including from private
 tabs. No claims of anonymity or guaranteed provider authentication.
 

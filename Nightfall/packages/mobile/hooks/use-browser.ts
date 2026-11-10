@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { address, makeTab, makeId, type Tab, type SavedPage, type Download, type BrowserSettings } from '../lib/browser';
+import { address, makeTab, makeId, restoreSettings, type Tab, type SavedPage, type Download, type BrowserSettings } from '../lib/browser';
 const KEY = 'nightfall.browser.v1';
 export function useBrowser() {
   const first = useRef(makeTab()).current;
@@ -9,7 +9,8 @@ export function useBrowser() {
   const [bookmarks, setBookmarks] = useState<SavedPage[]>([]);
   const [history, setHistory] = useState<SavedPage[]>([]);
   const [downloads, setDownloads] = useState<Download[]>([]);
-  const [settings, setSettings] = useState<BrowserSettings>({ gothic: false, search: 'duckduckgo' });
+  const [settings, setSettings] = useState<BrowserSettings>(restoreSettings());
+  const [privateOriginalSites, setPrivateOriginalSites] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
   const [storageError, setStorageError] = useState('');
   useEffect(() => { let mounted = true;
@@ -21,7 +22,7 @@ export function useBrowser() {
       if (Array.isArray(data.bookmarks)) setBookmarks(data.bookmarks);
       if (Array.isArray(data.history)) setHistory(data.history);
       if (Array.isArray(data.downloads)) setDownloads(data.downloads);
-      if (data.settings) setSettings({ gothic: !!data.settings.gothic, search: data.settings.search === 'google' ? 'google' : 'duckduckgo' });
+      if (data.settings) setSettings(restoreSettings(data.settings));
     }).catch(() => setStorageError('Saved browser data could not be loaded.')).finally(() => { if (mounted) setReady(true); });
     return () => { mounted = false; };
   }, []);
@@ -31,6 +32,7 @@ export function useBrowser() {
     return () => clearTimeout(timer);
   }, [ready, tabs, activeId, bookmarks, history, downloads, settings]);
   const active = tabs.find(t => t.id === activeId) || tabs[0];
+  useEffect(() => { if (!tabs.some(t => t.private)) setPrivateOriginalSites([]); }, [tabs]);
   const addTab = (isPrivate = active.private, url = '') => {
     if (tabs.length >= 12) { setStorageError('Close a tab before opening another (12-tab limit).'); return; }
     const tab = makeTab(isPrivate, url); setTabs(old => [...old, tab]); setActiveId(tab.id); return tab.id;
@@ -55,7 +57,7 @@ export function useBrowser() {
   };
   return { tabs, active, activeId, setActiveId, addTab, closeTab, navigate, updateNavigation,
     bookmarks, setBookmarks, saveBookmark, history, setHistory, downloads, setDownloads,
-    settings, setSettings, ready, storageError, setStorageError,
+    settings, setSettings, privateOriginalSites, setPrivateOriginalSites, ready, storageError, setStorageError,
     closePrivateTabs: () => { const normal = tabs.filter(t => !t.private); const next = normal.length ? normal : [makeTab()]; setTabs(next); setActiveId(next[0].id); },
     home: () => setTabs(old => old.map(t => t.id === activeId ? { ...t, url: '', lastUrl: '', title: 'New sanctuary' } : t)) };
 }

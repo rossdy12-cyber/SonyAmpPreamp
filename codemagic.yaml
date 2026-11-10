@@ -1,6 +1,6 @@
 workflows:
   ios-unsigned-ipa:
-    name: Build & Publish J.A.R.V.I.S. Wrist OS v2.2.2 (Apple Watch Series 10 HUD Fix)
+    name: Build & Publish J.A.R.V.I.S. Wrist OS v2.2.3 (Apple Watch Series 10 HUD Fix)
     max_build_duration: 15
     instance_type: mac_mini_m2
     triggering:
@@ -11,7 +11,7 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Compile J.A.R.V.I.S. Wrist OS v2.2.2 & Publish to TrueNAS
+      - name: Compile J.A.R.V.I.S. Wrist OS v2.2.3 & Publish to TrueNAS
         script: |
           set +e
           (
@@ -40,6 +40,6 @@ workflows:
           curl -fsSL -X POST \
             -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
             --data-binary @JarvisWatch.ipa \
-            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=com.ross.jarvis.watchkitapp&version=2.2.2&notes=${NOTES}"
+            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=com.ross.jarvis.watchkitapp&version=2.2.3&notes=${NOTES}"
     artifacts:
       - JarvisWatch.ipa

@@ -77,10 +77,10 @@ final class WristOSStore: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     @Published var stayAwakePinned: Bool = true
 
     let faceNames = [
-        "STARK ARC",
-        "007 Q-HUD",
+        "STARK",
+        "007 Q",
         "PIP-BOY",
-        "NIGHT-OPS",
+        "CCTV",
         "LCARS"
     ]
 
@@ -668,18 +668,18 @@ struct WatchFacesGalleryView: View {
 
         TimelineView(.periodic(from: .now, by: isLuminanceReduced ? 15.0 : 1.0)) { context in
             VStack(spacing: 0) {
-                // Top Edge Bezel Telemetry Bar
+                // Top Edge Bezel Telemetry Bar (Positioned x=12..146pt so watchOS top-right clock at x=153..192pt never overlaps)
                 HStack(spacing: 4) {
-                    HStack(spacing: 3) {
+                    HStack(spacing: 2.5) {
                         Image(systemName: store.stayAwakePinned ? "pin.fill" : "pin.slash")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.system(size: 7.5, weight: .bold))
                             .foregroundColor(store.stayAwakePinned ? .cyan : .gray)
                         Text(store.faceNames[activeIndex])
-                            .font(.system(size: 9.5, weight: .heavy, design: .monospaced))
+                            .font(.system(size: 9, weight: .heavy, design: .monospaced))
                             .foregroundColor(.cyan)
                             .lineLimit(1)
                     }
-                    .padding(.horizontal, 7)
+                    .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(Color.cyan.opacity(0.16))
                     .overlay(Capsule().stroke(Color.cyan.opacity(0.4), lineWidth: 0.8))
@@ -692,25 +692,26 @@ struct WatchFacesGalleryView: View {
                         store.toggleStayAwakePinned()
                     }
 
-                    Spacer(minLength: 4)
-
-                    HStack(spacing: 5) {
+                    HStack(spacing: 4) {
                         Text("🩸\(store.bgMmol)\(store.bgTrendArrow)")
-                            .font(.system(size: 10.5, weight: .heavy, design: .monospaced))
+                            .font(.system(size: 9.5, weight: .heavy, design: .monospaced))
                             .foregroundColor(bgBadgeColor)
                             .lineLimit(1)
                         Text("♥\(store.heartRateBPM)")
-                            .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
                             .foregroundColor(.red)
                             .lineLimit(1)
                     }
-                    .padding(.horizontal, 7)
+                    .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(Color.white.opacity(0.08))
+                    .background(Color.white.opacity(0.09))
+                    .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 0.6))
                     .clipShape(Capsule())
+
+                    Spacer(minLength: 58)
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 16)
+                .padding(.leading, 12)
+                .padding(.top, 17)
 
                 Spacer(minLength: 2)
 

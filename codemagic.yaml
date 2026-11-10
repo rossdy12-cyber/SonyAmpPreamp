@@ -1,6 +1,6 @@
 workflows:
   ios-unsigned-ipa:
-    name: Build & Publish Sony Amp DSP v2.0 + Keepwatch Ops v2.0 (TrueNAS SideStore)
+    name: Build & Publish OmniContainer v2.2 + J.A.R.V.I.S. v2.2 + DeskSwitch v2.0 (TrueNAS SideStore)
     max_build_duration: 30
     instance_type: mac_mini_m2
     triggering:
@@ -11,7 +11,7 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Build & Publish SonyAmpPreamp v2.0 and Keepwatch v2.0 IPAs
+      - name: Build & Publish OmniContainer v2.2, JarvisWatch v2.2 & DeskSwitch v2.0 IPAs
         script: |
           set +e
           (
@@ -20,7 +20,6 @@ workflows:
               brew install xcodegen
             fi
 
-            # 1. Build SonyAmpPreamp v2.0.0 (with SoulSeekr + Encore + Offline Vault)
             python3 - << 'EOF'
           import urllib.request, json, re
 
@@ -56,41 +55,52 @@ workflows:
                   f.write(cur_ver)
               print(f"Prepared {bundle_id} version {cur_ver} (build {cur_bld})")
 
-          bump_project("project.yml", "com.rossdymond.sonyamppreamp", ".sony_version")
-          bump_project("Keepwatch/project.yml", "app.keepwatch.nasdashboard", "Keepwatch/.kw_version")
+          bump_project("OmniContainer/project.yml", "com.ross.omnicontainer", "OmniContainer/.omni_version")
+          bump_project("DeskSwitch/project.yml", "com.ross.deskswitch", "DeskSwitch/.ds_version")
           EOF
 
+            # 1. Build OmniContainer v2.2.0 + Embedded J.A.R.V.I.S. Wrist OS v2.2.0
+            cd OmniContainer
             xcodegen generate
-            xcodebuild clean build \
-              -project SonyAmpPreamp.xcodeproj \
-              -scheme SonyAmpPreamp \
+            xcodebuild \
+              -project OmniContainer.xcodeproj \
+              -target OmniContainer \
               -configuration Release \
               -sdk iphoneos \
-              -derivedDataPath build_sony \
-              CODE_SIGN_IDENTITY="" \
+              SYMROOT="$PWD/build" \
+              CODE_SIGNING_ALLOWED=NO \
               CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGNING_ALLOWED=NO
-            rm -rf Payload
-            mkdir -p Payload
-            cp -r build_sony/Build/Products/Release-iphoneos/SonyAmpPreamp.app Payload/
-            zip -r9 SonyAmpPreamp.ipa Payload
+              CODE_SIGN_IDENTITY="" \
+              build
 
-            # 2. Build Keepwatch v2.0.0 (TrueNAS + Docker + NetRadar + SideStore CI)
-            cd Keepwatch
-            xcodegen generate
-            xcodebuild clean build \
-              -project Keepwatch.xcodeproj \
-              -scheme Keepwatch \
-              -configuration Release \
-              -sdk iphoneos \
-              -derivedDataPath build_kw \
-              CODE_SIGN_IDENTITY="" \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGNING_ALLOWED=NO
+            tr -d '\r' < build_watch_bundle.sh > build_watch_bundle_lf.sh
+            bash build_watch_bundle_lf.sh
+            rm -f build_watch_bundle_lf.sh
+
             rm -rf Payload
             mkdir -p Payload
-            cp -r build_kw/Build/Products/Release-iphoneos/Keepwatch.app Payload/
-            zip -r9 ../Keepwatch.ipa Payload
+            cp -R build/Release-iphoneos/OmniContainer.app Payload/
+            zip -r9 ../OmniContainer.ipa Payload
+            cd ..
+
+            # 2. Build DeskSwitch v2.0.0 (Unified PC, Aniimo Pilot, Farm Bot & LD Remote)
+            cd DeskSwitch
+            xcodegen generate
+            xcodebuild \
+              -project DeskSwitch.xcodeproj \
+              -target DeskSwitch \
+              -configuration Release \
+              -sdk iphoneos \
+              SYMROOT="$PWD/build" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              build
+
+            rm -rf Payload
+            mkdir -p Payload
+            cp -R build/Release-iphoneos/DeskSwitch.app Payload/
+            zip -r9 ../DeskSwitch.ipa Payload
             cd ..
           ) > /tmp/cm_build.log 2>&1
           BUILD_STATUS=$?
@@ -106,19 +116,27 @@ workflows:
             exit $BUILD_STATUS
           fi
 
-          SONY_VER=$(cat .sony_version)
-          KW_VER=$(cat Keepwatch/.kw_version)
+          OMNI_VER=$(cat OmniContainer/.omni_version)
+          DS_VER=$(cat DeskSwitch/.ds_version)
           NOTES=$(git log -1 --pretty=%s | python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))')
 
           curl -fsSL -X POST \
             -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
-            --data-binary @SonyAmpPreamp.ipa \
-            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=com.rossdymond.sonyamppreamp&version=${SONY_VER}&notes=${NOTES}"
+            --data-binary @OmniContainer.ipa \
+            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=com.ross.omnicontainer&version=${OMNI_VER}&notes=${NOTES}"
+
+          if [ -f JarvisWatch.ipa ]; then
+            curl -fsSL -X POST \
+              -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
+              --data-binary @JarvisWatch.ipa \
+              "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=com.ross.jarvis.watchkitapp&version=${OMNI_VER}&notes=${NOTES}"
+          fi
 
           curl -fsSL -X POST \
             -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
-            --data-binary @Keepwatch.ipa \
-            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=app.keepwatch.nasdashboard&version=${KW_VER}&notes=${NOTES}"
+            --data-binary @DeskSwitch.ipa \
+            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=com.ross.deskswitch&version=${DS_VER}&notes=${NOTES}"
     artifacts:
-      - SonyAmpPreamp.ipa
-      - Keepwatch.ipa
+      - OmniContainer.ipa
+      - JarvisWatch.ipa
+      - DeskSwitch.ipa

@@ -75,6 +75,7 @@ final class WristOSStore: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
     @Published var lastSpokenTranscript: String = ""
     @Published var weatherSummary: String = "14°C CLEAR"
     @Published var stayAwakePinned: Bool = true
+    @Published var sessionRunning: Bool = false
 
     let faceNames = [
         "STARK",
@@ -173,17 +174,28 @@ final class WristOSStore: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
     func startAlwaysOnWatchFaceSession() {
         stayAwakePinned = true
-        ensureAlwaysOnWatchFaceSession()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            self.ensureAlwaysOnWatchFaceSession()
+        }
     }
 
     func ensureAlwaysOnWatchFaceSession() {
         guard stayAwakePinned else {
             extendedSession?.invalidate()
             extendedSession = nil
+            sessionRunning = false
             return
         }
-        if let s = extendedSession, s.state == .running || s.state == .scheduled {
-            return
+        if let s = extendedSession {
+            if s.state == .running {
+                sessionRunning = true
+                return
+            }
+            if s.state == .scheduled || s.state == .notStarted {
+                return
+            }
+            extendedSession = nil
         }
         let s = WKExtendedRuntimeSession()
         s.delegate = self
@@ -198,10 +210,16 @@ final class WristOSStore: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
         ensureAlwaysOnWatchFaceSession()
     }
 
-    nonisolated func extendedRuntimeSessionDidStart(_ extendedRuntimeSession: WKExtendedRuntimeSession) {}
+    nonisolated func extendedRuntimeSessionDidStart(_ extendedRuntimeSession: WKExtendedRuntimeSession) {
+        Task { @MainActor in
+            self.sessionRunning = true
+            self.statusLine = "📌 WATCH FACE LOCKED"
+        }
+    }
 
     nonisolated func extendedRuntimeSessionWillExpire(_ extendedRuntimeSession: WKExtendedRuntimeSession) {
         Task { @MainActor in
+            self.sessionRunning = false
             if self.stayAwakePinned {
                 self.extendedSession = nil
                 self.ensureAlwaysOnWatchFaceSession()
@@ -211,7 +229,12 @@ final class WristOSStore: NSObject, ObservableObject, WKExtendedRuntimeSessionDe
 
     nonisolated func extendedRuntimeSession(_ extendedRuntimeSession: WKExtendedRuntimeSession, didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason, error: Error?) {
         Task { @MainActor in
+            self.sessionRunning = false
             self.extendedSession = nil
+            if self.stayAwakePinned {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                self.ensureAlwaysOnWatchFaceSession()
+            }
         }
     }
 
@@ -632,9 +655,12 @@ struct WristOSRootView: View {
         .ignoresSafeArea(store.selectedTab == 0 ? .all : [])
         .background(Color.black.ignoresSafeArea(.all))
         .toolbar(store.selectedTab == 0 ? .hidden : .automatic, for: .navigationBar)
+        .onAppear {
+            store.startAlwaysOnWatchFaceSession()
+        }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                store.ensureAlwaysOnWatchFaceSession()
+                store.startAlwaysOnWatchFaceSession()
             }
         }
         .onChange(of: isLuminanceReduced) { _, reduced in
@@ -671,9 +697,9 @@ struct WatchFacesGalleryView: View {
                 // Top Edge Bezel Telemetry Bar (Positioned x=12..146pt so watchOS top-right clock at x=153..192pt never overlaps)
                 HStack(spacing: 4) {
                     HStack(spacing: 2.5) {
-                        Image(systemName: store.stayAwakePinned ? "pin.fill" : "pin.slash")
+                        Image(systemName: store.stayAwakePinned ? "lock.fill" : "lock.open")
                             .font(.system(size: 7.5, weight: .bold))
-                            .foregroundColor(store.stayAwakePinned ? .cyan : .gray)
+                            .foregroundColor(store.sessionRunning ? .green : (store.stayAwakePinned ? .cyan : .gray))
                         Text(store.faceNames[activeIndex])
                             .font(.system(size: 9, weight: .heavy, design: .monospaced))
                             .foregroundColor(.cyan)

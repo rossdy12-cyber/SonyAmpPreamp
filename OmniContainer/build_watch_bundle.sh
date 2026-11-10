@@ -46,9 +46,9 @@ cat > "$APP_DIR/Info.plist" << 'EOF'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>2.2.3</string>
+  <string>2.2.4</string>
   <key>CFBundleVersion</key>
-  <string>6</string>
+  <string>7</string>
   <key>MinimumOSVersion</key>
   <string>10.0</string>
   <key>UIDeviceFamily</key>
@@ -63,9 +63,7 @@ cat > "$APP_DIR/Info.plist" << 'EOF'
   <true/>
   <key>WKBackgroundModes</key>
   <array>
-    <string>self-care</string>
     <string>mindfulness</string>
-    <string>workout-processing</string>
   </array>
   <key>NSAppTransportSecurity</key>
   <dict>
@@ -114,9 +112,9 @@ cat > "$PLUGINS_DIR/Info.plist" << 'EOF'
   <key>CFBundlePackageType</key>
   <string>XPC!</string>
   <key>CFBundleShortVersionString</key>
-  <string>2.2.3</string>
+  <string>2.2.4</string>
   <key>CFBundleVersion</key>
-  <string>6</string>
+  <string>7</string>
   <key>MinimumOSVersion</key>
   <string>10.0</string>
   <key>NSExtension</key>

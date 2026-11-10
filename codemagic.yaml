@@ -1,6 +1,6 @@
 workflows:
   ios-unsigned-ipa:
-    name: Build & Publish Auto-Updating iOS IPA (TrueNAS SideStore)
+    name: Build & Publish GlucoPulse T1D iOS IPA (TrueNAS SideStore & LiveContainer)
     max_build_duration: 30
     instance_type: mac_mini_m2
     triggering:
@@ -11,8 +11,9 @@ workflows:
           include: true
           source: true
     scripts:
-      - name: Auto-Bump Version & Generate Xcode Project
+      - name: Auto-Bump Version & Generate Xcode Project for GlucoPulse T1D
         script: |
+          cd GlucoPulse
           python3 - << 'EOF'
           import urllib.request, json, re
 
@@ -26,7 +27,11 @@ workflows:
               req = urllib.request.Request("https://navidrome.nas-server.co.uk/sidestore/source.json", headers={"User-Agent": "SideStore/0.7.0"})
               with urllib.request.urlopen(req, timeout=10) as r:
                   src = json.loads(r.read().decode())
-              existing = {v["version"] for v in src["apps"][0].get("versions", [])}
+              existing = set()
+              for app in src.get("apps", []):
+                  if app.get("bundleIdentifier") == "app.truenas.glucopulse":
+                      existing = {v["version"] for v in app.get("versions", [])}
+                      break
           except Exception:
               existing = set()
 
@@ -45,35 +50,37 @@ workflows:
 
           with open(".build_version", "w") as f:
               f.write(cur_ver)
-          print(f"Building version {cur_ver} (build {cur_bld})")
+          print(f"Building GlucoPulse T1D version {cur_ver} (build {cur_bld})")
           EOF
           if ! command -v xcodegen &> /dev/null; then
             brew install xcodegen
           fi
           xcodegen generate
-      - name: Build Unsigned Release iOS App
+      - name: Build Unsigned Release GlucoPulse T1D iOS App
         script: |
+          cd GlucoPulse
           xcodebuild clean build \
-            -project SonyAmpPreamp.xcodeproj \
-            -scheme SonyAmpPreamp \
+            -project GlucoPulse.xcodeproj \
+            -scheme GlucoPulse \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
-      - name: Package Payload into SonyAmpPreamp.ipa
+      - name: Package Payload into GlucoPulse.ipa
         script: |
+          cd GlucoPulse
           mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/SonyAmpPreamp.app Payload/
-          zip -r9 SonyAmpPreamp.ipa Payload
-      - name: Publish IPA & Update SideStore Source on TrueNAS
+          cp -r build/Build/Products/Release-iphoneos/GlucoPulse.app Payload/
+          zip -r9 ../GlucoPulse.ipa Payload
+      - name: Publish GlucoPulse.ipa & Update SideStore / LiveContainer Source on TrueNAS
         script: |
-          VERSION=$(cat .build_version)
+          VERSION=$(cat GlucoPulse/.build_version)
           NOTES=$(git log -1 --pretty=%s | python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))')
           curl -fsSL -X POST \
             -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
-            --data-binary @SonyAmpPreamp.ipa \
-            "https://navidrome.nas-server.co.uk/sidestore-upload?version=${VERSION}&notes=${NOTES}"
+            --data-binary @GlucoPulse.ipa \
+            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=app.truenas.glucopulse&version=${VERSION}&notes=${NOTES}"
     artifacts:
-      - SonyAmpPreamp.ipa
+      - GlucoPulse.ipa

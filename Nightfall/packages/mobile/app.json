@@ -15,7 +15,7 @@
       "runableAuthIssuer": "https://api.runable.com/api/auth"
     },
     "ios": {
-      "bundleIdentifier": "com.nightfall_xbkq.runable",
+      "bundleIdentifier": "com.nightfall-xbkq.runable",
       "supportsTablet": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

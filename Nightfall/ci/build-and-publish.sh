@@ -31,6 +31,8 @@ build() {
   if ! command -v bun >/dev/null 2>&1; then curl -fsSL https://bun.sh/install | bash; fi
   bun install --frozen-lockfile
   cd packages/mobile
+  bunx expo config --type public --json > "$APP_ROOT/expo-resolved-config.json"
+  node "$APP_ROOT/ci/validate-config.cjs" "$APP_ROOT/expo-resolved-config.json"
   bunx expo prebuild --platform ios --no-install --clean
   cd ios
   export NODE_BINARY="$(command -v node)"

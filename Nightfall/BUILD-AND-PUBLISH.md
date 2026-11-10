@@ -8,7 +8,7 @@ No IPA has been built or published yet. The TrueNAS clone endpoint is readable b
 returns HTTP 403 for Git receive-pack discovery, so this sandbox cannot push source
 using the current unauthenticated HTTP remote.
 
-Bundle ID: `com.nightfall_xbkq.runable` · Version: `1.0.0`.
+Bundle ID: `com.nightfall-xbkq.runable` · Version: `1.0.0`.
 
 ## Add to the existing Windows checkout
 

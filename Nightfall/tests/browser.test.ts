@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import { address, hostname, makeTab, gothicScript } from '../packages/mobile/lib/browser';
 describe('Nightfall browser helpers', () => {
+  test('iOS and Android identifiers pass the installed Expo validators', () => {
+    const result = Bun.spawnSync(['node', new URL('../ci/validate-config.cjs', import.meta.url).pathname]);
+    expect(result.exitCode).toBe(0);
+  });
   test('supports HTTPS and HTTP addresses without forcing external navigation', () => {
     expect(address('https://runable.com/path', 'duckduckgo')).toBe('https://runable.com/path');
     expect(address('http://example.com', 'google')).toBe('http://example.com');

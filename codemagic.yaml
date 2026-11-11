@@ -81,3 +81,27 @@ workflows:
     artifacts:
       - kith/out/Kith.ipa
       - kith/out/publish.json
+  prism-unsigned-ipa:
+    name: Prism iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'prism/**'
+    scripts:
+      - name: Build unsigned Prism IPA on M2 and publish through TrueNAS
+        script: |
+          bash prism/build-and-publish.sh
+    artifacts:
+      - prism/out/Prism.ipa
+      - prism/out/publish.json

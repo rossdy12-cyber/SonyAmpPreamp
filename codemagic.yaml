@@ -105,3 +105,27 @@ workflows:
     artifacts:
       - prism/out/Prism.ipa
       - prism/out/publish.json
+  nocturne-unsigned-ipa:
+    name: Nocturne iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'nocturne/**'
+    scripts:
+      - name: Build unsigned Nocturne IPA on M2 and publish through TrueNAS
+        script: |
+          bash nocturne/build-and-publish.sh
+    artifacts:
+      - nocturne/out/Nocturne.ipa
+      - nocturne/out/publish.json

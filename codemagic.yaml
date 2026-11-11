@@ -57,3 +57,27 @@ workflows:
       - Nightfall/Nightfall.ipa
       - Nightfall/build-tail.log
       - Nightfall/publish-result.json
+  kith-unsigned-ipa:
+    name: Kith iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'kith/**'
+    scripts:
+      - name: Build unsigned Kith IPA on M2 and publish through TrueNAS
+        script: |
+          bash kith/build-and-publish.sh
+    artifacts:
+      - kith/out/Kith.ipa
+      - kith/out/publish.json

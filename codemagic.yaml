@@ -129,3 +129,27 @@ workflows:
     artifacts:
       - nocturne/out/Nocturne.ipa
       - nocturne/out/publish.json
+  lumen-unsigned-ipa:
+    name: Lumen iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'lumen/**'
+    scripts:
+      - name: Build unsigned Lumen IPA on M2 and publish through TrueNAS
+        script: |
+          bash lumen/build-and-publish.sh
+    artifacts:
+      - lumen/out/Lumen.ipa
+      - lumen/out/publish.json

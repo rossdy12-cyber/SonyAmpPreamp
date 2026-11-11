@@ -1,20 +1,29 @@
-Racebolt Test 1.0.0 build 1
+Racebolt Test 1.1.0 build 2 — LIVE SITE BROWSING
 Bundle: com.rossdymond.racebolttest
 
 UNSIGNED TEST IPA. Requires separate development signing before installation.
 This compile/package script does not upload, sign or publish an app.
 
-The WKWebView loads a bundled, offline mobile storefront concept. It does NOT
-load the live raceboltuk.com shop. Homepage, browsing, product details, saved
-parts and basket are local demo features. Demo checkout cannot place an order,
-take payment, reserve inventory or send data to Racebolt.
+The WKWebView now loads https://raceboltuk.com/ and its real mobile pages:
+motorcycle selector, measuring guide, blog, catalog, accounts and basket.
+Internet required. Site cookies/storage persist. Account/contact/subscription
+and basket changes are real website actions, not local demo actions.
 
-Eight products/prices/photos are a public-site snapshot from 11 November 2026.
-Prices default to inclusive VAT; ex-VAT view assumes a 20% standard rate.
-Variable products use the lowest displayed inclusive price, not a selected
-real variant. There is no live stock, motorcycle compatibility verification
-or technical torque advice. Check all real purchasing details separately.
+Checkout/payment routes are guarded by native navigation checks, a compiled
+WKContentRuleList installed before loading and document-start JavaScript.
+Express-payment buttons and recognised payment/order requests are blocked.
+Do not enter card/payment information. This is NOT a server-side sandbox;
+unknown or future plugins/payment routes require reviewing the safeguards.
+If native safety setup fails, the app refuses to load the site.
+
+The original offline www/ assets are retained but are not the active native UI.
+Native Pages shortcuts open Home (motorcycle selector), measuring guide, blog,
+Technical, Basket and My account. External top-level links/Safari/payment apps
+and downloads are disabled, which can limit external authentication and links.
 
 No credentials, native provisioning profile, certificate or original app binary
 are included in the source. No remote build, device install or device launch was
-performed in the Linux sandbox. Chromium UI and mocked build tests passed.
+performed for this revision in the Linux sandbox. Chromium guard/read-only live
+browsing and mocked build tests passed; actual Apple content-rule compilation,
+remote native build and iPhone feature checks are still required. No login,
+live basket mutation, order or payment was submitted during testing.

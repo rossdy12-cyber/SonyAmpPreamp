@@ -19,7 +19,7 @@ def validate(path):
         base = 'Payload/RaceboltTest.app/'
         if any(not name.startswith('Payload/') for name in names):
             raise ValueError('Unexpected top-level IPA content.')
-        for required in ['Info.plist', 'RaceboltTest', 'www/bundle.html', 'www/index.html', 'www/app.js', 'www/style.css', 'www/catalog.js']:
+        for required in ['Info.plist', 'RaceboltTest', 'LiveGuard.js', 'LiveSafetyRules.json', 'www/bundle.html', 'www/index.html', 'www/app.js', 'www/style.css', 'www/catalog.js']:
             if base + required not in names:
                 raise ValueError('Missing required app content: ' + required)
         if any(name.endswith('embedded.mobileprovision') for name in names):

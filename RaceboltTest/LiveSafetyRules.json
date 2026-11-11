@@ -1,0 +1,29 @@
+[
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?(checkout|order-pay|order-received|pay-for-order|add-payment-method)(/|\\?|#|$)",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "(\\?|&|%3f|%26)(wc-ajax|wc_ajax|action|rest_route)(=|%3d)[^&#]*(checkout|place[-_]?order|process[-_]?payment|create[-_]?order|approve[-_]?order|capture[-_]?order|payment[-_]?intent|ppc[-_]|ppcp|stripe|wcpay)",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]+\\.)?(paypal\\.com|paypalobjects\\.com|stripe\\.com|stripe\\.network|klarna\\.com|squareup\\.com|apple-pay-gateway\\.apple\\.com)/",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  }
+]

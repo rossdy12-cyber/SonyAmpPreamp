@@ -1,5 +1,26 @@
 # Sources and snapshot notes
 
+## Active live-site build 1.1.0 / 2
+
+The native app loads https://raceboltuk.com/ directly. The site's live layout,
+catalog, prices and content are not the retained eight-product snapshot below.
+Read-only HTTP 200/browser checks on 11 November 2026 covered:
+
+- Home and motorcycle selector: https://raceboltuk.com/
+- Measuring guide: https://raceboltuk.com/how-to-measure-your-motorcycle-bolts/
+- Blog: https://raceboltuk.com/blog/
+- Basket: https://raceboltuk.com/basket/
+- Account: https://raceboltuk.com/my-account/
+
+The home selector uses a GET form targeting `/motorcycle-kit-results/`, with
+make/model/year/material/kit-type fields. Honda model options populated in the
+read-only browser check. No login, live basket change or purchase was tested.
+The live basket page exposed checkout `/checkout/`, standard WooCommerce
+`wc-ajax` URLs and PayPal `ppc-create-order`/`ppc-approve-order` integration.
+Safeguards were built against those patterns; see README for limitations.
+
+## Retained original offline assets (not the native start page)
+
 Snapshot: **11 November 2026**. Private prototype only; no live price, stock, variant or fitment guarantee. Prices below are inclusive VAT; range listings use the lowest displayed value.
 
 ## Brand and photography

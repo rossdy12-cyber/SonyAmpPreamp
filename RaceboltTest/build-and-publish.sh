@@ -10,14 +10,14 @@ fi
 
 APP_SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT_DIR="$APP_SOURCE/out"
-VERSION="${RACEBOLT_TEST_VERSION:-1.0.0}"
-BUILD_NUMBER="${RACEBOLT_TEST_BUILD_NUMBER:-1}"
+VERSION="${RACEBOLT_TEST_VERSION:-1.1.0}"
+BUILD_NUMBER="${RACEBOLT_TEST_BUILD_NUMBER:-2}"
 BUNDLE_ID="com.rossdymond.racebolttest"
 
 for tool in xcrun xcodebuild python3 zip file; do
   command -v "$tool" >/dev/null || { echo "Missing remote build tool: $tool" >&2; exit 1; }
 done
-for source in main.m Info.template.plist www/bundle.html www/index.html; do
+for source in main.m Info.template.plist LiveGuard.js LiveSafetyRules.json www/bundle.html www/index.html; do
   [[ -f "$APP_SOURCE/$source" ]] || { echo "Missing source: $source" >&2; exit 1; }
 done
 [[ ! -L "$OUT_DIR" ]] || { echo 'Refusing a symlinked output folder.' >&2; exit 1; }
@@ -32,6 +32,7 @@ build_test_ipa() {
   local app_dir="$WORK_DIR/Payload/RaceboltTest.app"
   mkdir -p "$app_dir"
   cp -R "$APP_SOURCE/www" "$app_dir/www"
+  cp "$APP_SOURCE/LiveGuard.js" "$APP_SOURCE/LiveSafetyRules.json" "$app_dir/"
   cp "$APP_SOURCE/icons/"*.png "$app_dir/"
   printf 'APPL????' > "$app_dir/PkgInfo"
 

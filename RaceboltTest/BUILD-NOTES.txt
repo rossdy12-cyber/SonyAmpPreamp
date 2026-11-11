@@ -1,0 +1,20 @@
+Racebolt Test 1.0.0 build 1
+Bundle: com.rossdymond.racebolttest
+
+UNSIGNED TEST IPA. Requires separate development signing before installation.
+This compile/package script does not upload, sign or publish an app.
+
+The WKWebView loads a bundled, offline mobile storefront concept. It does NOT
+load the live raceboltuk.com shop. Homepage, browsing, product details, saved
+parts and basket are local demo features. Demo checkout cannot place an order,
+take payment, reserve inventory or send data to Racebolt.
+
+Eight products/prices/photos are a public-site snapshot from 11 November 2026.
+Prices default to inclusive VAT; ex-VAT view assumes a 20% standard rate.
+Variable products use the lowest displayed inclusive price, not a selected
+real variant. There is no live stock, motorcycle compatibility verification
+or technical torque advice. Check all real purchasing details separately.
+
+No credentials, native provisioning profile, certificate or original app binary
+are included in the source. No remote build, device install or device launch was
+performed in the Linux sandbox. Chromium UI and mocked build tests passed.

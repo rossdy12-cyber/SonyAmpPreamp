@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file:; img-src 'self' file: data:; font-src 'self' file:; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+  <title>Racebolt — Test Storefront</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="catalog.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="header">
+      <button class="icon-button" data-action="menu" aria-label="Open navigation menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h11"/></svg></button>
+      <button class="brand" data-action="nav" data-page="home" aria-label="Racebolt home"><img src="assets/wordmark.webp" alt="Racebolt"><span>BRITISH ENGINEERING. RACE PROVEN.</span></button>
+      <button class="icon-button" data-action="search" aria-label="Search products"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
+    </header>
+    <div class="demo-strip"><span class="demo-dot"></span> PRIVATE TEST STOREFRONT <span class="strip-divider">/</span> NO REAL ORDERS</div>
+    <main id="content" tabindex="-1"></main>
+    <nav id="bottom-nav" class="bottom-nav" aria-label="Main navigation"></nav>
+  </div>
+  <div id="modal-root"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <noscript>This local Racebolt demo needs JavaScript to browse products and use the demo basket.</noscript>
+</body>
+</html>

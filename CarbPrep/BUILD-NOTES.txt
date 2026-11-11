@@ -1,0 +1,15 @@
+CarbPrep 1.2.0 build 3 - UNSIGNED TEST BUILD
+
+This IPA is a Codemagic compile/package artifact, not an install-ready signed app.
+No IPA upload, NAS signing, catalog update or store release replacement was made
+by this CarbPrep build script. A linker-generated ad-hoc signature, if present,
+is not developer signing and does not make the IPA installable on your iPhone.
+
+The native main.m is the supplied source, unchanged. The web assets and icons are
+recovered unchanged from the original CarbPrep 1.1.0 IPA. This rebuild changes the
+native executable and is NOT the controlled same-binary re-signing test described
+earlier. It does not itself correct the TrueNAS signer's wildcard entitlements.
+
+Do not upload this through the normal production endpoint until release
+replacement is explicitly intended and the signing correction has been verified.
+No device install, launch, Apple trust/revocation or medical-function test was done.

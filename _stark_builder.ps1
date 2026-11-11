@@ -39,19 +39,30 @@ function Ensure-GitRepo {
     }
     if (-not (Test-Path (Join-Path $BuilderRoot ".git"))) {
         Write-Host "[*] Initializing Git repository connected to TrueNAS ($RepoUrl)..." -ForegroundColor Cyan
-        git init | Out-Null
-        git remote add origin $RepoUrl 2>$null
+        git init -b main | Out-Null
         git config core.autocrlf false
         git config user.name "Ross Dymond"
         git config user.email "ross.dymond@icloud.com"
+        git remote add origin $RepoUrl 2>$null
         git fetch origin main
-        git reset --mixed origin/main
+        git checkout -f -B main origin/main
     } else {
         git config core.autocrlf false
         $curUser = git config user.name
         if (-not $curUser) {
             git config user.name "Ross Dymond"
             git config user.email "ross.dymond@icloud.com"
+        }
+        $curBranch = (git rev-parse --abbrev-ref HEAD 2>$null)
+        if ($curBranch -ne "main") {
+            Write-Host "[*] Switching repository branch '$curBranch' -> 'main'..." -ForegroundColor Cyan
+            git fetch origin main 2>$null
+            $hasHead = (git rev-parse --verify HEAD 2>$null)
+            if (-not $hasHead) {
+                git checkout -f -B main origin/main
+            } else {
+                git branch -M main 2>$null
+            }
         }
     }
     return $true
@@ -265,7 +276,15 @@ function Invoke-PushAndBuild([string]$CustomMsg = "", [switch]$NonInteractive) {
     if ($hasGit) {
         git add -A
         $statusLines = git status --porcelain
-        if (-not $statusLines) {
+        git fetch origin main 2>$null
+        $unpushedCount = 0
+        try {
+            $unpushedCount = [int](git rev-list --count origin/main..HEAD 2>$null)
+        } catch {
+            $unpushedCount = 0
+        }
+
+        if (-not $statusLines -and $unpushedCount -le 0) {
             Write-Host "[*] No file changes detected in working tree." -ForegroundColor Yellow
             if (-not $NonInteractive) {
                 $ans = Read-Host "Which app folder do you want to force-rebuild on Codemagic? (e.g. nocturne, prism, CarbPrep, or press Enter to cancel)"
@@ -278,6 +297,7 @@ function Invoke-PushAndBuild([string]$CustomMsg = "", [switch]$NonInteractive) {
                     "Triggered at $((Get-Date).ToUniversalTime().ToString('o'))" | Set-Content -Path $stampFile -Encoding UTF8
                     git add -A
                     $CustomMsg = "Rebuild $($ans.Trim()) on Codemagic M2"
+                    $statusLines = git status --porcelain
                 } else {
                     Write-Host "[!] Folder '$ans' not found in $BuilderRoot" -ForegroundColor Red
                     return
@@ -287,23 +307,27 @@ function Invoke-PushAndBuild([string]$CustomMsg = "", [switch]$NonInteractive) {
             }
         }
 
-        $changedSummary = (git status --short | Select-Object -First 8) -join ", "
-        if ([string]::IsNullOrWhiteSpace($CustomMsg)) {
-            if ($imported -and $imported.Count -gt 0) {
-                $CustomMsg = "Build & publish $($imported -join ', ') via Stark Desktop Builder"
-            } else {
-                $CustomMsg = "Build & publish via Stark Desktop Builder ($((Get-Date).ToString('yyyy-MM-dd HH:mm')))"
+        if ($statusLines) {
+            if ([string]::IsNullOrWhiteSpace($CustomMsg)) {
+                if ($imported -and $imported.Count -gt 0) {
+                    $CustomMsg = "Build & publish $($imported -join ', ') via Stark Desktop Builder"
+                } else {
+                    $CustomMsg = "Build & publish via Stark Desktop Builder ($((Get-Date).ToString('yyyy-MM-dd HH:mm')))"
+                }
             }
+
+            Write-Host "[*] Committing changes: $CustomMsg" -ForegroundColor Cyan
+            git commit -m $CustomMsg
+        } else {
+            Write-Host "[*] Found $unpushedCount unpushed commit(s) ready to push..." -ForegroundColor Cyan
         }
 
-        Write-Host "[*] Committing changes: $CustomMsg" -ForegroundColor Cyan
-        git commit -m $CustomMsg
-
+        git branch -M main 2>$null
         Write-Host "[*] Syncing latest remote history from TrueNAS..." -ForegroundColor Cyan
         git pull --rebase -X ours origin main
 
-        Write-Host "[*] Pushing to TrueNAS Git & firing Codemagic M2 webhook..." -ForegroundColor Cyan
-        git push origin main
+        Write-Host "[*] Pushing to TrueNAS Git (HEAD:main) & firing Codemagic M2 webhook..." -ForegroundColor Cyan
+        git push origin HEAD:main
         if ($LASTEXITCODE -eq 0) {
             Write-Host ""
             Write-Host "[+] SUCCESS! Pushed to TrueNAS Git (main) and triggered Codemagic M2 build!" -ForegroundColor Green
@@ -345,8 +369,10 @@ function Invoke-PushAndBuild([string]$CustomMsg = "", [switch]$NonInteractive) {
 if ($Mode -eq "sync") {
     Write-Header "SYNC LATEST APPS & SOURCE FROM TRUENAS"
     if (Ensure-GitRepo) {
-        git pull --rebase origin main
-        Write-Host "[+] Desktop folder is up to date with TrueNAS!" -ForegroundColor Green
+        git fetch origin main
+        git checkout -f -B main origin/main
+        git reset --hard origin/main
+        Write-Host "[+] Desktop folder is up to date with TrueNAS (branch: main)!" -ForegroundColor Green
     }
 } elseif ($Mode -eq "push") {
     Write-Header "ONE-CLICK GIT PUSH -> CODEMAGIC M2 -> 365-DAY SIGNED IPA"

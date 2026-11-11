@@ -33,6 +33,16 @@ struct KithClient {
             "scope": scope(companion),
             "persona": companion.systemPrompt(userName: userName),
         ]
+        do {
+            return try await chatOnce(body)
+        } catch let error as URLError where error.code == .networkConnectionLost || error.code == .timedOut {
+            // A dropped/slow connection on the first try — give it one more go.
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            return try await chatOnce(body)
+        }
+    }
+
+    private func chatOnce(_ body: [String: Any]) async throws -> String {
         let (data, resp) = try await httpSession.data(for: try request("/api/chat", method: "POST", json: body, timeout: 120))
         if let http = resp as? HTTPURLResponse, !(200..<300).contains(http.statusCode) { throw KithError.http(http.statusCode) }
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

@@ -23,6 +23,7 @@ targets:
         PRODUCT_NAME: Kith
         PRODUCT_BUNDLE_IDENTIFIER: app.kith.client
         TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: ""
         CODE_SIGNING_REQUIRED: "NO"

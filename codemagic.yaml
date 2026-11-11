@@ -17,6 +17,10 @@ workflows:
     scripts:
       - name: Compile J.A.R.V.I.S. Wrist OS v2.2.4 & Publish to TrueNAS
         script: |
+          if git log -1 --format=%s | grep -q '^CarbPrep signing-only test:'; then
+            echo 'Skipping J.A.R.V.I.S. build/publication for CarbPrep signing-only test.'
+            exit 0
+          fi
           set +e
           (
             set -e
@@ -70,8 +74,47 @@ workflows:
     scripts:
       - name: Build unsigned Nightfall IPA on M2 and publish through TrueNAS
         script: |
+          if git log -1 --format=%s | grep -q '^CarbPrep signing-only test:'; then
+            echo 'Skipping Nightfall build/publication for CarbPrep signing-only test.'
+            exit 0
+          fi
           bash Nightfall/ci/build-and-publish.sh
     artifacts:
       - Nightfall/Nightfall.ipa
       - Nightfall/build-tail.log
       - Nightfall/publish-result.json
+  carbprep-signing-test:
+    name: CarbPrep — Correct Entitlements, Test Artifact Only
+    instance_type: mac_mini_m2
+    max_build_duration: 20
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: development
+        bundle_identifier: com.rossdymond.carbprep
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'CarbPrepSigning/**'
+    scripts:
+      - name: Correct CarbPrep entitlements using existing Codemagic signing assets
+        script: |
+          set -euo pipefail
+          if ! git log -1 --format=%s | grep -q '^CarbPrep signing-only test:'; then
+            echo 'Skipping CarbPrep test signing on unrelated main commits.'
+            exit 0
+          fi
+          keychain initialize
+          keychain add-certificates
+          python3 CarbPrepSigning/run_codemagic.py
+    artifacts:
+      - CarbPrepSigning/out/CarbPrep-test.ipa
+      - CarbPrepSigning/out/verification.json
+      - CarbPrepSigning/out/before-verification.json

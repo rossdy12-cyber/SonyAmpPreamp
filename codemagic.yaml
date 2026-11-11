@@ -153,3 +153,108 @@ workflows:
     artifacts:
       - lumen/out/Lumen.ipa
       - lumen/out/publish.json
+  deskswitch-unsigned-ipa:
+    name: DeskSwitch iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'DeskSwitch/**'
+    scripts:
+      - name: Build unsigned DeskSwitch IPA on M2 and publish through TrueNAS
+        script: |
+          bash DeskSwitch/build-and-publish.sh
+  glucopulse-unsigned-ipa:
+    name: GlucoPulse iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'GlucoPulse/**'
+    scripts:
+      - name: Build unsigned GlucoPulse IPA on M2 and publish through TrueNAS
+        script: |
+          bash GlucoPulse/build-and-publish.sh
+  keepwatch-unsigned-ipa:
+    name: Keepwatch iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'Keepwatch/**'
+    scripts:
+      - name: Build unsigned Keepwatch IPA on M2 and publish through TrueNAS
+        script: |
+          bash Keepwatch/build-and-publish.sh
+  nasfiles-unsigned-ipa:
+    name: NASFiles iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'NASFiles/**'
+    scripts:
+      - name: Build unsigned NASFiles IPA on M2 and publish through TrueNAS
+        script: |
+          bash NASFiles/build-and-publish.sh
+  omnicontainer-unsigned-ipa:
+    name: OmniContainer iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'OmniContainer/**'
+    scripts:
+      - name: Build unsigned OmniContainer IPA on M2 and publish through TrueNAS
+        script: |
+          bash OmniContainer/build-and-publish.sh

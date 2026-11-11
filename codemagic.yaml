@@ -1,64 +1,43 @@
 workflows:
-  ios-unsigned-ipa:
-    name: Build & Publish J.A.R.V.I.S. Wrist OS v2.2.4 (Apple Watch Series 10 HUD Fix)
-    max_build_duration: 15
+  carbprep-unsigned-ipa:
+    name: CarbPrep Native Xcode 16 Build & TrueNAS Auto-Sign
     instance_type: mac_mini_m2
+    max_build_duration: 20
+    environment:
+      xcode: latest
     triggering:
       events:
         - push
       branch_patterns:
-        - pattern: 'main'
+        - pattern: main
           include: true
           source: true
     when:
       changeset:
         includes:
-          - 'OmniContainer/**'
+          - 'CarbPrep/**'
+          - 'codemagic.yaml'
     scripts:
-      - name: Compile J.A.R.V.I.S. Wrist OS v2.2.4 & Publish to TrueNAS
+      - name: Compile native arm64 CarbPrep IPA on M2 and publish through TrueNAS
         script: |
-          if git log -1 --format=%s | grep -q '^CarbPrep signing-only test:'; then
-            echo 'Skipping J.A.R.V.I.S. build/publication for CarbPrep signing-only test.'
-            exit 0
-          fi
           set +e
           (
             set -e
-            cd OmniContainer
-            mkdir -p build/Release-iphoneos/OmniContainer.app/Watch/OmniWatch.app
-            tr -d '\r' < build_watch_bundle.sh > build_watch_bundle_lf.sh
-            bash build_watch_bundle_lf.sh
-            rm -f build_watch_bundle_lf.sh
-            cd ..
+            bash CarbPrep/build-and-publish.sh
           ) > /tmp/cm_build.log 2>&1
-          BUILD_STATUS=$?
-
-          tail -n 120 /tmp/cm_build.log > /tmp/cm_tail.log
+          EXIT_CODE=$?
+          cat /tmp/cm_build.log
           curl -fsSL -X POST \
             -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
-            --data-binary @/tmp/cm_tail.log \
-            "https://navidrome.nas-server.co.uk/sidestore-upload?buildLog=1" || true
-
-          cat /tmp/cm_tail.log
-          if [ $BUILD_STATUS -ne 0 ]; then
-            exit $BUILD_STATUS
-          fi
-
-          NOTES=$(git log -1 --pretty=%s | python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))')
-          curl -fsSL -X POST \
-            -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
-            --data-binary @JarvisWatch.ipa \
-            "https://navidrome.nas-server.co.uk/sidestore-upload?bundleId=com.ross.jarvis.watchkitapp&version=2.2.4&notes=${NOTES}"
-    artifacts:
-      - JarvisWatch.ipa
-  nightfall-ios-ipa:
-    name: Nightfall iPhone Browser — Build, Sign & Publish
+            --data-binary @/tmp/cm_build.log \
+            "https://navidrome.nas-server.co.uk/sidestore-api/upload?buildLog=1" || true
+          exit $EXIT_CODE
+  nightfall-unsigned-ipa:
+    name: Nightfall iOS Unsigned IPA
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
-      node: 22
       xcode: latest
-      cocoapods: default
     triggering:
       events:
         - push
@@ -70,51 +49,11 @@ workflows:
       changeset:
         includes:
           - 'Nightfall/**'
-          - 'codemagic.yaml'
     scripts:
       - name: Build unsigned Nightfall IPA on M2 and publish through TrueNAS
         script: |
-          if git log -1 --format=%s | grep -q '^CarbPrep signing-only test:'; then
-            echo 'Skipping Nightfall build/publication for CarbPrep signing-only test.'
-            exit 0
-          fi
           bash Nightfall/ci/build-and-publish.sh
     artifacts:
       - Nightfall/Nightfall.ipa
       - Nightfall/build-tail.log
       - Nightfall/publish-result.json
-  carbprep-signing-test:
-    name: CarbPrep — Correct Entitlements, Test Artifact Only
-    instance_type: mac_mini_m2
-    max_build_duration: 20
-    environment:
-      xcode: latest
-      ios_signing:
-        distribution_type: development
-        bundle_identifier: com.rossdymond.carbprep
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'CarbPrepSigning/**'
-    scripts:
-      - name: Correct CarbPrep entitlements using existing Codemagic signing assets
-        script: |
-          set -euo pipefail
-          if ! git log -1 --format=%s | grep -q '^CarbPrep signing-only test:'; then
-            echo 'Skipping CarbPrep test signing on unrelated main commits.'
-            exit 0
-          fi
-          keychain initialize
-          keychain add-certificates
-          python3 CarbPrepSigning/run_codemagic.py
-    artifacts:
-      - CarbPrepSigning/out/CarbPrep-test.ipa
-      - CarbPrepSigning/out/verification.json
-      - CarbPrepSigning/out/before-verification.json

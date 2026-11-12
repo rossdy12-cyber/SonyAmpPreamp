@@ -71,7 +71,7 @@ struct PumpHistoryView: View {
                 Image(systemName: "bolt.heart.fill")
                     .foregroundStyle(GlucoTheme.lowRed)
                 Text("15/15 HYPO RESCUE PROTOCOL")
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .font(.system(size: 11, weight: .heavy, design: .serif))
                     .tracking(0.8)
                     .foregroundStyle(GlucoTheme.lowRed)
                 Spacer()
@@ -218,7 +218,7 @@ struct PumpHistoryView: View {
                         Image(systemName: "dot.radiowaves.left.and.right")
                             .foregroundStyle(GlucoTheme.tandemCyan)
                         Text("BLE PROXIMITY RADAR")
-                            .font(.system(size: 11, weight: .heavy, design: .rounded))
+                            .font(.system(size: 11, weight: .heavy, design: .serif))
                             .tracking(0.8)
                             .foregroundStyle(GlucoTheme.textSecondary)
                     }
@@ -454,7 +454,7 @@ struct SickDayKetoneSheet: View {
                             HStack(spacing: 12) {
                                 TextField("0.8", text: $ketoneInput)
                                     .keyboardType(.decimalPad)
-                                    .font(.system(size: 32, weight: .black, design: .rounded))
+                                    .font(.system(size: 32, weight: .black, design: .serif))
                                     .foregroundStyle(advice.severityColor)
                                     .padding(12)
                                     .background(GlucoTheme.cardElevated, in: RoundedRectangle(cornerRadius: 14))
@@ -464,7 +464,7 @@ struct SickDayKetoneSheet: View {
                                         .font(.system(size: 11, weight: .semibold))
                                         .foregroundStyle(GlucoTheme.textSecondary)
                                     Text("\(Int(store.tddUnits)) U / day")
-                                        .font(.system(size: 18, weight: .heavy, design: .rounded))
+                                        .font(.system(size: 18, weight: .heavy, design: .serif))
                                         .foregroundStyle(GlucoTheme.tandemCyan)
                                     Text("10% = \(String(format: "%.1fU", store.tddUnits * 0.1)) · 20% = \(String(format: "%.1fU", store.tddUnits * 0.2))")
                                         .font(.system(size: 11))
@@ -488,7 +488,7 @@ struct SickDayKetoneSheet: View {
 
                         VStack(alignment: .leading, spacing: 12) {
                             Text(advice.severityTitle)
-                                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                .font(.system(size: 13, weight: .heavy, design: .serif))
                                 .foregroundStyle(advice.severityColor)
 
                             Text(advice.headline)

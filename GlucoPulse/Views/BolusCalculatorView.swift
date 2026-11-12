@@ -88,7 +88,7 @@ struct BolusCalculatorView: View {
                 .foregroundStyle(GlucoTheme.tandemCyan)
             VStack(alignment: .leading, spacing: 2) {
                 Text(block.label.uppercased())
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .font(.system(size: 11, weight: .heavy, design: .serif))
                     .foregroundStyle(GlucoTheme.tandemCyan)
                 Text("ICR 1:\(String(format: "%.0fg", block.icrGramsPerUnit)) · ISF 1:\(String(format: "%.1f", block.isfMmolPerUnit)) mmol/L · Target \(String(format: "%.1f", block.targetMmol))")
                     .font(.system(size: 12, weight: .semibold))
@@ -148,7 +148,7 @@ struct BolusCalculatorView: View {
                     HStack {
                         TextField("0", text: $carbsInput)
                             .keyboardType(.decimalPad)
-                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .font(.system(size: 22, weight: .heavy, design: .serif))
                             .foregroundStyle(GlucoTheme.inRangeGreen)
                         Text("g")
                             .font(.system(size: 14, weight: .bold))
@@ -175,7 +175,7 @@ struct BolusCalculatorView: View {
                     HStack {
                         TextField("6.0", text: $bgInputMmol)
                             .keyboardType(.decimalPad)
-                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .font(.system(size: 22, weight: .heavy, design: .serif))
                             .foregroundStyle(GlucoTheme.tandemCyan)
                         Text(store.unit.rawValue)
                             .font(.system(size: 12, weight: .bold))
@@ -192,7 +192,7 @@ struct BolusCalculatorView: View {
                     Button("\(preset)g") {
                         carbsInput = "\(preset)"
                     }
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold, design: .serif))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 7)
                     .background(carbsInput == "\(preset)" ? GlucoTheme.inRangeGreen.opacity(0.25) : GlucoTheme.cardElevated, in: RoundedRectangle(cornerRadius: 10))
@@ -266,12 +266,12 @@ struct BolusCalculatorView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("RECOMMENDED RAPID BOLUS")
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .font(.system(size: 11, weight: .heavy, design: .serif))
                         .tracking(0.8)
                         .foregroundStyle(GlucoTheme.textSecondary)
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(String(format: "%.2f", res.immediateUnits))
-                            .font(.system(size: 46, weight: .black, design: .rounded))
+                            .font(.system(size: 46, weight: .black, design: .serif))
                             .foregroundStyle(GlucoTheme.tandemCyan)
                         Text("U Upfront")
                             .font(.system(size: 16, weight: .bold))
@@ -368,7 +368,7 @@ struct BolusCalculatorView: View {
                 Image(systemName: "flame.fill")
                     .foregroundStyle(GlucoTheme.controlIQPurple)
                 Text("WARSAW FAT-PROTEIN (FPU) EXTENDED BOLUS ADVISOR")
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .font(.system(size: 11, weight: .heavy, design: .serif))
                     .foregroundStyle(GlucoTheme.controlIQPurple)
             }
             Text("High Fat/Protein detected: **\(String(format: "%.1f FPU", res.fpuCount))** (equivalent to **\(Int(res.fpuEquivalentCarbs))g** delayed carbs). On Tandem t:slim X2, use an **Extended Bolus**:")
@@ -381,7 +381,7 @@ struct BolusCalculatorView: View {
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(GlucoTheme.textSecondary)
                     Text(String(format: "%.2f U", res.immediateUnits))
-                        .font(.system(size: 18, weight: .heavy, design: .rounded))
+                        .font(.system(size: 18, weight: .heavy, design: .serif))
                         .foregroundStyle(GlucoTheme.tandemCyan)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -393,7 +393,7 @@ struct BolusCalculatorView: View {
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(GlucoTheme.textSecondary)
                     Text(String(format: "%.2f U", res.fpuExtendedUnits))
-                        .font(.system(size: 18, weight: .heavy, design: .rounded))
+                        .font(.system(size: 18, weight: .heavy, design: .serif))
                         .foregroundStyle(GlucoTheme.controlIQPurple)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

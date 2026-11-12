@@ -53,7 +53,7 @@ struct DashboardView: View {
                         store.unit = (store.unit == .mmolL) ? .mgdL : .mmolL
                     } label: {
                         Text(store.unit.rawValue)
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .font(.system(size: 12, weight: .bold, design: .serif))
                             .foregroundStyle(GlucoTheme.tandemCyan)
                             .padding(.horizontal, 9)
                             .padding(.vertical, 4)
@@ -87,7 +87,7 @@ struct DashboardView: View {
                 .lineLimit(1)
             Spacer()
             Text("G7: \(String(format: "%.1fd", store.sensorElapsedDays))/10d")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .font(.system(size: 11, weight: .bold, design: .serif))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(GlucoTheme.cardElevated, in: Capsule())
@@ -104,7 +104,7 @@ struct DashboardView: View {
                 .foregroundStyle(.white)
             VStack(alignment: .leading, spacing: 2) {
                 Text("15/15 HYPO RESCUE TIMER ACTIVE")
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .font(.system(size: 11, weight: .heavy, design: .serif))
                     .foregroundStyle(.white.opacity(0.9))
                 Text("Re-check BG in \(String(format: "%02d:%02d", mins, secs)) · \(store.lastHypoRescueNote)")
                     .font(.system(size: 13, weight: .bold))
@@ -130,7 +130,7 @@ struct DashboardView: View {
                 .foregroundStyle(GlucoTheme.lowRed)
             VStack(alignment: .leading, spacing: 2) {
                 Text(mins == 0 ? "LOW GLUCOSE ALERT" : "PREDICTIVE LOW IN ~\(mins) MIN")
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .font(.system(size: 11, weight: .heavy, design: .serif))
                     .foregroundStyle(GlucoTheme.lowRed)
                 Text("30m forecast: \(store.formatGlucose(store.predicted30MinMgdL)) \(store.unit.rawValue) · Active IOB: \(String(format: "%.2f U", store.effectiveIOBUnits))")
                     .font(.system(size: 12, weight: .semibold))
@@ -167,18 +167,18 @@ struct DashboardView: View {
                     Image(systemName: "sensor.tag.radiowaves.forward.fill")
                         .foregroundStyle(GlucoTheme.inRangeGreen)
                     Text("DEXCOM G7 CGM")
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .font(.system(size: 11, weight: .heavy, design: .serif))
                         .tracking(0.8)
                         .foregroundStyle(GlucoTheme.textSecondary)
                 }
 
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(store.formatGlucose(mgdL))
-                        .font(.system(size: 54, weight: .black, design: .rounded))
+                        .font(.system(size: 54, weight: .black, design: .serif))
                         .foregroundStyle(glucoseColor)
 
                     Text(latest?.trend.arrow ?? "→")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 34, weight: .bold, design: .serif))
                         .foregroundStyle(glucoseColor)
                 }
 
@@ -284,7 +284,7 @@ struct DashboardView: View {
                     Image(systemName: "drop.transmission")
                         .foregroundStyle(GlucoTheme.tandemCyan)
                     Text("TANDEM t:slim X2")
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .font(.system(size: 11, weight: .heavy, design: .serif))
                         .tracking(0.8)
                         .foregroundStyle(GlucoTheme.textSecondary)
                 }
@@ -352,7 +352,7 @@ struct DashboardView: View {
                     .lineLimit(1)
             }
             Text(value)
-                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .font(.system(size: 20, weight: .heavy, design: .serif))
                 .foregroundStyle(GlucoTheme.textPrimary)
             Text(subtitle)
                 .font(.system(size: 11))
@@ -502,7 +502,7 @@ struct DashboardView: View {
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(GlucoTheme.textSecondary)
             Text(value)
-                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                .font(.system(size: 15, weight: .heavy, design: .serif))
                 .foregroundStyle(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

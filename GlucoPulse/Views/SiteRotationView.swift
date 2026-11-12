@@ -47,7 +47,7 @@ struct SiteRotationView: View {
                 Image(systemName: "timer.circle.fill")
                     .foregroundStyle(GlucoTheme.inRangeGreen)
                 Text("SENSOR, CANNULA & CARTRIDGE LIFESPAN")
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .font(.system(size: 11, weight: .heavy, design: .serif))
                     .tracking(0.8)
                     .foregroundStyle(GlucoTheme.textSecondary)
                 Spacer()
@@ -141,7 +141,7 @@ struct SiteRotationView: View {
                         VStack(alignment: .leading, spacing: 5) {
                             HStack {
                                 Text(site.zone.shortLabel)
-                                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                    .font(.system(size: 13, weight: .heavy, design: .serif))
                                     .foregroundStyle(GlucoTheme.textPrimary)
                                 Spacer()
                                 Circle()

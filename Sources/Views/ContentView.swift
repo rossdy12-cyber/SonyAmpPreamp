@@ -8,9 +8,9 @@ struct ContentView: View {
     @State private var selectedTab: Int = 0
     @State private var showFileImporter: Bool = false
 
-    private let goldAccent = Color(red: 0.93, green: 0.74, blue: 0.32)
-    private let panelBg = Color(red: 0.11, green: 0.12, blue: 0.14)
-    private let deepBg = Color(red: 0.06, green: 0.06, blue: 0.08)
+    private let goldAccent = GothicTheme.bloodHi
+    private let panelBg = GothicTheme.crypt
+    private let deepBg = GothicTheme.void
 
     var body: some View {
         ZStack {
@@ -95,7 +95,7 @@ struct ContentView: View {
             HStack(spacing: 10) {
                 Image(systemName: dspEngine.isUSBDACConnected ? "cable.connector.horizontal" : "iphone.gen3")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(dspEngine.isUSBDACConnected ? .black : goldAccent)
+                    .foregroundColor(dspEngine.isUSBDACConnected ? .white : goldAccent)
                     .padding(7)
                     .background(dspEngine.isUSBDACConnected ? goldAccent : Color.white.opacity(0.1))
                     .clipShape(Circle())
@@ -124,10 +124,10 @@ struct ContentView: View {
                 } label: {
                     Text(dspEngine.dspBypassed ? "BYPASSED" : "DSP ON")
                         .font(.system(size: 10, weight: .heavy, design: .monospaced))
-                        .foregroundColor(dspEngine.dspBypassed ? .white : .black)
+                        .foregroundColor(.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(dspEngine.dspBypassed ? Color.red.opacity(0.8) : goldAccent)
+                        .background(dspEngine.dspBypassed ? Color.gray.opacity(0.55) : goldAccent)
                         .cornerRadius(6)
                 }
             }
@@ -197,7 +197,7 @@ struct ContentView: View {
             }
         }
         .padding(.top, 6)
-        .background(Color(red: 0.14, green: 0.15, blue: 0.18))
+        .background(GothicTheme.sepulchre)
     }
 }
 
@@ -608,7 +608,7 @@ struct NavidromeLibraryView: View {
                 }
                 .padding(14)
             }
-            .background(Color(red: 0.06, green: 0.06, blue: 0.08))
+            .background(GothicTheme.void)
             .navigationTitle("TrueNAS Lossless")
             .navigationBarTitleDisplayMode(.inline)
         }

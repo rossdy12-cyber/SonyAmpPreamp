@@ -57,7 +57,7 @@ struct AnalyticsAndSettingsView: View {
                 Image(systemName: "waveform.path.ecg.text.clipboard.fill")
                     .foregroundStyle(GlucoTheme.tandemCyan)
                 Text("AMBULATORY GLUCOSE PROFILE (AGP) SUMMARY")
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .font(.system(size: 11, weight: .heavy, design: .serif))
                     .tracking(0.8)
                     .foregroundStyle(GlucoTheme.textSecondary)
                 Spacer()
@@ -84,7 +84,7 @@ struct AnalyticsAndSettingsView: View {
                 .foregroundStyle(GlucoTheme.textSecondary)
                 .lineLimit(1)
             Text(value)
-                .font(.system(size: 18, weight: .black, design: .rounded))
+                .font(.system(size: 18, weight: .black, design: .serif))
                 .foregroundStyle(color)
                 .lineLimit(1)
             Text(sub)
@@ -244,7 +244,7 @@ struct AnalyticsAndSettingsView: View {
             ForEach($store.therapyBlocks) { $block in
                 VStack(alignment: .leading, spacing: 8) {
                     Text(block.label)
-                        .font(.system(size: 13, weight: .heavy, design: .rounded))
+                        .font(.system(size: 13, weight: .heavy, design: .serif))
                         .foregroundStyle(GlucoTheme.tandemCyan)
 
                     HStack {

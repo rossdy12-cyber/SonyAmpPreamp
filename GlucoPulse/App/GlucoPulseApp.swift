@@ -57,6 +57,6 @@ struct RootTabView: View {
                 }
                 .tag(5)
         }
-        .tint(GlucoTheme.inRangeGreen)
+        .tint(GlucoTheme.tint)
     }
 }

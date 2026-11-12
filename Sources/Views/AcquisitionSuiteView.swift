@@ -27,7 +27,7 @@ struct SoulSeekrView: View {
                 }
                 .padding(14)
             }
-            .background(Color(red: 0.06, green: 0.06, blue: 0.08))
+            .background(GothicTheme.void)
             .navigationTitle("SoulSeekr P2P (slskd)")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
@@ -263,7 +263,7 @@ struct EncoreLidarrView: View {
                 }
                 .padding(14)
             }
-            .background(Color(red: 0.06, green: 0.06, blue: 0.08))
+            .background(GothicTheme.void)
             .navigationTitle("Encore (Lidarr)")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {

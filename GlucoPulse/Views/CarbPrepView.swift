@@ -88,7 +88,7 @@ struct CarbPrepView: View {
                     Image(systemName: "fork.knife.circle.fill")
                         .foregroundStyle(GlucoTheme.inRangeGreen)
                     Text("CURRENT MEAL PLATE (\(carbStore.plateItems.count) ITEMS)")
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .font(.system(size: 11, weight: .heavy, design: .serif))
                         .foregroundStyle(GlucoTheme.textSecondary)
                 }
                 Spacer()
@@ -122,7 +122,7 @@ struct CarbPrepView: View {
                         }
                         Spacer()
                         Text("\(Int(entry.carbsGrams.rounded()))g")
-                            .font(.system(size: 16, weight: .heavy, design: .rounded))
+                            .font(.system(size: 16, weight: .heavy, design: .serif))
                             .foregroundStyle(GlucoTheme.inRangeGreen)
                     }
 
@@ -185,7 +185,7 @@ struct CarbPrepView: View {
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(GlucoTheme.textSecondary)
             Text(value)
-                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                .font(.system(size: 14, weight: .heavy, design: .serif))
                 .foregroundStyle(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -297,7 +297,7 @@ struct CarbPrepView: View {
 
                     VStack(alignment: .trailing, spacing: 6) {
                         Text("\(Int(defaultCarbs.rounded()))g")
-                            .font(.system(size: 15, weight: .heavy, design: .rounded))
+                            .font(.system(size: 15, weight: .heavy, design: .serif))
                             .foregroundStyle(GlucoTheme.inRangeGreen)
 
                         HStack(spacing: 6) {
@@ -337,7 +337,7 @@ struct CarbPrepView: View {
                 Image(systemName: "takeoutbag.and.cup.and.straw.fill")
                     .foregroundStyle(GlucoTheme.controlIQPurple)
                 Text("BATCH MEAL-PREP TUB CALCULATOR")
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .font(.system(size: 11, weight: .heavy, design: .serif))
                     .foregroundStyle(GlucoTheme.controlIQPurple)
                 Spacer()
                 if !carbStore.batchIngredients.isEmpty {
@@ -362,7 +362,7 @@ struct CarbPrepView: View {
                         .foregroundStyle(GlucoTheme.textSecondary)
                     Stepper(value: $carbStore.batchPortionCount, in: 1...20) {
                         Text("\(carbStore.batchPortionCount) tubs")
-                            .font(.system(size: 15, weight: .heavy, design: .rounded))
+                            .font(.system(size: 15, weight: .heavy, design: .serif))
                             .foregroundStyle(GlucoTheme.tandemCyan)
                     }
                 }
@@ -375,7 +375,7 @@ struct CarbPrepView: View {
                         .foregroundStyle(GlucoTheme.textSecondary)
                     TextField("1400", value: $carbStore.batchCookedWeightGrams, format: .number)
                         .keyboardType(.decimalPad)
-                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                        .font(.system(size: 16, weight: .heavy, design: .serif))
                         .foregroundStyle(GlucoTheme.inRangeGreen)
                 }
                 .padding(10)

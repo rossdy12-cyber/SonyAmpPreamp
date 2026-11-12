@@ -1615,16 +1615,20 @@ extension GlucoStore: CBCentralManagerDelegate {
 }
 
 enum GlucoTheme {
-    static let background = Color(red: 0.04, green: 0.06, blue: 0.11)
-    static let card = Color(red: 0.09, green: 0.12, blue: 0.19)
-    static let cardElevated = Color(red: 0.12, green: 0.16, blue: 0.25)
-    static let border = Color.white.opacity(0.09)
-    static let textPrimary = Color(red: 0.96, green: 0.98, blue: 1.0)
-    static let textSecondary = Color(red: 0.58, green: 0.66, blue: 0.78)
+    // Vampire palette (see GothicTheme.swift)
+    static let background = GothicTheme.void
+    static let card = GothicTheme.crypt
+    static let cardElevated = GothicTheme.sepulchre
+    static let border = GothicTheme.blood.opacity(0.35)
+    static let textPrimary = GothicTheme.bone
+    static let textSecondary = GothicTheme.ash
+    // Decoration is red, but the control tint stays pale so it is never mistaken for a low-glucose alert.
+    static let tint = GothicTheme.bone
+    // Clinical status colours are deliberately unchanged so ranges stay instantly recognisable.
     static let inRangeGreen = Color(red: 0.18, green: 0.84, blue: 0.48)
     static let highAmber = Color(red: 0.98, green: 0.68, blue: 0.16)
     static let lowRed = Color(red: 0.96, green: 0.32, blue: 0.36)
     static let urgentRed = Color(red: 0.90, green: 0.14, blue: 0.24)
-    static let tandemCyan = Color(red: 0.22, green: 0.74, blue: 0.97)
-    static let controlIQPurple = Color(red: 0.66, green: 0.52, blue: 0.98)
+    static let tandemCyan = Color(red: 0.62, green: 0.74, blue: 0.88)
+    static let controlIQPurple = Color(red: 0.70, green: 0.48, blue: 0.86)
 }

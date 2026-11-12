@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 enum ThemeStyle: String, Codable, CaseIterable, Identifiable {
-    case gradient, solid, aurora, bands
+    case gradient, solid, aurora, bands, cathedral
     var id: String { rawValue }
     var label: String { rawValue.capitalized }
 }
@@ -63,6 +63,8 @@ struct ThemeBackground: View {
                                        startRadius: 0, endRadius: geo.size.width * 0.9)
                     }
                     .blur(radius: geo.size.width * 0.02)
+                case .cathedral:
+                    CathedralArt(cols: cols, accent: spec.accentColor)
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
@@ -119,5 +121,78 @@ enum ThemePresets {
         ThemeSpec(name: "Grape", colors: ["41295A", "2F0743"], accent: "B06AB3", style: .aurora),
         ThemeSpec(name: "Crimson Rose", colors: ["090304", "8C0E1C", "C21E56"], accent: "FF4D6D", style: .aurora),
         ThemeSpec(name: "Crimson Royale", colors: ["0A0306", "8C0E1C", "4A1E70"], accent: "B06AF0", style: .gradient),
+        // Vampire set: black with blood red
+        ThemeSpec(name: "Crimson Crypt", colors: ["050203", "1C060B", "3A0A14"], accent: "D4163A", style: .cathedral),
+        ThemeSpec(name: "Nosferatu", colors: ["030203", "14070B", "2A0A12"], accent: "EFE4E1", style: .cathedral),
+        ThemeSpec(name: "Blood Moon", colors: ["050203", "3A0A12", "8C0E1C"], accent: "EFE4E1", style: .aurora),
+        ThemeSpec(name: "Black Rose", colors: ["030203", "12050A", "6B0F24"], accent: "FF4D6D", style: .aurora),
+        ThemeSpec(name: "Oxblood", colors: ["0A0204", "4A0A16"], accent: "EFE4E1", style: .gradient),
+        ThemeSpec(name: "Coven", colors: ["030203", "030203"], accent: "D4163A", style: .solid),
+        ThemeSpec(name: "Vampire Velvet", colors: ["12030A", "5A0A24", "8C0E3A"], accent: "FF6B81", style: .aurora),
     ]
+}
+
+
+// MARK: - Cathedral style (gothic arch window with a rose, under a vignette)
+
+struct ArchShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let spring = rect.minY + rect.height * 0.40
+        p.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.minX, y: spring))
+        p.addQuadCurve(to: CGPoint(x: rect.midX, y: rect.minY),
+                       control: CGPoint(x: rect.minX, y: rect.minY + rect.height * 0.10))
+        p.addQuadCurve(to: CGPoint(x: rect.maxX, y: spring),
+                       control: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.10))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        return p
+    }
+}
+
+struct CathedralArt: View {
+    let cols: [Color]
+    let accent: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let archW = w * 0.64
+            let archH = h * 0.68
+            let line = max(1, w * 0.006)
+            ZStack {
+                LinearGradient(colors: cols, startPoint: .top, endPoint: .bottom)
+                ArchShape()
+                    .fill(accent.opacity(0.06))
+                    .overlay(ArchShape().stroke(accent.opacity(0.55), lineWidth: line))
+                    .frame(width: archW, height: archH)
+                    .position(x: w / 2, y: h * 0.61)
+                ArchShape()
+                    .stroke(accent.opacity(0.30), lineWidth: line * 0.7)
+                    .frame(width: archW * 0.82, height: archH * 0.86)
+                    .position(x: w / 2, y: h * 0.61 + archH * 0.07)
+                ZStack {
+                    Circle().stroke(accent.opacity(0.55), lineWidth: line)
+                    Circle().stroke(accent.opacity(0.30), lineWidth: line * 0.6).padding(w * 0.018)
+                    ForEach(0..<8) { i in
+                        Rectangle()
+                            .fill(accent.opacity(0.35))
+                            .frame(width: max(1, w * 0.003), height: archW * 0.22)
+                            .rotationEffect(.degrees(Double(i) * 22.5))
+                    }
+                }
+                .frame(width: archW * 0.28, height: archW * 0.28)
+                .position(x: w / 2, y: h * 0.61 - archH * 0.24)
+                Rectangle()
+                    .fill(accent.opacity(0.30))
+                    .frame(width: max(1, w * 0.003), height: archH * 0.36)
+                    .position(x: w / 2, y: h * 0.61 + archH * 0.30)
+                RadialGradient(colors: [Color.clear, Color.black.opacity(0.55)],
+                               center: .center, startRadius: w * 0.25, endRadius: max(w, h) * 0.75)
+            }
+            .frame(width: w, height: h)
+            .clipped()
+        }
+    }
 }

@@ -279,3 +279,27 @@ workflows:
       - name: Build unsigned RaceboltTest IPA on M2 and publish through TrueNAS
         script: |
           bash RaceboltTest/build-and-publish.sh
+  crimson-unsigned-ipa:
+    name: Crimson iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'crimson/**'
+    scripts:
+      - name: Build unsigned Crimson IPA on M2 and publish through TrueNAS
+        script: |
+          bash crimson/build-and-publish.sh
+    artifacts:
+      - crimson/out/Crimson.ipa
+      - crimson/out/publish.json

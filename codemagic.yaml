@@ -42,6 +42,10 @@ workflows:
 
           # Top-level folders that changed (an app lives in a top-level folder).
           APPS=$(echo "$CHANGED" | awk -F/ 'NF>1 {print $1}' | sort -u)
+          # Sony Amp DSP lives at the repo root (Sources/ + project.yml): map those changes to its build folder.
+          if echo "$CHANGED" | grep -qE '^(Sources/|project\.yml$)'; then
+            APPS=$(printf '%s\nSonyAmpDSP\n' "$APPS" | sed '/^$/d' | sort -u)
+          fi
           echo "Candidate app folders: ${APPS:-<none>}"
 
           RC=0

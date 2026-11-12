@@ -1,0 +1,5 @@
+# Private build repo: the signing key and Firebase config ARE kept here (unlike the public GitHub copy).
+.gradle/
+build/
+app/build/
+local.properties

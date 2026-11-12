@@ -12,7 +12,8 @@ Set-Location $BuilderRoot
 
 $RepoUrl = "https://navidrome.nas-server.co.uk/sidestore/SonyAmpPreamp.git"
 $ApiBase = "https://navidrome.nas-server.co.uk/sidestore-api"
-$Token   = "ss-deploy-9f8e7d6c5b4a3f2e1d0c"
+$Token   = $env:SIDESTORE_UPLOAD_TOKEN
+if (-not $Token) { throw "Set the SIDESTORE_UPLOAD_TOKEN environment variable first." }
 
 $DropDir = Join-Path $BuilderRoot "Drop_App_Here"
 $ZipArchiveDir = Join-Path $BuilderRoot "_Processed_Zips"
@@ -171,7 +172,7 @@ function Ensure-AppBuildAndCodemagic {
 set -uo pipefail
 
 STORE_URL="https://navidrome.nas-server.co.uk"
-TOKEN="ss-deploy-9f8e7d6c5b4a3f2e1d0c"
+TOKEN="`${SIDESTORE_UPLOAD_TOKEN:?set SIDESTORE_UPLOAD_TOKEN}"
 VERSION="$version"
 BUNDLE_ID="$bundleId"
 APP_NAME="$appName"

@@ -60,7 +60,7 @@ final class KeepwatchStore: ObservableObject {
     @Published var opsEndpointURL: String {
         didSet { UserDefaults.standard.set(opsEndpointURL, forKey: "kw.ops.url") }
     }
-    @Published var uploadToken: String = "ss-deploy-9f8e7d6c5b4a3f2e1d0c"
+    @Published var uploadToken: String = ""
     @Published var isLoading: Bool = false
     @Published var lastActionBanner: String = ""
 

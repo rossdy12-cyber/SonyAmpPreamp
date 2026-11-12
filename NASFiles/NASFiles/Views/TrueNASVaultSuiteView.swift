@@ -120,7 +120,7 @@ final class TrueNASVaultStore: ObservableObject {
         } else {
             secrets = [
                 VaultSecretItem(id: UUID(), title: "TrueNAS Nightscout API", username: "admin", secretValue: "http://100.85.127.42:1337", notes: "GlucoPulse T1D CGM & Tandem t:slim X2 telemetry", updatedAt: Date()),
-                VaultSecretItem(id: UUID(), title: "SideStore Upload Token", username: "SideStore CI", secretValue: "ss-deploy-9f8e7d6c5b4a3f2e1d0c", notes: "TrueNAS port 18998 IPA auto-publish receiver", updatedAt: Date())
+                VaultSecretItem(id: UUID(), title: "SideStore Upload Token", username: "SideStore CI", secretValue: "", notes: "TrueNAS port 18998 IPA auto-publish receiver", updatedAt: Date())
             ]
         }
         if let data = try? Data(contentsOf: docsDir.appendingPathComponent("vault_photos.json")),

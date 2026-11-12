@@ -45,7 +45,8 @@
     proxy.owner = self;
     [configuration.userContentController addScriptMessageHandler:proxy name:@"raceboltBlocked"];
     NSURL *guardURL = [[NSBundle mainBundle] URLForResource:@"LiveGuard" withExtension:@"js"];
-    NSString *guard = guardURL ? [NSString stringWithContentsOfURL:guardURL encoding:NSUTF8StringEncoding error:nil] : nil;
+    NSError *guardError = nil;
+    NSString *guard = guardURL ? [NSString stringWithContentsOfURL:guardURL encoding:NSUTF8StringEncoding error:&guardError] : nil;
     if (guard.length) {
         WKUserScript *script = [[WKUserScript alloc] initWithSource:guard injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:NO];
         [configuration.userContentController addUserScript:script];
@@ -103,22 +104,40 @@
     ]];
 
     NSURL *rulesURL = [[NSBundle mainBundle] URLForResource:@"LiveSafetyRules" withExtension:@"json"];
-    NSString *rules = rulesURL ? [NSString stringWithContentsOfURL:rulesURL encoding:NSUTF8StringEncoding error:nil] : nil;
-    NSArray *entries = rules ? [NSJSONSerialization JSONObjectWithData:[rules dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil] : nil;
+    NSError *rulesError = nil;
+    NSString *rules = rulesURL ? [NSString stringWithContentsOfURL:rulesURL encoding:NSUTF8StringEncoding error:&rulesError] : nil;
+    if (!guard.length) { [self safetyFailedWithReason:guardError.localizedDescription ?: @"LiveGuard.js is missing or empty in the installed app."]; return; }
+    if (!rules.length) { [self safetyFailedWithReason:rulesError.localizedDescription ?: @"LiveSafetyRules.json is missing or empty in the installed app."]; return; }
+    id parsed = [NSJSONSerialization JSONObjectWithData:[rules dataUsingEncoding:NSUTF8StringEncoding] options:0 error:&rulesError];
+    if (![parsed isKindOfClass:NSArray.class] || ![(NSArray *)parsed count]) {
+        [self safetyFailedWithReason:rulesError.localizedDescription ?: @"Safety JSON must contain a nonempty array."];
+        return;
+    }
+    NSArray *entries = parsed;
     NSMutableArray *patterns = [[NSMutableArray alloc] init];
     for (NSDictionary *entry in entries) {
-        NSRegularExpression *pattern = [NSRegularExpression regularExpressionWithPattern:entry[@"trigger"][@"url-filter"] options:NSRegularExpressionCaseInsensitive error:nil];
-        if (!pattern) { [self safetyFailed]; return; }
+        if (![entry isKindOfClass:NSDictionary.class] || ![entry[@"trigger"] isKindOfClass:NSDictionary.class]) {
+            [self safetyFailedWithReason:@"Invalid safety rule structure."]; return;
+        }
+        NSString *filter = entry[@"trigger"][@"url-filter"];
+        if (![filter isKindOfClass:NSString.class] || !filter.length || [filter containsString:@"|"]) {
+            [self safetyFailedWithReason:@"Invalid safety filter or unsupported WebKit alternation."]; return;
+        }
+        NSError *regexError = nil;
+        NSRegularExpression *pattern = [NSRegularExpression regularExpressionWithPattern:filter options:NSRegularExpressionCaseInsensitive error:&regexError];
+        if (!pattern) { [self safetyFailedWithReason:regexError.localizedDescription ?: @"Safety regex parsing failed."]; return; }
         [patterns addObject:pattern];
     }
-    if (!guard.length || patterns.count != 3) { [self safetyFailed]; return; }
     self.blockedPatterns = patterns;
     __weak typeof(self) weakSelf = self;
-    [[WKContentRuleListStore defaultStore] compileContentRuleListForIdentifier:@"RaceboltLiveSafety-v2" encodedContentRuleList:rules completionHandler:^(WKContentRuleList *list, NSError *error) {
+    [[WKContentRuleListStore defaultStore] compileContentRuleListForIdentifier:@"RaceboltLiveSafety-v3" encodedContentRuleList:rules completionHandler:^(WKContentRuleList *list, NSError *error) {
         dispatch_async(dispatch_get_main_queue(), ^{
             RaceboltViewController *owner = weakSelf;
             if (!owner) return;
-            if (error || !list) { [owner safetyFailed]; return; }
+            if (error || !list) {
+                NSString *reason = error ? [NSString stringWithFormat:@"%@ (%ld): %@", error.domain, (long)error.code, error.localizedDescription] : @"WebKit returned no compiled safety list.";
+                [owner safetyFailedWithReason:reason]; return;
+            }
             [owner.webView.configuration.userContentController addContentRuleList:list];
             owner.safetyReady = YES;
             owner.status.text = @"LIVE SITE · CHECKOUT BLOCKED";
@@ -127,10 +146,11 @@
     }];
 }
 
-- (void)safetyFailed {
+- (void)safetyFailedWithReason:(NSString *)reason {
     self.safetyReady = NO;
     self.status.text = @"SITE NOT LOADED — SAFETY SETUP FAILED";
-    self.errorLabel.text = @"Checkout safeguards could not load.\nRebuild the complete RaceboltTest folder.";
+    self.errorLabel.font = [UIFont systemFontOfSize:15];
+    self.errorLabel.text = [NSString stringWithFormat:@"Racebolt Test build 3\nCheckout safeguards could not load.\n\n%@\n\nPlease send a screenshot of this message.", reason];
     self.errorLabel.hidden = NO;
 }
 

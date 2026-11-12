@@ -1,7 +1,7 @@
 [
   {
     "trigger": {
-      "url-filter": "^https?://[^/]+/([^?#]*/)?(checkout|order-pay|order-received|pay-for-order|add-payment-method)(/|\\?|#|$)",
+      "url-filter": "^https?://[^/]+/([^?#]*/)?checkout/",
       "url-filter-is-case-sensitive": false
     },
     "action": {
@@ -10,7 +10,7 @@
   },
   {
     "trigger": {
-      "url-filter": "(\\?|&|%3f|%26)(wc-ajax|wc_ajax|action|rest_route)(=|%3d)[^&#]*(checkout|place[-_]?order|process[-_]?payment|create[-_]?order|approve[-_]?order|capture[-_]?order|payment[-_]?intent|ppc[-_]|ppcp|stripe|wcpay)",
+      "url-filter": "^https?://[^/]+/([^?#]*/)?checkout[?#]",
       "url-filter-is-case-sensitive": false
     },
     "action": {
@@ -19,7 +19,2554 @@
   },
   {
     "trigger": {
-      "url-filter": "^https?://([^/]+\\.)?(paypal\\.com|paypalobjects\\.com|stripe\\.com|stripe\\.network|klarna\\.com|squareup\\.com|apple-pay-gateway\\.apple\\.com)/",
+      "url-filter": "^https?://[^/]+/([^?#]*/)?checkout$",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?order-pay/",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?order-pay[?#]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?order-pay$",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?order-received/",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?order-received[?#]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?order-received$",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?pay-for-order/",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?pay-for-order[?#]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?pay-for-order$",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?add-payment-method/",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?add-payment-method[?#]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://[^/]+/([^?#]*/)?add-payment-method$",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc-ajax%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc-ajax%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc-ajax%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]wc_ajax%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3fwc_ajax%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26wc_ajax%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]action%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3faction%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26action%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "[?&]rest_route%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%3frest_route%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route=[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route=[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route=[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route=[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route=[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route=[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route=[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route=[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route=[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route=[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route=[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route%3d[^&#]*checkout",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route%3d[^&#]*place[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route%3d[^&#]*process[-_]?payment",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route%3d[^&#]*create[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route%3d[^&#]*approve[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route%3d[^&#]*capture[-_]?order",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route%3d[^&#]*payment[-_]?intent",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route%3d[^&#]*ppc[-_]",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route%3d[^&#]*ppcp",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route%3d[^&#]*stripe",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "%26rest_route%3d[^&#]*wcpay",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]+\\.)?paypal\\.com/",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]+\\.)?paypalobjects\\.com/",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]+\\.)?stripe\\.com/",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]+\\.)?stripe\\.network/",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]+\\.)?klarna\\.com/",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]+\\.)?squareup\\.com/",
+      "url-filter-is-case-sensitive": false
+    },
+    "action": {
+      "type": "block"
+    }
+  },
+  {
+    "trigger": {
+      "url-filter": "^https?://([^/]+\\.)?apple-pay-gateway\\.apple\\.com/",
       "url-filter-is-case-sensitive": false
     },
     "action": {

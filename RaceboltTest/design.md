@@ -1,6 +1,10 @@
 # Racebolt Test — mobile design
 
-## Live-site revision 1.1.0 / build 2
+## Live-site revision 1.1.1 / build 3
+
+Build 3 corrects the safety startup defect: separate WebKit-compatible filters,
+actual remote macOS WebKit preflight, specific native startup diagnostics. No
+guards removed; live page layout and native navigation are otherwise unchanged.
 
 User approved loading the real Racebolt mobile website, including the motorcycle
 selector, measuring guide, blog, product catalog, accounts and basket. Preserve
@@ -12,7 +16,7 @@ Live sign-ins, subscriptions, contact forms and basket updates are real actions;
 this is not an offline or server-side sandbox. Previous offline assets stay in
 the source folder for import compatibility but are not loaded by this version.
 
-## Original offline prototype (not the active screen in build 2)
+## Original offline prototype (not the active screen in the live-site builds)
 
 Use the official Racebolt wordmark/monogram and site's own product/racing imagery.
 No generated imagery. Native platform explicitly chosen after managed stack offer;

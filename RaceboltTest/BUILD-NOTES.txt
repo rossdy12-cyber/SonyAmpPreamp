@@ -1,8 +1,15 @@
-Racebolt Test 1.1.0 build 2 — LIVE SITE BROWSING
+Racebolt Test 1.1.1 build 3 — LIVE SITE SAFETY STARTUP CORRECTION
 Bundle: com.rossdymond.racebolttest
 
 UNSIGNED TEST IPA. Requires separate development signing before installation.
 This compile/package script does not upload, sign or publish an app.
+
+Build 2 contained unsupported regex alternation in its WebKit network rules.
+Build 3 splits those into separate compatible patterns without removing guards.
+The M2 build now checks rule compilation with actual macOS Apple WebKit first;
+failure exports a build log only. iPhone startup still fails closed, but now
+displays its exact resource/JSON/regex/WebKit error instead of a generic message.
+macOS/iOS native checks have NOT been executed by the Linux sandbox.
 
 The WKWebView now loads https://raceboltuk.com/ and its real mobile pages:
 motorcycle selector, measuring guide, blog, catalog, accounts and basket.

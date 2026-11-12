@@ -10,14 +10,14 @@ fi
 
 APP_SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT_DIR="$APP_SOURCE/out"
-VERSION="${RACEBOLT_TEST_VERSION:-1.1.0}"
-BUILD_NUMBER="${RACEBOLT_TEST_BUILD_NUMBER:-2}"
+VERSION="${RACEBOLT_TEST_VERSION:-1.1.1}"
+BUILD_NUMBER="${RACEBOLT_TEST_BUILD_NUMBER:-3}"
 BUNDLE_ID="com.rossdymond.racebolttest"
 
 for tool in xcrun xcodebuild python3 zip file; do
   command -v "$tool" >/dev/null || { echo "Missing remote build tool: $tool" >&2; exit 1; }
 done
-for source in main.m Info.template.plist LiveGuard.js LiveSafetyRules.json www/bundle.html www/index.html; do
+for source in main.m Info.template.plist LiveGuard.js LiveSafetyRules.json check_webkit_rules.swift www/bundle.html www/index.html; do
   [[ -f "$APP_SOURCE/$source" ]] || { echo "Missing source: $source" >&2; exit 1; }
 done
 [[ ! -L "$OUT_DIR" ]] || { echo 'Refusing a symlinked output folder.' >&2; exit 1; }
@@ -35,6 +35,9 @@ build_test_ipa() {
   cp "$APP_SOURCE/LiveGuard.js" "$APP_SOURCE/LiveSafetyRules.json" "$app_dir/"
   cp "$APP_SOURCE/icons/"*.png "$app_dir/"
   printf 'APPL????' > "$app_dir/PkgInfo"
+
+  echo '=== Compile safety rules with actual Apple WebKit on the M2 ==='
+  xcrun --sdk macosx swift "$APP_SOURCE/check_webkit_rules.swift" "$APP_SOURCE/LiveSafetyRules.json"
 
   echo '=== Compile native arm64 executable on Codemagic M2 ==='
   local sdk_path

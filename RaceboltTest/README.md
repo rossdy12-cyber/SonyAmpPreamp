@@ -1,4 +1,22 @@
-# Racebolt Test — live-site browsing build (1.1.0 / build 2)
+# Racebolt Test — live-site browsing build (1.1.1 / build 3)
+
+## Build 3 safety-startup correction
+
+Build 2 used regex `|` alternatives which Apple's WebKit content-filter parser
+rejects, even though Chromium/Python/NSRegularExpression accept them. This is a
+confirmed defect in the previous source and a likely cause of the reported
+generic safety-setup error (the device's exact error was not captured).
+
+Build 3 uses separate filters without alternatives, retains all checkout guards,
+removes the obsolete three-rule-count assumption and displays the exact startup
+failure reason if setup fails. The M2 build now runs `check_webkit_rules.swift`
+with actual macOS Apple WebKit **before** compiling/packaging the IPA. A failed
+preflight stops the build and exports its log, not an IPA. iPhone WebKit still
+compiles the rules on launch and refuses to load the site on failure.
+
+Source of the WebKit restriction:
+https://github.com/WebKit/WebKit/blob/main/Source/WebCore/contentextensions/URLFilterParser.cpp
+(the `disjunction` callback rejects alternatives).
 
 A separate iPhone/iPad test app using the same Objective-C/WKWebView and Codemagic
 folder workflow you used successfully for CarbPrep. This stack was explicitly
@@ -18,7 +36,7 @@ this is not a Racebolt staging server or a guaranteed sandbox for future plugins
 
 ## Windows build steps
 
-1. Put **RaceboltTest-LiveSite-Build.zip** into your existing `Drop_App_Here` folder.
+1. Put **RaceboltTest-LiveSite-Fix-Build3.zip** into your existing `Drop_App_Here` folder.
    Leave the ZIP intact: the builder imports its single `RaceboltTest/` folder.
    Do not leave the older Racebolt ZIP in the drop folder alongside this one.
 2. Put **Run_Racebolt_Live_Test.bat** beside your existing `_stark_builder.ps1`.
@@ -85,10 +103,10 @@ the current live routes from the retained snapshot assets.
 Folder:        RaceboltTest/
 App name:      Racebolt Test
 Bundle ID:     com.rossdymond.racebolttest
-Version/build: 1.1.0 / 2
+Version/build: 1.1.1 / 3
 Minimum iOS:   16.0
 Native target: arm64, compiled by Xcode clang on the remote M2
-Output:        RaceboltTest/out/RaceboltTest-1.1.0-build2-…-unsigned.ipa
+Output:        RaceboltTest/out/RaceboltTest-1.1.1-build3-…-unsigned.ipa
 ```
 
 This keeps the same Racebolt test bundle and updates your installed Racebolt Test
@@ -116,7 +134,8 @@ No JavaScript page errors were observed in those checks. No login, contact form,
 subscription, live basket mutation, checkout or payment submission was tested.
 
 Mocked compiler/Xcode packaging checks verify metadata generation, artifact export,
-bundle/ZIP integrity, included live safeguards and compiler-failure propagation.
+bundle/ZIP integrity, included live safeguards and compiler-failure propagation,
+including stopping before native compilation if the WebKit preflight fails.
 No native compilation, Apple WKContentRuleList compilation, NAS signing or iPhone
 install/launch of **this revision** has run in the Linux sandbox. If native rule
 compilation fails, the app refuses to load the site. Test on the remote M2/iPhone
@@ -129,6 +148,8 @@ RaceboltTest/
   main.m                     native live-site WKWebView wrapper
   LiveGuard.js               document-start checkout/payment guard
   LiveSafetyRules.json        native network/navigation block patterns
+  generate_safety_rules.py    separate WebKit-safe filters (no alternatives)
+  check_webkit_rules.swift    actual Apple WebKit preflight on the remote M2
   build-and-publish.sh        M2 compile/package/export, no upload
   prepare_info.py             actual SDK/Xcode provenance and app metadata
   validate_package.py         unsigned ZIP/bundle/arm64 packaging checks

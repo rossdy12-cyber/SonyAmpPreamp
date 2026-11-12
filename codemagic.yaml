@@ -9,7 +9,7 @@ workflows:
     max_build_duration: 90
     environment:
       groups:
-        - SIDESTORE_UPLOAD_TOKEN
+        - sidestore
       xcode: latest
     triggering:
       events:

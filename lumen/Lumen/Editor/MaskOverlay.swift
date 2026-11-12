@@ -15,7 +15,7 @@ struct MaskOverlay: View {
                     let centre = point(mask.center, in: rect)
                     let r = CGFloat(mask.radius) * min(rect.width, rect.height)
                     Circle()
-                        .stroke(Color.yellow, lineWidth: 1.5)
+                        .stroke(LumenTheme.accent, lineWidth: 1.5)
                         .frame(width: r * 2, height: r * 2)
                         .position(centre)
                     handle.position(centre)
@@ -29,7 +29,7 @@ struct MaskOverlay: View {
                 case .linear:
                     let a = point(mask.center, in: rect), b = point(mask.end, in: rect)
                     Path { $0.move(to: a); $0.addLine(to: b) }
-                        .stroke(Color.yellow, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                        .stroke(LumenTheme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
                     // Three parallel guide lines show the fade direction.
                     ForEach([-1.0, 0.0, 1.0], id: \.self) { offset in
                         let n = unit(from: a, to: b)
@@ -39,7 +39,7 @@ struct MaskOverlay: View {
                             $0.move(to: CGPoint(x: a.x + perp.dx * shift - n.dx * 300, y: a.y + perp.dy * shift - n.dy * 300))
                             $0.addLine(to: CGPoint(x: a.x + perp.dx * shift + n.dx * 300, y: a.y + perp.dy * shift + n.dy * 300))
                         }
-                        .stroke(Color.yellow.opacity(offset == 0 ? 0 : 0.25), lineWidth: 0.5)
+                        .stroke(LumenTheme.accent.opacity(offset == 0 ? 0 : 0.25), lineWidth: 0.5)
                     }
                     handle.position(a).gesture(drag { mask.center = normalised($0, in: rect) })
                     handle.position(b).gesture(drag { mask.end = normalised($0, in: rect) })
@@ -50,7 +50,7 @@ struct MaskOverlay: View {
     }
 
     private var handle: some View {
-        Circle().fill(Color.yellow).frame(width: 18, height: 18)
+        Circle().fill(LumenTheme.accent).frame(width: 18, height: 18)
             .overlay(Circle().stroke(Color.black.opacity(0.4), lineWidth: 1))
             .shadow(radius: 2)
     }

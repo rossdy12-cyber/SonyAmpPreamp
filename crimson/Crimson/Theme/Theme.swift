@@ -3,14 +3,14 @@ import UIKit
 
 /// Crimson's palette: deep black with blood-crimson accents.
 enum Crimson {
-    static let bg = Color(hex: "0A0506")
-    static let bg2 = Color(hex: "140a0c")
-    static let panel = Color(hex: "1A1013")
-    static let field = Color(hex: "241319")
-    static let accent = Color(hex: "C01030")
-    static let accent2 = Color(hex: "E8415C")
-    static let text = Color(hex: "F0E6E8")
-    static let muted = Color(hex: "9A8288")
+    static let bg = Color(hex: "050203")
+    static let bg2 = Color(hex: "0C0406")
+    static let panel = Color(hex: "120609")
+    static let field = Color(hex: "1C0A0F")
+    static let accent = Color(hex: "D4163A")
+    static let accent2 = Color(hex: "FF6B81")
+    static let text = Color(hex: "EFE4E1")
+    static let muted = Color(hex: "9C8589")
     static let hairline = Color.white.opacity(0.08)
 }
 

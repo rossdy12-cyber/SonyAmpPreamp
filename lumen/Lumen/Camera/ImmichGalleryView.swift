@@ -155,7 +155,7 @@ struct ImmichGalleryView: View {
                 Text(hasRecipe ? "Apply copied edit to \(count)" : "Copy an edit in the editor first")
                     .fontWeight(.bold)
                     .frame(maxWidth: .infinity).padding(.vertical, 12)
-                    .background(count > 0 && hasRecipe ? Color.yellow : Color.white.opacity(0.15), in: Capsule())
+                    .background(count > 0 && hasRecipe ? LumenTheme.accent : Color.white.opacity(0.15), in: Capsule())
                     .foregroundStyle(count > 0 && hasRecipe ? .black : .white)
             }
             .disabled(count == 0 || !hasRecipe || batch.running)
@@ -171,7 +171,7 @@ struct ImmichGalleryView: View {
             Color.black.opacity(0.55).ignoresSafeArea()
             VStack(spacing: 14) {
                 if batch.running {
-                    ProgressView(value: batch.progress).tint(.yellow).frame(width: 180)
+                    ProgressView(value: batch.progress).tint(LumenTheme.accent).frame(width: 180)
                     Text(batch.status).font(.subheadline)
                 } else {
                     ProgressView().tint(.white)
@@ -192,11 +192,11 @@ struct ImmichGalleryView: View {
                                 if selecting {
                                     Image(systemName: selected.contains(asset.id) ? "checkmark.circle.fill" : "circle")
                                         .font(.system(size: 20))
-                                        .foregroundStyle(selected.contains(asset.id) ? Color.yellow : .white.opacity(0.9))
+                                        .foregroundStyle(selected.contains(asset.id) ? LumenTheme.accent : .white.opacity(0.9))
                                         .padding(5).shadow(radius: 2)
                                 }
                             }
-                            .overlay { if selecting && selected.contains(asset.id) { Color.yellow.opacity(0.18) } }
+                            .overlay { if selecting && selected.contains(asset.id) { LumenTheme.accent.opacity(0.18) } }
                     }
                     .task { await model.loadMoreIfNeeded(current: asset) }
                 }

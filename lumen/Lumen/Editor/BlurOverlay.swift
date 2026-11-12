@@ -16,7 +16,7 @@ struct BlurOverlay: View {
                                   width: region.rect.width * frame.width,
                                   height: region.rect.height * frame.height)
                 RoundedRectangle(cornerRadius: 3)
-                    .stroke(Color.yellow, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                    .stroke(LumenTheme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
                     .frame(width: rect.width, height: rect.height)
                     .overlay(alignment: .topTrailing) {
                         Button { onRemove(region.id) } label: {

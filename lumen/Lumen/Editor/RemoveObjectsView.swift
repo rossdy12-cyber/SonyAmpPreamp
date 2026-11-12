@@ -62,7 +62,7 @@ struct RemoveObjectsView: View {
         VStack(spacing: 12) {
             HStack(spacing: 16) {
                 Image(systemName: "paintbrush.pointed.fill")
-                Slider(value: $brush, in: 0.015...0.12).tint(.yellow)
+                Slider(value: $brush, in: 0.015...0.12).tint(LumenTheme.accent)
                 Button { if !strokes.isEmpty { strokes.removeLast() } } label: { Image(systemName: "arrow.uturn.backward") }
                     .disabled(strokes.isEmpty)
                 Button { strokes = []; current = [] } label: { Image(systemName: "trash") }
@@ -78,7 +78,7 @@ struct RemoveObjectsView: View {
                 } label: {
                     Label("Remove", systemImage: "sparkles").fontWeight(.bold)
                         .padding(.horizontal, 18).padding(.vertical, 8)
-                        .background(strokes.isEmpty ? Color.white.opacity(0.15) : Color.yellow, in: Capsule())
+                        .background(strokes.isEmpty ? Color.white.opacity(0.15) : LumenTheme.accent, in: Capsule())
                         .foregroundStyle(strokes.isEmpty ? .white : .black)
                 }
                 .disabled(strokes.isEmpty)

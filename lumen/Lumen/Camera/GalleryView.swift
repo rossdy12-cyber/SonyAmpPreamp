@@ -125,7 +125,7 @@ struct GalleryView: View {
                         ForEach(GalleryModel.Filter.allCases) { Text($0.rawValue).tag($0) }
                     }
                     .pickerStyle(.menu)
-                    .tint(.yellow)
+                    .tint(LumenTheme.accent)
                 }
             }
         }

@@ -38,7 +38,7 @@ struct DoFGuideView: View {
                 tag("\(Int(camera.focalLength35.rounded()))mm")
                 tag(String(format: "ƒ/%.1f", camera.apertureF))
                 Spacer()
-                Text("PRO FOCUS").font(.system(size: 9, weight: .bold)).tracking(1.5).foregroundStyle(.yellow.opacity(0.9))
+                Text("PRO FOCUS").font(.system(size: 9, weight: .bold)).tracking(1.5).foregroundStyle(LumenTheme.accent.opacity(0.9))
             }
             scale
             HStack {
@@ -55,7 +55,7 @@ struct DoFGuideView: View {
                 Spacer()
                 Text("Hyperfocal \(fmt(reading.hyperfocal))").font(.system(size: 11)).foregroundStyle(.white.opacity(0.7))
             }
-            Slider(value: $distance, in: 0.2...30, step: 0.1).tint(.yellow)
+            Slider(value: $distance, in: 0.2...30, step: 0.1).tint(LumenTheme.accent)
         }
         .foregroundStyle(.white)
         .padding(10)
@@ -79,7 +79,7 @@ struct DoFGuideView: View {
             let subX = axisX(distance, width: w)
             ZStack(alignment: .leading) {
                 Capsule().fill(.white.opacity(0.15)).frame(height: 4)
-                Capsule().fill(.yellow.opacity(0.85))
+                Capsule().fill(LumenTheme.accent.opacity(0.85))
                     .frame(width: max(2, farX - nearX), height: 4)
                     .offset(x: nearX)
                 Rectangle().fill(.white).frame(width: 2, height: 14).offset(x: subX - 1)

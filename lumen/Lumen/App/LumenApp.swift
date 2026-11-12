@@ -6,7 +6,7 @@ struct LumenApp: App {
         WindowGroup {
             CameraView()
                 .preferredColorScheme(.dark)
-                .tint(.yellow)
+                .tint(LumenTheme.accent)
                 .statusBarHidden(true)
                 .persistentSystemOverlays(.hidden)
         }

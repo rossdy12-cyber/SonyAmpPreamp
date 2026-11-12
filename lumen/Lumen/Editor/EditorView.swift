@@ -138,8 +138,8 @@ struct EditorView: View {
             Spacer()
             if model.isRAW {
                 Text("RAW").font(.caption2.weight(.heavy)).padding(.horizontal, 6).padding(.vertical, 3)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.yellow))
-                    .foregroundStyle(.yellow)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(LumenTheme.accent))
+                    .foregroundStyle(LumenTheme.accent)
             }
             Spacer()
             Button("Reset") { model.reset() }
@@ -174,9 +174,9 @@ struct EditorView: View {
                 }
             } label: {
                 if model.saving {
-                    ProgressView().tint(.yellow)
+                    ProgressView().tint(LumenTheme.accent)
                 } else {
-                    Text("Save").fontWeight(.bold).foregroundStyle(.yellow)
+                    Text("Save").fontWeight(.bold).foregroundStyle(LumenTheme.accent)
                 }
             }
             .disabled(model.loading || model.saving)
@@ -208,10 +208,10 @@ struct EditorView: View {
                                     .frame(width: 72, height: 72)
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                                     .overlay(RoundedRectangle(cornerRadius: 8)
-                                        .stroke(model.recipe.look == look.id ? Color.yellow : .clear, lineWidth: 2))
+                                        .stroke(model.recipe.look == look.id ? LumenTheme.accent : .clear, lineWidth: 2))
                                     Text(look.name)
                                         .font(.caption2.weight(model.recipe.look == look.id ? .bold : .regular))
-                                        .foregroundStyle(model.recipe.look == look.id ? .yellow : .white)
+                                        .foregroundStyle(model.recipe.look == look.id ? LumenTheme.accent : .white)
                                         .lineLimit(1).frame(width: 72)
                                 }
                             }
@@ -251,7 +251,7 @@ struct EditorView: View {
                             .font(.subheadline.weight(.bold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(Color.yellow, in: RoundedRectangle(cornerRadius: 10))
+                            .background(LumenTheme.accent, in: RoundedRectangle(cornerRadius: 10))
                             .foregroundStyle(.black)
                     }
                     .disabled(model.analysing)
@@ -293,7 +293,7 @@ struct EditorView: View {
                                 Text(aspect.rawValue)
                                     .font(.caption.weight(.semibold))
                                     .padding(.horizontal, 12).padding(.vertical, 8)
-                                    .background(model.recipe.aspect == aspect ? Color.yellow : Color.white.opacity(0.1), in: Capsule())
+                                    .background(model.recipe.aspect == aspect ? LumenTheme.accent : Color.white.opacity(0.1), in: Capsule())
                                     .foregroundStyle(model.recipe.aspect == aspect ? .black : .white)
                             }
                         }
@@ -349,14 +349,14 @@ struct EditorView: View {
             Divider().overlay(Color.white.opacity(0.2))
             Text("AI upscale on your NAS").font(.subheadline.weight(.semibold))
             if model.upscaling {
-                ProgressView(value: model.upscaleProgress).tint(.yellow)
+                ProgressView(value: model.upscaleProgress).tint(LumenTheme.accent)
                 HStack {
                     Text(model.upscaleStatus).font(.caption).foregroundStyle(.white.opacity(0.7))
                     Spacer()
                     Button("Cancel") { model.cancelUpscale() }.font(.caption.weight(.semibold))
                 }
             } else if model.inpainting {
-                ProgressView(value: model.inpaintProgress).tint(.yellow)
+                ProgressView(value: model.inpaintProgress).tint(LumenTheme.accent)
                 HStack {
                     Text(model.inpaintStatus).font(.caption).foregroundStyle(.white.opacity(0.7))
                     Spacer()
@@ -404,7 +404,7 @@ struct EditorView: View {
                 .padding(.top, 6)
             }
             .font(.caption)
-            .tint(.yellow)
+            .tint(LumenTheme.accent)
         }
     }
 
@@ -452,7 +452,7 @@ struct EditorView: View {
                             Text("\(mask.kind.rawValue) \(index + 1)")
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 12).padding(.vertical, 8)
-                                .background(selectedMaskID == mask.id ? Color.yellow : Color.white.opacity(0.1), in: Capsule())
+                                .background(selectedMaskID == mask.id ? LumenTheme.accent : Color.white.opacity(0.1), in: Capsule())
                                 .foregroundStyle(selectedMaskID == mask.id ? .black : .white)
                         }
                     }
@@ -463,7 +463,7 @@ struct EditorView: View {
                 ScrollView {
                     VStack(spacing: 10) {
                         HStack {
-                            Toggle("Invert", isOn: bind.invert).font(.subheadline).tint(.yellow)
+                            Toggle("Invert", isOn: bind.invert).font(.subheadline).tint(LumenTheme.accent)
                             Spacer()
                             Button(role: .destructive) { deleteMask(id) } label: { Label("Delete", systemImage: "trash") }
                                 .font(.subheadline)
@@ -534,7 +534,7 @@ struct EditorView: View {
                         Text(item.rawValue).font(.caption2)
                     }
                     .frame(maxWidth: .infinity)
-                    .foregroundStyle(tool == item ? .yellow : .white.opacity(0.75))
+                    .foregroundStyle(tool == item ? LumenTheme.accent : .white.opacity(0.75))
                 }
             }
         }
@@ -558,12 +558,12 @@ struct AdjustmentRow: View {
                 Spacer()
                 Text(displayValue)
                     .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(value == neutral ? .white.opacity(0.5) : .yellow)
+                    .foregroundStyle(value == neutral ? .white.opacity(0.5) : LumenTheme.accent)
             }
             .contentShape(Rectangle())
             .onTapGesture(count: 2) { value = neutral }
             Slider(value: $value, in: range)
-                .tint(.yellow)
+                .tint(LumenTheme.accent)
         }
     }
 

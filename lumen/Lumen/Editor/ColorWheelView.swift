@@ -29,7 +29,7 @@ struct ColorWheelView: View {
             .gesture(drag)
             Slider(value: $luma, in: -1...1).tint(.white).frame(width: size)
             Button("Reset") { x = 0; y = 0; luma = 0 }
-                .font(.caption2).tint(.yellow)
+                .font(.caption2).tint(LumenTheme.accent)
                 .opacity(x == 0 && y == 0 && luma == 0 ? 0.4 : 1)
         }
     }

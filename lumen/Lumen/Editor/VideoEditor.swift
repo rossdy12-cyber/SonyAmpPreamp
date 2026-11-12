@@ -193,7 +193,7 @@ struct VideoEditorView: View {
                     if model.recipe.isUntouched { close() } else { confirmClose = true }
                 } label: { Image(systemName: "xmark").font(.headline) }
                 Spacer()
-                Text("VIDEO").font(.caption2.weight(.heavy)).foregroundStyle(.yellow)
+                Text("VIDEO").font(.caption2.weight(.heavy)).foregroundStyle(LumenTheme.accent)
                 Spacer()
                 Button("Reset") { model.reset() }.disabled(model.recipe.isUntouched)
                 Button {
@@ -205,7 +205,7 @@ struct VideoEditorView: View {
                         }
                     }
                 } label: {
-                    Text("Save").fontWeight(.bold).foregroundStyle(.yellow)
+                    Text("Save").fontWeight(.bold).foregroundStyle(LumenTheme.accent)
                 }
                 .padding(.leading, 12)
                 .disabled(model.exporting || model.analysing)
@@ -219,7 +219,7 @@ struct VideoEditorView: View {
                     Spacer()
                     if model.exporting {
                         VStack(spacing: 6) {
-                            ProgressView(value: model.progress).tint(.yellow).frame(width: 180)
+                            ProgressView(value: model.progress).tint(LumenTheme.accent).frame(width: 180)
                             Text("Saving video… \(Int(model.progress * 100))%").font(.caption)
                         }
                         .padding(12)
@@ -249,7 +249,7 @@ struct VideoEditorView: View {
                             Text(item.rawValue).font(.caption2)
                         }
                         .frame(maxWidth: .infinity)
-                        .foregroundStyle(tool == item ? .yellow : .white.opacity(0.75))
+                        .foregroundStyle(tool == item ? LumenTheme.accent : .white.opacity(0.75))
                     }
                 }
             }
@@ -293,9 +293,9 @@ struct VideoEditorView: View {
                                     .frame(width: 72, height: 72)
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                                     .overlay(RoundedRectangle(cornerRadius: 8)
-                                        .stroke(model.recipe.look == look.id ? Color.yellow : .clear, lineWidth: 2))
+                                        .stroke(model.recipe.look == look.id ? LumenTheme.accent : .clear, lineWidth: 2))
                                     Text(look.name).font(.caption2)
-                                        .foregroundStyle(model.recipe.look == look.id ? .yellow : .white)
+                                        .foregroundStyle(model.recipe.look == look.id ? LumenTheme.accent : .white)
                                 }
                             }
                         }
@@ -316,7 +316,7 @@ struct VideoEditorView: View {
                             .font(.subheadline.weight(.bold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                            .background(Color.yellow, in: RoundedRectangle(cornerRadius: 10))
+                            .background(LumenTheme.accent, in: RoundedRectangle(cornerRadius: 10))
                             .foregroundStyle(.black)
                     }
                     .disabled(model.analysing)

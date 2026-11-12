@@ -231,7 +231,7 @@ struct AudioMeterView: View {
                         GeometryReader { geometry in
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Color.white.opacity(0.2))
-                                Capsule().fill(level > 0.92 ? Color.red : (level > 0.75 ? Color.yellow : Color.green))
+                                Capsule().fill(level > 0.92 ? Color.red : (level > 0.75 ? LumenTheme.accent : Color.green))
                                     .frame(width: geometry.size.width * CGFloat(level))
                             }
                         }
@@ -257,7 +257,7 @@ struct LevelOverlay: View {
             ZStack {
                 Circle().stroke(Color.white.opacity(0.7), lineWidth: 1).frame(width: 44, height: 44)
                 Circle().stroke(Color.white.opacity(0.4), lineWidth: 1).frame(width: 12, height: 12)
-                Circle().fill(centred ? Color.yellow : Color.white)
+                Circle().fill(centred ? LumenTheme.accent : Color.white)
                     .frame(width: 10, height: 10)
                     .offset(x: max(-40, min(40, level.tilt.x * 400)), y: max(-40, min(40, level.tilt.y * 400)))
             }
@@ -266,9 +266,9 @@ struct LevelOverlay: View {
         } else {
             let isLevel = abs(level.roll) < 1
             HStack(spacing: 0) {
-                Capsule().fill(isLevel ? Color.yellow : Color.white.opacity(0.7)).frame(width: 40, height: 2)
+                Capsule().fill(isLevel ? LumenTheme.accent : Color.white.opacity(0.7)).frame(width: 40, height: 2)
                 Spacer().frame(width: 16)
-                Capsule().fill(isLevel ? Color.yellow : Color.white.opacity(0.7)).frame(width: 40, height: 2)
+                Capsule().fill(isLevel ? LumenTheme.accent : Color.white.opacity(0.7)).frame(width: 40, height: 2)
             }
             .rotationEffect(.degrees(isLevel ? 0 : -level.roll))
             .opacity(abs(level.roll) < 12 ? 1 : 0)
@@ -314,7 +314,7 @@ struct LoupeView: View {
                 .interpolation(.none)
                 .frame(width: 140, height: 140)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.yellow, lineWidth: 1.5))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(LumenTheme.accent, lineWidth: 1.5))
                 .shadow(radius: 6)
                 .allowsHitTesting(false)
         }
@@ -370,19 +370,19 @@ struct DetectionOverlay: View {
                     path.addLines(points)
                     path.closeSubpath()
                 }
-                .fill(Color.yellow.opacity(0.15))
+                .fill(LumenTheme.accent.opacity(0.15))
                 .allowsHitTesting(false)
                 Path { path in
                     path.addLines(points)
                     path.closeSubpath()
                 }
-                .stroke(Color.yellow, lineWidth: 2)
+                .stroke(LumenTheme.accent, lineWidth: 2)
                 .allowsHitTesting(false)
                 Button(action: onScan) {
                     Label("Scan document", systemImage: "doc.viewfinder")
                         .font(.caption.weight(.bold))
                         .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(Color.yellow, in: Capsule())
+                        .background(LumenTheme.accent, in: Capsule())
                         .foregroundStyle(.black)
                 }
                 .position(x: size.width / 2, y: size.height - 70)
@@ -396,7 +396,7 @@ struct DetectionOverlay: View {
                         .lineLimit(1)
                         .font(.caption.weight(.bold))
                         .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(Color.yellow, in: Capsule())
+                        .background(LumenTheme.accent, in: Capsule())
                         .foregroundStyle(.black)
                 }
                 .frame(maxWidth: size.width - 40)

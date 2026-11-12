@@ -163,14 +163,14 @@ struct CameraView: View {
                 if showLevel { LevelOverlay(level: level) }
                 if let focusPoint {
                     RoundedRectangle(cornerRadius: 4)
-                        .stroke(Color.yellow, lineWidth: 1.5)
+                        .stroke(LumenTheme.accent, lineWidth: 1.5)
                         .frame(width: 72, height: 72)
                         .position(focusPoint)
                         .allowsHitTesting(false)
                 }
                 if camera.aeafLocked, let lockPoint {
                     RoundedRectangle(cornerRadius: 4)
-                        .stroke(Color.yellow, lineWidth: 2)
+                        .stroke(LumenTheme.accent, lineWidth: 2)
                         .frame(width: 84, height: 84)
                         .position(lockPoint)
                         .allowsHitTesting(false)
@@ -237,7 +237,7 @@ struct CameraView: View {
             }
             if let progress = camera.stackProgress {
                 VStack(spacing: 6) {
-                    ProgressView(value: progress).tint(.yellow).frame(width: 160)
+                    ProgressView(value: progress).tint(LumenTheme.accent).frame(width: 160)
                     Text(camera.drive == .hdr ? "Merging…" : "Hold still…").font(.caption.weight(.semibold))
                 }
                 .padding(10)
@@ -295,7 +295,7 @@ struct CameraView: View {
         Text(text)
             .font(.system(size: 10, weight: .heavy))
             .padding(.horizontal, 6).padding(.vertical, 3)
-            .background(highlighted ? Color.yellow : Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
+            .background(highlighted ? LumenTheme.accent : Color.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 4))
             .foregroundStyle(highlighted ? .black : .white)
     }
 
@@ -373,7 +373,7 @@ struct CameraView: View {
         if camera.flashAvailable {
             Button { cycleFlash() } label: {
                 Image(systemName: flashIcon)
-                    .foregroundStyle(camera.flash == .off ? .white : .yellow)
+                    .foregroundStyle(camera.flash == .off ? .white : LumenTheme.accent)
             }
             .accessibilityLabel("Flash")
         }
@@ -405,14 +405,14 @@ struct CameraView: View {
             Section { Text(camera.drive.help) }
         } label: {
             Image(systemName: camera.drive.icon)
-                .foregroundStyle(camera.drive == .single ? .white : .yellow)
+                .foregroundStyle(camera.drive == .single ? .white : LumenTheme.accent)
         }
         .disabled(camera.intervalRunning || camera.isBursting)
         .accessibilityLabel("Drive mode")
         if camera.drive == .single {
             Button { camera.livePhoto.toggle() } label: {
                 Image(systemName: camera.livePhoto ? "livephoto" : "livephoto.slash")
-                    .foregroundStyle(camera.livePhoto ? .yellow : .white)
+                    .foregroundStyle(camera.livePhoto ? LumenTheme.accent : .white)
             }
             .accessibilityLabel(camera.livePhoto ? "Live Photo on" : "Live Photo off")
         }
@@ -421,7 +421,7 @@ struct CameraView: View {
                 Image(systemName: "timer")
                 if timer > 0 { Text("\(timer)s").font(.caption.weight(.semibold)) }
             }
-            .foregroundStyle(timer > 0 ? .yellow : .white)
+            .foregroundStyle(timer > 0 ? LumenTheme.accent : .white)
         }
         .accessibilityLabel("Self-timer")
         Menu {
@@ -431,7 +431,7 @@ struct CameraView: View {
             Section { Text("Shown live and added as an edit: Photos' Revert brings back the original.") }
         } label: {
             Image(systemName: "camera.filters")
-                .foregroundStyle(camera.look == Look.none.id ? .white : .yellow)
+                .foregroundStyle(camera.look == Look.none.id ? .white : LumenTheme.accent)
         }
         .accessibilityLabel("Look")
     }
@@ -477,7 +477,7 @@ struct CameraView: View {
             }
         } label: {
             Image(systemName: "square.grid.3x3")
-                .foregroundStyle(camera.peaking || camera.zebras || camera.falseColour ? .yellow : .white)
+                .foregroundStyle(camera.peaking || camera.zebras || camera.falseColour ? LumenTheme.accent : .white)
         }
         .accessibilityLabel("Viewfinder aids")
     }
@@ -498,7 +498,7 @@ struct CameraView: View {
                         Label("Stitch", systemImage: "checkmark")
                             .fontWeight(.bold)
                             .padding(.horizontal, 22).padding(.vertical, 10)
-                            .background(camera.panoFrameCount >= 2 ? Color.yellow : Color.white.opacity(0.15), in: Capsule())
+                            .background(camera.panoFrameCount >= 2 ? LumenTheme.accent : Color.white.opacity(0.15), in: Capsule())
                             .foregroundStyle(camera.panoFrameCount >= 2 ? .black : .white)
                     }
                     .disabled(camera.panoFrameCount < 2)
@@ -516,7 +516,7 @@ struct CameraView: View {
                 Image(systemName: "wifi")
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Remote viewfinder on").font(.caption.weight(.semibold))
-                    Text(address).font(.caption2.monospaced()).foregroundStyle(.yellow)
+                    Text(address).font(.caption2.monospaced()).foregroundStyle(LumenTheme.accent)
                 }
                 Spacer()
                 Button("Stop") { camera.stopRemoteViewfinder() }
@@ -610,7 +610,7 @@ struct CameraView: View {
                         Text(item.rawValue)
                             .font(.caption.weight(.bold))
                             .frame(width: 44, height: 26)
-                            .background(control == item ? Color.yellow : Color.white.opacity(isManual(item) ? 0.3 : 0.12),
+                            .background(control == item ? LumenTheme.accent : Color.white.opacity(isManual(item) ? 0.3 : 0.12),
                                         in: Capsule())
                             .foregroundStyle(control == item ? .black : .white)
                     }
@@ -644,7 +644,7 @@ struct CameraView: View {
             Text(title)
                 .font(.caption.weight(.bold))
                 .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(on ? Color.yellow : Color.white.opacity(0.15), in: Capsule())
+                .background(on ? LumenTheme.accent : Color.white.opacity(0.15), in: Capsule())
                 .foregroundStyle(on ? .black : .white)
         }
     }
@@ -658,7 +658,7 @@ struct CameraView: View {
             Text(value.map { String(format: "%@ %.0f%%", name, $0 * 100) } ?? "Set \(name)")
                 .font(.caption.weight(.bold))
                 .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(value == nil ? Color.white.opacity(0.15) : Color.yellow.opacity(0.85), in: Capsule())
+                .background(value == nil ? Color.white.opacity(0.15) : LumenTheme.accent.opacity(0.85), in: Capsule())
                 .foregroundStyle(value == nil ? .white : .black)
         }
     }
@@ -716,10 +716,10 @@ struct CameraView: View {
             Button("AUTO", action: autoAction)
                 .font(.caption2.weight(.heavy))
                 .padding(.horizontal, 6).padding(.vertical, 4)
-                .background(isAuto ? Color.yellow : Color.white.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
+                .background(isAuto ? LumenTheme.accent : Color.white.opacity(0.15), in: RoundedRectangle(cornerRadius: 4))
                 .foregroundStyle(isAuto ? .black : .white)
             slider()
-                .tint(.yellow)
+                .tint(LumenTheme.accent)
             Text(title)
                 .font(.caption.weight(.semibold).monospacedDigit())
                 .frame(minWidth: 74, alignment: .trailing)
@@ -733,12 +733,12 @@ struct CameraView: View {
             if camera.mode == .spatial {
                 Text("SPATIAL · wide + ultra wide together")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(LumenTheme.accent)
                     .frame(height: 40)
             } else if camera.drive == .portrait && camera.mode == .photo {
                 Text("PORTRAIT · depth for background blur")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(LumenTheme.accent)
                     .frame(height: 40)
             } else {
                 ForEach(zoomStops, id: \.label) { stop in
@@ -754,7 +754,7 @@ struct CameraView: View {
                             .font(.caption.weight(.bold))
                             .frame(width: 40, height: 40)
                             .background(Color.white.opacity(active ? 0.25 : 0.08), in: Circle())
-                            .foregroundStyle(active ? .yellow : .white)
+                            .foregroundStyle(active ? LumenTheme.accent : .white)
                     }
                     .disabled(camera.isRecording && stop.lens != nil)
                 }
@@ -764,7 +764,7 @@ struct CameraView: View {
                             .font(.system(size: 15, weight: .semibold))
                             .frame(width: 40, height: 40)
                             .background(Color.white.opacity(camera.macroActive ? 0.25 : 0.08), in: Circle())
-                            .foregroundStyle(camera.macroActive ? .yellow : .white)
+                            .foregroundStyle(camera.macroActive ? LumenTheme.accent : .white)
                     }
                     .accessibilityLabel(camera.macroActive ? "Macro off" : "Macro on")
                 }
@@ -790,7 +790,7 @@ struct CameraView: View {
                 Button { camera.setMode(item) } label: {
                     Text(item.rawValue)
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(camera.mode == item ? .yellow : .white.opacity(0.7))
+                        .foregroundStyle(camera.mode == item ? LumenTheme.accent : .white.opacity(0.7))
                 }
                 .disabled(camera.isRecording || camera.intervalRunning || camera.isBursting)
             }
@@ -865,10 +865,10 @@ struct CameraView: View {
                     .frame(width: camera.isRecording ? 30 : 62, height: camera.isRecording ? 30 : 62)
                     .animation(.easeInOut(duration: 0.2), value: camera.isRecording)
             } else if camera.intervalRunning {
-                RoundedRectangle(cornerRadius: 6).fill(Color.yellow).frame(width: 30, height: 30)
+                RoundedRectangle(cornerRadius: 6).fill(LumenTheme.accent).frame(width: 30, height: 30)
             } else {
                 Circle()
-                    .fill(shutterBusy ? Color.gray : (camera.isBursting ? Color.yellow : Color.white))
+                    .fill(shutterBusy ? Color.gray : (camera.isBursting ? LumenTheme.accent : Color.white))
                     .frame(width: camera.isBursting || shutterHeld ? 54 : 62, height: camera.isBursting || shutterHeld ? 54 : 62)
                 Image(systemName: camera.drive.icon)
                     .font(.system(size: 18, weight: .semibold))

@@ -1,8 +1,12 @@
+# Single dispatcher workflow. Codemagic's `when: changeset` is ignored when builds are
+# triggered via the Stark custom webhook (no commit range is delivered), so per-app
+# changeset filters cannot scope builds. Instead we keep ONE workflow and detect the
+# changed app folder(s) inside the script, building only those. One VM, only changed apps.
 workflows:
-  carbprep-unsigned-ipa:
-    name: CarbPrep Native Xcode 16 Build & TrueNAS Auto-Sign
+  build-changed-apps:
+    name: Build changed app(s) on M2 and publish through TrueNAS
     instance_type: mac_mini_m2
-    max_build_duration: 20
+    max_build_duration: 90
     environment:
       xcode: latest
     triggering:
@@ -12,294 +16,54 @@ workflows:
         - pattern: main
           include: true
           source: true
-    when:
-      changeset:
-        includes:
-          - 'CarbPrep/**'
-          - 'codemagic.yaml'
     scripts:
-      - name: Compile native arm64 CarbPrep IPA on M2 and publish through TrueNAS
+      - name: Detect changed app folders from git and build only those
         script: |
-          set +e
-          (
-            set -e
-            bash CarbPrep/build-and-publish.sh
-          ) > /tmp/cm_build.log 2>&1
-          EXIT_CODE=$?
-          cat /tmp/cm_build.log
-          curl -fsSL -X POST \
-            -H "X-Upload-Token: ss-deploy-9f8e7d6c5b4a3f2e1d0c" \
-            --data-binary @/tmp/cm_build.log \
-            "https://navidrome.nas-server.co.uk/sidestore-api/upload?buildLog=1" || true
-          exit $EXIT_CODE
-  nightfall-unsigned-ipa:
-    name: Nightfall iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 60
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'Nightfall/**'
-    scripts:
-      - name: Build unsigned Nightfall IPA on M2 and publish through TrueNAS
-        script: |
-          bash Nightfall/ci/build-and-publish.sh
-    artifacts:
-      - Nightfall/Nightfall.ipa
-      - Nightfall/build-tail.log
-      - Nightfall/publish-result.json
-  kith-unsigned-ipa:
-    name: Kith iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 30
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'kith/**'
-    scripts:
-      - name: Build unsigned Kith IPA on M2 and publish through TrueNAS
-        script: |
-          bash kith/build-and-publish.sh
-    artifacts:
-      - kith/out/Kith.ipa
-      - kith/out/publish.json
-  prism-unsigned-ipa:
-    name: Prism iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 30
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'prism/**'
-    scripts:
-      - name: Build unsigned Prism IPA on M2 and publish through TrueNAS
-        script: |
-          bash prism/build-and-publish.sh
-    artifacts:
-      - prism/out/Prism.ipa
-      - prism/out/publish.json
-  nocturne-unsigned-ipa:
-    name: Nocturne iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 30
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'nocturne/**'
-    scripts:
-      - name: Build unsigned Nocturne IPA on M2 and publish through TrueNAS
-        script: |
-          bash nocturne/build-and-publish.sh
-    artifacts:
-      - nocturne/out/Nocturne.ipa
-      - nocturne/out/publish.json
-  lumen-unsigned-ipa:
-    name: Lumen iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 45
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'lumen/**'
-    scripts:
-      - name: Build unsigned Lumen IPA on M2 and publish through TrueNAS
-        script: |
-          bash lumen/build-and-publish.sh
-    artifacts:
-      - lumen/out/Lumen.ipa
-      - lumen/out/publish.json
-  deskswitch-unsigned-ipa:
-    name: DeskSwitch iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 30
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'DeskSwitch/**'
-    scripts:
-      - name: Build unsigned DeskSwitch IPA on M2 and publish through TrueNAS
-        script: |
-          bash DeskSwitch/build-and-publish.sh
-  glucopulse-unsigned-ipa:
-    name: GlucoPulse iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 30
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'GlucoPulse/**'
-    scripts:
-      - name: Build unsigned GlucoPulse IPA on M2 and publish through TrueNAS
-        script: |
-          bash GlucoPulse/build-and-publish.sh
-  keepwatch-unsigned-ipa:
-    name: Keepwatch iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 30
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'Keepwatch/**'
-    scripts:
-      - name: Build unsigned Keepwatch IPA on M2 and publish through TrueNAS
-        script: |
-          bash Keepwatch/build-and-publish.sh
-  nasfiles-unsigned-ipa:
-    name: NASFiles iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 30
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'NASFiles/**'
-    scripts:
-      - name: Build unsigned NASFiles IPA on M2 and publish through TrueNAS
-        script: |
-          bash NASFiles/build-and-publish.sh
-  omnicontainer-unsigned-ipa:
-    name: OmniContainer iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 30
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'OmniContainer/**'
-    scripts:
-      - name: Build unsigned OmniContainer IPA on M2 and publish through TrueNAS
-        script: |
-          bash OmniContainer/build-and-publish.sh
-  racebolttest-unsigned-ipa:
-    name: RaceboltTest iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 30
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'RaceboltTest/**'
-    scripts:
-      - name: Build unsigned RaceboltTest IPA on M2 and publish through TrueNAS
-        script: |
-          bash RaceboltTest/build-and-publish.sh
-  crimson-unsigned-ipa:
-    name: Crimson iOS Unsigned IPA
-    instance_type: mac_mini_m2
-    max_build_duration: 30
-    environment:
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'crimson/**'
-    scripts:
-      - name: Build unsigned Crimson IPA on M2 and publish through TrueNAS
-        script: |
-          bash crimson/build-and-publish.sh
-    artifacts:
-      - crimson/out/Crimson.ipa
-      - crimson/out/publish.json
+          set -uo pipefail
+          # Make sure we have history to diff against (Codemagic may clone shallow).
+          git fetch --unshallow 2>/dev/null || git fetch --depth=50 2>/dev/null || true
+
+          PREV="${CM_PREVIOUS_COMMIT:-}"
+          CUR="${CM_COMMIT:-HEAD}"
+          CHANGED=""
+          if [ -n "$PREV" ] && git cat-file -e "${PREV}^{commit}" 2>/dev/null; then
+            CHANGED=$(git diff --name-only "$PREV" "$CUR" 2>/dev/null || true)
+          fi
+          if [ -z "$CHANGED" ]; then
+            # Fall back to the files in the most recent commit.
+            CHANGED=$(git show --name-only --format="" "$CUR" 2>/dev/null | sed '/^$/d' || true)
+          fi
+
+          echo "===== Changed files ====="
+          echo "$CHANGED"
+          echo "========================="
+
+          # Top-level folders that changed (an app lives in a top-level folder).
+          APPS=$(echo "$CHANGED" | awk -F/ 'NF>1 {print $1}' | sort -u)
+          echo "Candidate app folders: ${APPS:-<none>}"
+
+          RC=0
+          BUILT=0
+          for app in $APPS; do
+            SCRIPT=""
+            if   [ -f "$app/build-and-publish.sh" ];    then SCRIPT="$app/build-and-publish.sh"
+            elif [ -f "$app/ci/build-and-publish.sh" ]; then SCRIPT="$app/ci/build-and-publish.sh"
+            fi
+            if [ -z "$SCRIPT" ]; then
+              echo ">> '$app' has no build-and-publish.sh — skipping (likely a config/non-app change)."
+              continue
+            fi
+            echo "===== Building '$app' via $SCRIPT ====="
+            if bash "$SCRIPT"; then
+              echo "===== '$app' OK ====="
+            else
+              echo "!!!!! BUILD FAILED for '$app' !!!!!"
+              RC=1
+            fi
+            BUILT=$((BUILT+1))
+          done
+
+          if [ "$BUILT" -eq 0 ]; then
+            echo "No app folders with a build-and-publish.sh changed in this push — nothing to build."
+          fi
+          exit $RC

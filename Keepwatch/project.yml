@@ -2,7 +2,7 @@ name: Keepwatch
 options:
   bundleIdPrefix: app.keepwatch
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.0"
   xcodeVersion: "15.0"
   generateEmptyDirectories: true
 
@@ -19,7 +19,9 @@ targets:
   Keepwatch:
     type: application
     platform: iOS
-    deploymentTarget: "16.0"
+    deploymentTarget: "17.0"
+    dependencies:
+      - target: KeepwatchWidget
     sources:
       - path: App
       - path: Views
@@ -36,3 +38,33 @@ targets:
         CODE_SIGN_IDENTITY: ""
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGNING_ALLOWED: "NO"
+
+  KeepwatchWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: KeepwatchWidget
+    settings:
+      base:
+        PRODUCT_NAME: KeepwatchWidget
+        PRODUCT_BUNDLE_IDENTIFIER: app.keepwatch.nasdashboard.widget
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "2.0.0"
+        CURRENT_PROJECT_VERSION: "20"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        DEVELOPMENT_TEAM: ""
+        SKIP_INSTALL: "YES"
+    info:
+      path: KeepwatchWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Keepwatch
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true

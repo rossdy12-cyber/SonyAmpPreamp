@@ -2,7 +2,7 @@ name: GlucoPulse
 options:
   bundleIdPrefix: app.truenas
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.0"
   xcodeVersion: "15.0"
   generateEmptyDirectories: true
 
@@ -19,7 +19,9 @@ targets:
   GlucoPulse:
     type: application
     platform: iOS
-    deploymentTarget: "16.0"
+    deploymentTarget: "17.0"
+    dependencies:
+      - target: GlucoPulseWidget
     sources:
       - path: App
       - path: Views
@@ -37,3 +39,33 @@ targets:
         CODE_SIGN_IDENTITY: ""
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGNING_ALLOWED: "NO"
+
+  GlucoPulseWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: GlucoPulseWidget
+    settings:
+      base:
+        PRODUCT_NAME: GlucoPulseWidget
+        PRODUCT_BUNDLE_IDENTIFIER: app.truenas.glucopulse.widget
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "2.0.0"
+        CURRENT_PROJECT_VERSION: "20"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        DEVELOPMENT_TEAM: ""
+        SKIP_INSTALL: "YES"
+    info:
+      path: GlucoPulseWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Glucose
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true

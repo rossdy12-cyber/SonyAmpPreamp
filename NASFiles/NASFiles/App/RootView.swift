@@ -30,6 +30,6 @@ struct RootView: View {
                     Label("LinkVault", systemImage: "bookmark.square.fill")
                 }
         }
-        .tint(.cyan)
+        .tint(Color(red: 1.0, green: 0.302, blue: 0.427))
     }
 }

@@ -339,7 +339,7 @@ private struct FileRow: View {
     var body: some View {
         HStack {
             Image(systemName: file.systemImage)
-                .foregroundStyle(file.isDirectory ? .blue : .secondary)
+                .foregroundStyle(file.isDirectory ? Color(red: 1.0, green: 0.302, blue: 0.427) : .secondary)
 
             VStack(alignment: .leading) {
                 Text(file.name)
@@ -377,7 +377,7 @@ private struct FileCell: View {
         VStack(spacing: 6) {
             Image(systemName: file.systemImage)
                 .font(.title2)
-                .foregroundStyle(file.isDirectory ? .blue : .secondary)
+                .foregroundStyle(file.isDirectory ? Color(red: 1.0, green: 0.302, blue: 0.427) : .secondary)
 
             Text(file.name)
                 .font(.caption)

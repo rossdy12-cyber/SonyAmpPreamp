@@ -341,8 +341,8 @@ struct GlucoPulseGlucoseWidget: Widget {
         AppIntentConfiguration(kind: kind, intent: GlucoseConfigIntent.self, provider: GlucoseProvider()) { entry in
             GlucoseWidgetView(entry: entry)
                 .containerBackground(for: .widget) {
-                    LinearGradient(colors: [Color(red: 0.05, green: 0.07, blue: 0.11),
-                                            Color(red: 0.09, green: 0.12, blue: 0.18)],
+                    LinearGradient(colors: [Color(red: 0.020, green: 0.008, blue: 0.012),
+                                            Color(red: 0.110, green: 0.039, blue: 0.059)],
                                    startPoint: .topLeading, endPoint: .bottomTrailing)
                 }
         }

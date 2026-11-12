@@ -37,10 +37,11 @@ struct KeepwatchRootView: View {
 }
 
 enum KWTheme {
-    static let bg = Color(red: 0.04, green: 0.06, blue: 0.10)
-    static let card = Color(red: 0.09, green: 0.12, blue: 0.18)
-    static let cardElevated = Color(red: 0.12, green: 0.16, blue: 0.24)
-    static let cyan = Color(red: 0.22, green: 0.78, blue: 0.98)
+    static let bg = Color(red: 0.020, green: 0.008, blue: 0.012)
+    static let card = Color(red: 0.071, green: 0.024, blue: 0.035)
+    static let cardElevated = Color(red: 0.110, green: 0.039, blue: 0.059)
+    // Accent is a pale rose (the name "cyan" is historical). Status red stays bright so alarms never blend in.
+    static let cyan = Color(red: 0.95, green: 0.72, blue: 0.76)
     static let green = Color(red: 0.18, green: 0.86, blue: 0.50)
     static let amber = Color(red: 0.98, green: 0.70, blue: 0.18)
     static let red = Color(red: 0.96, green: 0.32, blue: 0.36)

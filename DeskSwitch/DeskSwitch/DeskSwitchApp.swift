@@ -460,9 +460,9 @@ struct DeskSwitchRootView: View {
                 PowerSystemTab()
                     .tabItem { Label("Power", systemImage: "power") }
             }
-            .tint(.orange)
+            .tint(Color(red: 1.0, green: 0.302, blue: 0.427))
         }
-        .background(Color(red: 0.04, green: 0.05, blue: 0.09).ignoresSafeArea())
+        .background(Color(red: 0.020, green: 0.008, blue: 0.012).ignoresSafeArea())
         .task {
             await store.pingAll()
             await store.loadInstalledGames()
@@ -494,10 +494,10 @@ struct DeskSwitchRootView: View {
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(selected ? Color.orange.opacity(0.28) : Color.white.opacity(0.06))
+                        .background(selected ? Color(red: 1.0, green: 0.302, blue: 0.427).opacity(0.28) : Color.white.opacity(0.06))
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
-                                .stroke(selected ? Color.orange : Color.white.opacity(0.12), lineWidth: 1)
+                                .stroke(selected ? Color(red: 1.0, green: 0.302, blue: 0.427) : Color.white.opacity(0.12), lineWidth: 1)
                         )
                         .cornerRadius(10)
                     }
@@ -1128,7 +1128,7 @@ struct AniimoLDPlayerTab: View {
                                 .clipped()
                         } else {
                             VStack(spacing: 8) {
-                                ProgressView().tint(.orange)
+                                ProgressView().tint(Color(red: 1.0, green: 0.302, blue: 0.427))
                                 Text("Connecting to \(hostIP) Viewport...")
                                     .font(.caption)
                                     .foregroundColor(.gray)

@@ -3,7 +3,7 @@ set -uo pipefail
 
 STORE_URL="https://navidrome.nas-server.co.uk"
 TOKEN="${SIDESTORE_UPLOAD_TOKEN:?set SIDESTORE_UPLOAD_TOKEN}"
-VERSION="2.0.0"
+VERSION="2.1.0"
 BUNDLE_ID="com.ross.deskswitch"
 APP_NAME="DeskSwitch"
 

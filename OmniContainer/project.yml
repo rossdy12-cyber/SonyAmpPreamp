@@ -33,8 +33,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.ross.omnicontainer
         PRODUCT_NAME: OmniContainer
         INFOPLIST_KEY_CFBundleDisplayName: "OmniContainer"
-        MARKETING_VERSION: "2.2.0"
-        CURRENT_PROJECT_VERSION: "3"
+        MARKETING_VERSION: "2.3.0"
+        CURRENT_PROJECT_VERSION: "4"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         GENERATE_INFOPLIST_FILE: YES

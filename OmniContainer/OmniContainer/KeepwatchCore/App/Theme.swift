@@ -3,18 +3,18 @@ import UIKit
 
 enum Theme {
     /// Keepwatch teal.
-    static let accent = Color(red: 0.20, green: 0.84, blue: 0.76)
-    static let background = Color(red: 0.035, green: 0.043, blue: 0.06)
-    static let surface = Color(red: 0.09, green: 0.105, blue: 0.13)
-    static let surfaceRaised = Color(red: 0.13, green: 0.15, blue: 0.18)
+    static let accent = Color(red: 0.95, green: 0.72, blue: 0.76)
+    static let background = Color(red: 0.020, green: 0.008, blue: 0.012)
+    static let surface = Color(red: 0.071, green: 0.024, blue: 0.035)
+    static let surfaceRaised = Color(red: 0.110, green: 0.039, blue: 0.059)
     static let elevated = surfaceRaised
-    static let border = Color.white.opacity(0.08)
-    static let secondaryText = Color(white: 0.6)
+    static let border = Color(red: 0.620, green: 0.059, blue: 0.157).opacity(0.35)
+    static let secondaryText = Color(red: 0.612, green: 0.522, blue: 0.537)
     static let good = Color(red: 0.30, green: 0.85, blue: 0.45)
     static let warning = Color(red: 1.0, green: 0.72, blue: 0.2)
     static let danger = Color(red: 1.0, green: 0.36, blue: 0.36)
     static let download = Color(red: 0.36, green: 0.62, blue: 1.0)
-    static let userBubble = Color(red: 0.13, green: 0.40, blue: 0.62)
+    static let userBubble = Color(red: 0.420, green: 0.043, blue: 0.118)
     static let jarvisBlue = Color(red: 0.36, green: 0.78, blue: 1.0)
     static let gothicCrimson = Color(red: 0.788, green: 0.094, blue: 0.290)
     static let gothicPurple = Color(red: 0.616, green: 0.306, blue: 0.867)

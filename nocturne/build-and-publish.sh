@@ -5,7 +5,7 @@ set -uo pipefail
 
 STORE_URL="https://navidrome.nas-server.co.uk"
 TOKEN="${SIDESTORE_UPLOAD_TOKEN:?set SIDESTORE_UPLOAD_TOKEN}"
-VERSION="1.3.0"
+VERSION="1.4.0"
 BUNDLE_ID="com.ross.nocturne"
 
 cd "$(dirname "$0")"   # -> nocturne/
@@ -46,7 +46,7 @@ curl -fsSL -X POST \
   -H "X-Upload-Token: $TOKEN" \
   -H "Content-Type: application/octet-stream" \
   --data-binary @out/Nocturne.ipa \
-  "$STORE_URL/sidestore-api/upload?bundleId=${BUNDLE_ID}&version=${VERSION}&name=Nocturne&notes=Call+hang-up+fix" \
+  "$STORE_URL/sidestore-api/upload?bundleId=${BUNDLE_ID}&version=${VERSION}&name=Nocturne&notes=Chat+list+and+sign-in+links" \
   | tee out/publish.json
 echo
 curl -fsSL "$STORE_URL/sidestore-api/verify-ipa?bundleId=${BUNDLE_ID}" || true

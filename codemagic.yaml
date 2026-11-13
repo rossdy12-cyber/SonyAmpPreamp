@@ -73,3 +73,318 @@ workflows:
             echo "No app folders with a build-and-publish.sh changed in this push — nothing to build."
           fi
           exit $RC
+  carbprep-unsigned-ipa:
+    name: CarbPrep iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'CarbPrep/**'
+    scripts:
+      - name: Build unsigned CarbPrep IPA on M2 and publish through TrueNAS
+        script: |
+          bash CarbPrep/build-and-publish.sh
+  crimson-unsigned-ipa:
+    name: crimson iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'crimson/**'
+    scripts:
+      - name: Build unsigned crimson IPA on M2 and publish through TrueNAS
+        script: |
+          bash crimson/build-and-publish.sh
+  deskswitch-unsigned-ipa:
+    name: DeskSwitch iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'DeskSwitch/**'
+    scripts:
+      - name: Build unsigned DeskSwitch IPA on M2 and publish through TrueNAS
+        script: |
+          bash DeskSwitch/build-and-publish.sh
+  glucopulse-unsigned-ipa:
+    name: GlucoPulse iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'GlucoPulse/**'
+    scripts:
+      - name: Build unsigned GlucoPulse IPA on M2 and publish through TrueNAS
+        script: |
+          bash GlucoPulse/build-and-publish.sh
+  keepwatch-unsigned-ipa:
+    name: Keepwatch iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'Keepwatch/**'
+    scripts:
+      - name: Build unsigned Keepwatch IPA on M2 and publish through TrueNAS
+        script: |
+          bash Keepwatch/build-and-publish.sh
+  kith-unsigned-ipa:
+    name: kith iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'kith/**'
+    scripts:
+      - name: Build unsigned kith IPA on M2 and publish through TrueNAS
+        script: |
+          bash kith/build-and-publish.sh
+  lumen-unsigned-ipa:
+    name: lumen iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'lumen/**'
+    scripts:
+      - name: Build unsigned lumen IPA on M2 and publish through TrueNAS
+        script: |
+          bash lumen/build-and-publish.sh
+  nasfiles-unsigned-ipa:
+    name: NASFiles iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'NASFiles/**'
+    scripts:
+      - name: Build unsigned NASFiles IPA on M2 and publish through TrueNAS
+        script: |
+          bash NASFiles/build-and-publish.sh
+  nightfall-unsigned-ipa:
+    name: Nightfall iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'Nightfall/**'
+    scripts:
+      - name: Build unsigned Nightfall IPA on M2 and publish through TrueNAS
+        script: |
+          bash Nightfall/ci/build-and-publish.sh
+  nocturne-unsigned-ipa:
+    name: nocturne iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'nocturne/**'
+    scripts:
+      - name: Build unsigned nocturne IPA on M2 and publish through TrueNAS
+        script: |
+          bash nocturne/build-and-publish.sh
+  omnicontainer-unsigned-ipa:
+    name: OmniContainer iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'OmniContainer/**'
+    scripts:
+      - name: Build unsigned OmniContainer IPA on M2 and publish through TrueNAS
+        script: |
+          bash OmniContainer/build-and-publish.sh
+  prism-unsigned-ipa:
+    name: prism iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'prism/**'
+    scripts:
+      - name: Build unsigned prism IPA on M2 and publish through TrueNAS
+        script: |
+          bash prism/build-and-publish.sh
+  racebolttest-unsigned-ipa:
+    name: RaceboltTest iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'RaceboltTest/**'
+    scripts:
+      - name: Build unsigned RaceboltTest IPA on M2 and publish through TrueNAS
+        script: |
+          bash RaceboltTest/build-and-publish.sh
+  sonyampdsp-unsigned-ipa:
+    name: SonyAmpDSP iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'SonyAmpDSP/**'
+    scripts:
+      - name: Build unsigned SonyAmpDSP IPA on M2 and publish through TrueNAS
+        script: |
+          bash SonyAmpDSP/build-and-publish.sh
+  stark-watch-unsigned-ipa:
+    name: stark-watch iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    when:
+      changeset:
+        includes:
+          - 'stark-watch/**'
+    scripts:
+      - name: Build unsigned stark-watch IPA on M2 and publish through TrueNAS
+        script: |
+          bash stark-watch/build-and-publish.sh

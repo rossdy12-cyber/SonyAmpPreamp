@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="tether_bg">#0A0A0A</color>
+    <color name="tether_panel">#140808</color>
+    <color name="tether_crimson">#B3001B</color>
+</resources>

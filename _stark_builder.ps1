@@ -237,6 +237,8 @@ echo
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
     triggering:
       events:

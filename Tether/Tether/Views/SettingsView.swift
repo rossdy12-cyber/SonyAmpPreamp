@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var pending = 0
     @State private var confirmLeave = false
     @State private var savingProfile = false
+    @State private var serverText = Credentials.serverURL
 
     private var version: String {
         let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -272,14 +273,25 @@ struct SettingsView: View {
 
     private var serverSection: some View {
         Section("Server") {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Address")
                     .font(.caption)
                     .foregroundColor(Theme.muted)
-                Text(Credentials.serverURL)
+                TextField("https://your-server/tether", text: $serverText)
+                    .keyboardType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
                     .foregroundColor(Theme.bone)
-                    .textSelection(.enabled)
             }
+            .listRowBackground(Theme.panel)
+
+            Button {
+                saveServerAddress()
+            } label: {
+                Text("Save address")
+                    .foregroundColor(Theme.crimsonBright)
+            }
+            .disabled(serverText.trimmingCharacters(in: .whitespacesAndNewlines) == Credentials.serverURL)
             .listRowBackground(Theme.panel)
 
             Button {
@@ -318,6 +330,18 @@ struct SettingsView: View {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
         }
+    }
+
+    private func saveServerAddress() {
+        let text = serverText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let base = APIClient.normalize(text) else {
+            session.showMessage("The server address isn't valid.")
+            return
+        }
+        Credentials.serverURL = base.absoluteString
+        serverText = base.absoluteString
+        session.showMessage("Server address saved.")
+        Task { await session.registerDevice() }
     }
 
     private func checkConnection() async {

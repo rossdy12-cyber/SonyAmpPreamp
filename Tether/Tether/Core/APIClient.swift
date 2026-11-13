@@ -11,9 +11,21 @@ extension Notification.Name {
 enum Credentials {
     private static let defaults = UserDefaults.standard
 
+    static let defaultServer = "https://navidrome.nas-server.co.uk/tether"
+
+    /// A reinstall wipes UserDefaults but keeps the Keychain, so the address is kept in both. If the
+    /// address is missing but a token is still saved, fall back to the standard address so the app
+    /// does not end up signed in with nowhere to connect.
     static var serverURL: String {
-        get { defaults.string(forKey: "tether.server") ?? "" }
-        set { defaults.set(newValue, forKey: "tether.server") }
+        get {
+            if let saved = defaults.string(forKey: "tether.server"), !saved.isEmpty { return saved }
+            if let saved = KeychainStore.load(account: "server"), !saved.isEmpty { return saved }
+            return token != nil ? defaultServer : ""
+        }
+        set {
+            defaults.set(newValue, forKey: "tether.server")
+            KeychainStore.save(newValue, account: "server")
+        }
     }
 
     static var token: String? {

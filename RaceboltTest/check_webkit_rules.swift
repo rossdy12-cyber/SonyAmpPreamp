@@ -15,7 +15,9 @@ do { source = try String(contentsOfFile: CommandLine.arguments[1], encoding: .ut
 catch { fail(error.localizedDescription) }
 let app = NSApplication.shared
 app.setActivationPolicy(.prohibited)
-let store = WKContentRuleListStore.default()
+// default() is optional in newer macOS SDKs; binding through an optional works on old and new SDKs alike.
+let maybeStore: WKContentRuleListStore? = WKContentRuleListStore.default()
+guard let store = maybeStore else { fail("WebKit content rule store is unavailable") }
 let identifier = "RaceboltBuildPreflight-v3-\(UUID().uuidString)"
 store.compileContentRuleList(forIdentifier: identifier, encodedContentRuleList: source) { list, error in
     guard let list = list, error == nil else {

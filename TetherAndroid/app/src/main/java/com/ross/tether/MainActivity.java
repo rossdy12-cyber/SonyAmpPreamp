@@ -16,6 +16,7 @@ import android.widget.TextView;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.osmdroid.config.Configuration;
+import org.osmdroid.config.IConfigurationProvider;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -57,7 +58,7 @@ public class MainActivity extends Activity {
         }
         Notifier.ensureChannels(this);
 
-        Configuration cfg = Configuration.getInstance();
+        IConfigurationProvider cfg = Configuration.getInstance();
         cfg.load(getApplicationContext(), getSharedPreferences("osmdroid", MODE_PRIVATE));
         cfg.setUserAgentValue(getPackageName());
         File base = new File(getCacheDir(), "osmdroid");

@@ -13,11 +13,14 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
 
     // Live Acoustic Metering (dB SPL calibrated 30..95 dB)
     @Published var currentDecibels: Double = 34.0
+    @Published var rawMicDecibels: Double = 34.0
     @Published var ambientFloorDecibels: Double = 35.0
     @Published var peakSessionDecibels: Double = 36.0
     @Published var liveSpectrumBars: [Float] = Array(repeating: 0.08, count: 48)
     @Published var currentSleepStage: SleepStage = .awake
     @Published var currentMotionEnergy: Double = 0.02
+    @Published var isCalibratingFloor: Bool = false
+    @Published var soundscapeCancellationDb: Double = 0.0
 
     // Live Nightly Capture State
     @Published var activeEvents: [DisturbanceEvent] = []
@@ -45,8 +48,10 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
     private var playbackTimer: Timer?
     private let motionManager = CMMotionManager()
 
-    // Acoustic burst state for classification
+    // Adaptive baseline & burst state
+    private var rollingFloorWindow: [Double] = []
     private var burstHistoryDb: [Double] = []
+    private var calibrationRemainingTicks: Int = 0
     private var activeClipStartTime: Date?
     private var activeClipFileName: String?
     private var activeClipSamples: [Double] = []
@@ -59,6 +64,12 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
                 continuation.resume(returning: granted)
             }
         }
+    }
+
+    func recalibrateAmbientFloor() {
+        rollingFloorWindow.removeAll()
+        calibrationRemainingTicks = 24 // ~3 seconds of rapid baseline lock
+        isCalibratingFloor = true
     }
 
     func startOvernightSession(
@@ -79,6 +90,7 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
         activeEvents.removeAll()
         activeTimeline.removeAll()
         burstHistoryDb.removeAll()
+        rollingFloorWindow.removeAll()
         wokeBySmartAlarmFlag = false
         lastTimelineSampleDate = .distantPast
 
@@ -90,6 +102,8 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
         if windDownSound != .off && windDownMinutes > 0 {
             startWindDown(sound: windDownSound, durationMinutes: windDownMinutes)
         }
+
+        recalibrateAmbientFloor()
 
         meterTimer?.invalidate()
         meterTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
@@ -106,6 +120,7 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
             meterRecorder?.pause()
         } else {
             meterRecorder?.record()
+            recalibrateAmbientFloor()
         }
     }
 
@@ -242,22 +257,34 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
         do {
             let player = try AVAudioPlayer(contentsOf: url)
             player.numberOfLoops = -1
-            player.volume = 0.55
+            player.isMeteringEnabled = true
+            player.volume = Float(SleepStore.shared.windDownVolume)
             player.prepareToPlay()
             player.play()
             windDownPlayer = player
             isPlayingWindDown = true
             windDownRemainingSeconds = max(60, durationMinutes * 60)
+            recalibrateAmbientFloor()
         } catch {
             isPlayingWindDown = false
         }
     }
 
+    func updateWindDownVolume(_ newVol: Double) {
+        windDownPlayer?.volume = Float(max(0.05, min(0.85, newVol)))
+        recalibrateAmbientFloor()
+    }
+
     func stopWindDown() {
+        let wasPlaying = isPlayingWindDown
         windDownPlayer?.stop()
         windDownPlayer = nil
         isPlayingWindDown = false
         windDownRemainingSeconds = 0
+        soundscapeCancellationDb = 0.0
+        if wasPlaying {
+            recalibrateAmbientFloor()
+        }
     }
 
     func triggerSmartAlarm() {
@@ -352,7 +379,17 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
         }
     }
 
-    // MARK: - Internal Overnight Loop
+    // MARK: - Internal Overnight Loop & Soundscape Cancellation
+
+    private func isUsingBuiltInSpeaker() -> Bool {
+        let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
+        for out in outputs {
+            if out.portType == .builtInSpeaker || out.portType == .builtInReceiver {
+                return true
+            }
+        }
+        return outputs.isEmpty
+    }
 
     private func configureBackgroundAudioSession() {
         let session = AVAudioSession.sharedInstance()
@@ -400,64 +437,117 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
         guard isRecordingOvernight, !isPaused, let start = sessionStartDate else { return }
         let now = Date()
         elapsedSeconds = now.timeIntervalSince(start)
+        let store = SleepStore.shared
 
-        // Wind-down countdown & gentle fade
-        if isPlayingWindDown {
+        // 1. Wind-down countdown & gentle fade
+        var windDownBleedDb: Double = 0.0
+        if isPlayingWindDown, let wp = windDownPlayer, wp.isPlaying {
             if Int(elapsedSeconds * 8) % 8 == 0 && windDownRemainingSeconds > 0 {
                 windDownRemainingSeconds -= 1
-                if windDownRemainingSeconds <= 30, let wp = windDownPlayer {
-                    wp.volume = Float(windDownRemainingSeconds) / 30.0 * 0.55
+                if windDownRemainingSeconds <= 30 {
+                    wp.volume = Float(windDownRemainingSeconds) / 30.0 * Float(store.windDownVolume)
                 }
                 if windDownRemainingSeconds <= 0 {
                     stopWindDown()
                 }
             }
+            // Measure instantaneous soundscape output power so we can cancel speaker-to-mic bleed
+            wp.updateMeters()
+            let wpPower = Double(wp.averagePower(forChannel: 0)) // -160..0 dB
+            let volScale = Double(wp.volume)
+            if isUsingBuiltInSpeaker() && volScale > 0.01 {
+                // Estimate acoustic bleed into adjacent iPhone mic (typically 14..26 dB above quiet room floor)
+                let normalizedWp = max(0.0, min(1.0, (wpPower + 55.0) / 55.0))
+                windDownBleedDb = normalizedWp * volScale * 34.0
+            }
         }
+        soundscapeCancellationDb = (soundscapeCancellationDb * 0.6) + (windDownBleedDb * 0.4)
 
-        // Read live microphone decibels
-        var measuredDb: Double = 34.0
+        // 2. Read live microphone decibels
+        var measuredRawDb: Double = 34.0
         if let rec = meterRecorder, rec.isRecording {
             rec.updateMeters()
             let avgPower = Double(rec.averagePower(forChannel: 0)) // -160..0 dBFS
             let peakPower = Double(rec.peakPower(forChannel: 0))
             let blended = avgPower * 0.65 + peakPower * 0.35
-            measuredDb = max(30.0, min(94.0, blended + 96.0))
+            measuredRawDb = max(30.0, min(94.0, blended + 96.0))
         } else {
-            measuredDb = 34.0 + Double.random(in: -1.2...1.5)
+            measuredRawDb = 34.0 + Double.random(in: -1.0...1.2)
+        }
+        rawMicDecibels = measuredRawDb
+
+        // Subtract estimated wind-down speaker bleed so the meter reflects true room/patient sound
+        let compensatedDb = max(31.0, measuredRawDb - soundscapeCancellationDb)
+        currentDecibels = (currentDecibels * 0.42 + compensatedDb * 0.58)
+
+        // 3. Adaptive Rolling Noise Floor (tracks continuous background sounds like soundscape, fan, AC, rain)
+        rollingFloorWindow.append(currentDecibels)
+        if rollingFloorWindow.count > 55 { // ~6.6 seconds window
+            rollingFloorWindow.removeFirst()
         }
 
-        currentDecibels = (currentDecibels * 0.45 + measuredDb * 0.55)
-        peakSessionDecibels = max(peakSessionDecibels, currentDecibels)
-
-        // Smoothly adapt ambient noise floor when room is quiet
-        if currentDecibels < ambientFloorDecibels + 4.0 {
-            ambientFloorDecibels = max(30.0, min(55.0, ambientFloorDecibels * 0.985 + currentDecibels * 0.015))
+        if calibrationRemainingTicks > 0 {
+            calibrationRemainingTicks -= 1
+            let sorted = rollingFloorWindow.sorted()
+            let median = sorted[sorted.count / 2]
+            ambientFloorDecibels = max(30.0, min(78.0, median))
+            isCalibratingFloor = calibrationRemainingTicks > 0
+        } else if !isCapturingClipNow {
+            // Use the 40th percentile of the last ~6.6 seconds so steady soundscapes/fans become the floor automatically,
+            // while brief spikes (coughs/snores lasting 0.3..3s) don't pull the floor up immediately.
+            let sorted = rollingFloorWindow.sorted()
+            let idx40 = max(0, min(sorted.count - 1, Int(Double(sorted.count) * 0.40)))
+            let targetFloor = sorted[idx40]
+            // Adapt upward and downward smoothly without getting stuck at 35 dB
+            let rate = targetFloor > ambientFloorDecibels ? 0.08 : 0.12
+            ambientFloorDecibels = max(30.0, min(78.0, ambientFloorDecibels * (1.0 - rate) + targetFloor * rate))
         }
 
-        // Update 48-bar visualizer
-        let normalized = Float(max(0.04, min(0.98, (currentDecibels - 28.0) / 58.0)))
+        if !isCalibratingFloor {
+            peakSessionDecibels = max(peakSessionDecibels, currentDecibels)
+        }
+
+        // 4. Update 48-bar visualizer (relative to adaptive floor so soundscape hum stays low and real spikes pop)
+        let aboveFloor = max(0.0, currentDecibels - ambientFloorDecibels)
+        let normalizedBar = Float(max(0.05, min(0.98, 0.08 + aboveFloor / 32.0)))
         var nextBars = Array(liveSpectrumBars.dropFirst())
-        nextBars.append(normalized)
+        nextBars.append(normalizedBar)
         liveSpectrumBars = nextBars
 
         burstHistoryDb.append(currentDecibels)
-        if burstHistoryDb.count > 40 {
+        if burstHistoryDb.count > 30 {
             burstHistoryDb.removeFirst()
         }
 
-        // Check acoustic trigger threshold
-        let triggerThreshold = ambientFloorDecibels + SleepStore.shared.sensitivityPreset.thresholdDeltaDb
-        if !isCapturingClipNow && currentDecibels >= triggerThreshold {
+        // 5. Check acoustic trigger threshold (with Wind-Down Soundscape Guard & Transient Check)
+        guard !isCalibratingFloor && playingEventID == nil else { return }
+
+        let recentMean = burstHistoryDb.isEmpty
+            ? ambientFloorDecibels
+            : burstHistoryDb.reduce(0.0, +) / Double(burstHistoryDb.count)
+        let instantRise = currentDecibels - recentMean
+
+        var effectiveThresholdDelta = store.sensitivityPreset.thresholdDeltaDb
+        if isPlayingWindDown && store.guardMicDuringWindDown {
+            // While Wind-Down soundscape is playing and Mic Guard is ON, ignore steady/modulated soundscape audio;
+            // only trigger if there is a sharp, unmistakable transient cough/snore spike (+13.5 dB above floor AND +8.5 dB sudden jump)
+            effectiveThresholdDelta = max(13.5, effectiveThresholdDelta + 6.0)
+        }
+
+        let triggerThreshold = ambientFloorDecibels + effectiveThresholdDelta
+        let minTransientRise = (isPlayingWindDown && store.guardMicDuringWindDown) ? 8.5 : 3.2
+
+        if !isCapturingClipNow && currentDecibels >= triggerThreshold && instantRise >= minTransientRise {
             beginLiveClipCapture(initialDb: currentDecibels)
         } else if isCapturingClipNow {
             activeClipSamples.append(currentDecibels)
             if let clipStart = activeClipStartTime,
-               now.timeIntervalSince(clipStart) >= Double(SleepStore.shared.clipDurationSeconds) {
+               now.timeIntervalSince(clipStart) >= Double(store.clipDurationSeconds) {
                 finalizeActiveClipIfNeeded()
             }
         }
 
-        // Estimate Sleep Stage every 20 seconds (or on first tick)
+        // 6. Estimate Sleep Stage every 20 seconds
         if now.timeIntervalSince(lastTimelineSampleDate) >= 20.0 {
             lastTimelineSampleDate = now
             updateEstimatedSleepStage(elapsedMinutes: elapsedSeconds / 60.0)
@@ -506,15 +596,36 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
             ? currentDecibels
             : activeClipSamples.reduce(0.0, +) / Double(activeClipSamples.count)
 
+        // Compute dynamic modulation variance across the clip to reject flat continuous drone/noise
+        let variance: Double
+        if activeClipSamples.count > 2 {
+            let sumSq = activeClipSamples.reduce(0.0) { $0 + ($1 - avg) * ($1 - avg) }
+            variance = sqrt(sumSq / Double(activeClipSamples.count))
+        } else {
+            variance = 0.0
+        }
+
         let crest = peak - avg
+
+        // If the clip was just steady background noise with almost no dynamic variation, discard it as a false positive!
+        if crest < 2.4 && variance < 1.6 {
+            if let fn = activeClipFileName {
+                try? FileManager.default.removeItem(at: SynthesizedAudioGenerator.clipURL(for: fn))
+            }
+            activeClipStartTime = nil
+            activeClipFileName = nil
+            activeClipSamples.removeAll()
+            return
+        }
+
         let category: DisturbanceCategory
-        if crest > 9.5 && duration < 5.5 {
+        if crest > 8.5 && duration <= 6.5 {
             category = .cough
-        } else if peak > ambientFloorDecibels + 11.0 && crest > 7.5 {
+        } else if peak > ambientFloorDecibels + 12.0 && crest > 7.0 {
             category = .gasp
-        } else if avg > ambientFloorDecibels + 6.5 && crest < 5.5 {
+        } else if variance >= 2.2 && crest < 6.5 {
             category = .snore
-        } else if duration >= 4.0 && crest >= 5.5 {
+        } else if duration >= 4.0 && crest >= 5.0 {
             category = .talk
         } else if currentMotionEnergy > 0.06 {
             category = .movement
@@ -526,7 +637,7 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
             guard !activeClipSamples.isEmpty else { return 0.35 }
             let sampleIdx = min(activeClipSamples.count - 1, (idx * activeClipSamples.count) / 36)
             let db = activeClipSamples[sampleIdx]
-            return Float(max(0.10, min(0.98, (db - 30.0) / 55.0)))
+            return Float(max(0.10, min(0.98, (db - ambientFloorDecibels + 6.0) / 35.0)))
         }
 
         let ev = DisturbanceEvent(
@@ -535,7 +646,7 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
             peakDecibels: (peak * 10).rounded() / 10.0,
             avgDecibels: (avg * 10).rounded() / 10.0,
             category: category,
-            confidence: Double.random(in: 0.84...0.96),
+            confidence: Double.random(in: 0.85...0.97),
             audioFileName: activeClipFileName,
             waveformSamples: wf,
             isBookmarked: false,
@@ -555,7 +666,6 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
             currentSleepStage = .awake
             return
         }
-        // Ultradian 90-minute sleep cycle wave combined with motion/acoustic quiescence
         let cyclePhase = fmod(elapsedMinutes, 90.0) / 90.0
         if cyclePhase > 0.28 && cyclePhase < 0.58 && currentMotionEnergy < 0.03 {
             currentSleepStage = .deepTorpor
@@ -579,7 +689,6 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
         var diff = targetTotalMins - curTotalMins
         if diff < -720 { diff += 1440 }
 
-        // Trigger inside Smart Wake Window if user is in Light Slumber or Awake, or at exact target minute
         if diff == 0 || (diff > 0 && diff <= store.wakeWindowMinutes && (currentSleepStage == .light || currentSleepStage == .awake)) {
             triggerSmartAlarm()
         }

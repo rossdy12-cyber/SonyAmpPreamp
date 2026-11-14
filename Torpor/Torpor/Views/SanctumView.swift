@@ -112,23 +112,52 @@ struct SanctumView: View {
                                 .font(Theme.mono(11))
                                 .foregroundStyle(Theme.muted)
                         }
+                        if engine.soundscapeCancellationDb > 0.5 {
+                            HStack(spacing: 6) {
+                                Image(systemName: "waveform.badge.minus")
+                                    .font(.caption2)
+                                    .foregroundStyle(Theme.emerald)
+                                Text("Soundscape Echo Cancelled: -\(String(format: "%.1f", engine.soundscapeCancellationDb)) dB • Mic Guard \(store.guardMicDuringWindDown ? "ON" : "OFF")")
+                                    .font(Theme.mono(10, weight: .semibold))
+                                    .foregroundStyle(Theme.emerald)
+                            }
+                        }
                     }
                     Spacer()
-                    if engine.isCapturingClipNow {
-                        Label("CLIPPING", systemImage: "record.circle.fill")
-                            .font(Theme.mono(11, weight: .bold))
-                            .foregroundStyle(Theme.bloodGlow)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 5)
-                            .background(Capsule().fill(Theme.crimson.opacity(0.28)))
-                    } else {
-                        Text(engine.currentSleepStage.rawValue.uppercased())
-                            .font(Theme.mono(11, weight: .semibold))
-                            .foregroundStyle(engine.currentSleepStage.color)
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 5)
-                            .background(Capsule().fill(Theme.bg0))
-                            .overlay(Capsule().strokeBorder(engine.currentSleepStage.color.opacity(0.5), lineWidth: 1))
+                    VStack(alignment: .trailing, spacing: 6) {
+                        if engine.isCalibratingFloor {
+                            Label("CALIBRATING", systemImage: "scope")
+                                .font(Theme.mono(10, weight: .bold))
+                                .foregroundStyle(Theme.amber)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 5)
+                                .background(Capsule().fill(Theme.amber.opacity(0.22)))
+                        } else if engine.isCapturingClipNow {
+                            Label("CLIPPING", systemImage: "record.circle.fill")
+                                .font(Theme.mono(11, weight: .bold))
+                                .foregroundStyle(Theme.bloodGlow)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 5)
+                                .background(Capsule().fill(Theme.crimson.opacity(0.28)))
+                        } else {
+                            Text(engine.currentSleepStage.rawValue.uppercased())
+                                .font(Theme.mono(11, weight: .semibold))
+                                .foregroundStyle(engine.currentSleepStage.color)
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 5)
+                                .background(Capsule().fill(Theme.bg0))
+                                .overlay(Capsule().strokeBorder(engine.currentSleepStage.color.opacity(0.5), lineWidth: 1))
+                        }
+
+                        if engine.isRecordingOvernight {
+                            Button {
+                                engine.recalibrateAmbientFloor()
+                            } label: {
+                                Label("Zero Floor", systemImage: "arrow.counterclockwise")
+                                    .font(Theme.mono(10, weight: .semibold))
+                                    .foregroundStyle(Theme.crimsonBright)
+                            }
+                        }
                     }
                 }
 
@@ -423,19 +452,54 @@ struct SanctumView: View {
                 }
 
                 if store.windDownSound != .off {
-                    HStack {
-                        Text(store.windDownSound.subtitle)
-                            .font(.caption)
-                            .foregroundStyle(Theme.muted)
-                        Spacer()
-                        Picker("Auto-Fade", selection: $store.windDownMinutes) {
-                            Text("15m").tag(15)
-                            Text("20m").tag(20)
-                            Text("45m").tag(45)
-                            Text("60m").tag(60)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text(store.windDownSound.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(Theme.muted)
+                            Spacer()
+                            Picker("Auto-Fade", selection: $store.windDownMinutes) {
+                                Text("15m").tag(15)
+                                Text("20m").tag(20)
+                                Text("45m").tag(45)
+                                Text("60m").tag(60)
+                            }
+                            .pickerStyle(.menu)
+                            .tint(Theme.crimsonBright)
                         }
-                        .pickerStyle(.menu)
-                        .tint(Theme.crimsonBright)
+
+                        HStack(spacing: 10) {
+                            Image(systemName: "speaker.wave.1.fill")
+                                .font(.caption)
+                                .foregroundStyle(Theme.muted)
+                            Slider(
+                                value: Binding(
+                                    get: { store.windDownVolume },
+                                    set: { newVal in
+                                        store.windDownVolume = newVal
+                                        engine.updateWindDownVolume(newVal)
+                                    }
+                                ),
+                                in: 0.10...0.75
+                            )
+                            .tint(Theme.crimsonBright)
+                            Text("\(Int(store.windDownVolume * 100))%")
+                                .font(Theme.mono(11))
+                                .foregroundStyle(Theme.muted)
+                                .frame(width: 36, alignment: .trailing)
+                        }
+
+                        Toggle(isOn: $store.guardMicDuringWindDown) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Auto-Cancel Soundscape from Mic")
+                                    .font(Theme.serif(13, weight: .semibold))
+                                    .foregroundStyle(Theme.bone)
+                                Text("Subtracts speaker bleed & ignores steady soundscape audio so rain/drones aren't logged as snoring.")
+                                    .font(.caption2)
+                                    .foregroundStyle(Theme.muted)
+                            }
+                        }
+                        .tint(Theme.emerald)
                     }
                 }
             }

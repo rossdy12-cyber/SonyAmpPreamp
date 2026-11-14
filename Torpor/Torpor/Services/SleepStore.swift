@@ -18,9 +18,11 @@ final class SleepStore: ObservableObject {
     @Published var clipDurationSeconds: Int = 8 { didSet { saveSettings() } }
     @Published var windDownSound: WindDownSound = .cryptRain { didSet { saveSettings() } }
     @Published var windDownMinutes: Int = 20 { didSet { saveSettings() } }
+    @Published var guardMicDuringWindDown: Bool = true { didSet { saveSettings() } }
+    @Published var windDownVolume: Double = 0.30 { didSet { saveSettings() } }
 
     private let sessionsFileURL: URL
-    private let settingsKey = "torpor_settings_v1"
+    private let settingsKey = "torpor_settings_v2"
 
     private struct PersistedSettings: Codable {
         var smartAlarmEnabled: Bool
@@ -31,6 +33,8 @@ final class SleepStore: ObservableObject {
         var clipDurationSeconds: Int
         var windDownSound: WindDownSound
         var windDownMinutes: Int
+        var guardMicDuringWindDown: Bool?
+        var windDownVolume: Double?
     }
 
     init() {
@@ -204,7 +208,9 @@ final class SleepStore: ObservableObject {
             sensitivityPreset: sensitivityPreset,
             clipDurationSeconds: clipDurationSeconds,
             windDownSound: windDownSound,
-            windDownMinutes: windDownMinutes
+            windDownMinutes: windDownMinutes,
+            guardMicDuringWindDown: guardMicDuringWindDown,
+            windDownVolume: windDownVolume
         )
         if let data = try? JSONEncoder().encode(s) {
             UserDefaults.standard.set(data, forKey: settingsKey)
@@ -222,6 +228,8 @@ final class SleepStore: ObservableObject {
         clipDurationSeconds = s.clipDurationSeconds
         windDownSound = s.windDownSound
         windDownMinutes = s.windDownMinutes
+        guardMicDuringWindDown = s.guardMicDuringWindDown ?? true
+        windDownVolume = s.windDownVolume ?? 0.30
     }
 
     func generateAdditionalDemoNight() {

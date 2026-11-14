@@ -214,9 +214,9 @@ enum SynthesizedAudioGenerator {
         data.append(Data(bytes: &cs, count: 4))
         data.append("WAVE".data(using: .ascii)!)
         data.append("fmt ".data(using: .ascii)!)
-        var subchunk1Size: UInt32 = 16.littleEndian
+        var subchunk1Size: UInt32 = UInt32(16).littleEndian
         data.append(Data(bytes: &subchunk1Size, count: 4))
-        var audioFormat: UInt16 = 1.littleEndian
+        var audioFormat: UInt16 = UInt16(1).littleEndian
         data.append(Data(bytes: &audioFormat, count: 2))
         var nc = numChannels.littleEndian
         data.append(Data(bytes: &nc, count: 2))

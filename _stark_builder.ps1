@@ -228,7 +228,8 @@ echo
         if (Test-Path $buildSh1) { $relSh = "$dirName/build-and-publish.sh" }
         elseif (Test-Path $buildSh2) { $relSh = "$dirName/ci/build-and-publish.sh" }
 
-        if ($relSh -and ($cmContent -notmatch [regex]::Escape("'$dirName/**'"))) {
+        # A folder already has a workflow when codemagic.yaml already runs its build script.
+        if ($relSh -and ($cmContent -notmatch [regex]::Escape("bash $relSh"))) {
             $wfSlug = ($dirName.ToLower() -replace "[^a-z0-9-]", "-") + "-unsigned-ipa"
             Write-Host "[*] Adding Codemagic M2 workflow '$wfSlug' for folder '$dirName/'..." -ForegroundColor Cyan
             $wfBlock = @"
@@ -240,17 +241,8 @@ echo
       groups:
         - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - '${dirName}/**'
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
     scripts:
       - name: Build unsigned ${dirName} IPA on M2 and publish through TrueNAS
         script: |

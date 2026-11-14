@@ -1,0 +1,53 @@
+name: Torpor
+options:
+  bundleIdPrefix: com.ross
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  Torpor:
+    type: application
+    platform: iOS
+    sources:
+      - path: Torpor
+    settings:
+      base:
+        PRODUCT_NAME: Torpor
+        PRODUCT_BUNDLE_IDENTIFIER: com.ross.torpor
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        DEVELOPMENT_TEAM: ""
+    info:
+      path: Torpor/Info.plist
+      properties:
+        CFBundleDisplayName: Torpor
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UIUserInterfaceStyle: Dark
+        NSMicrophoneUsageDescription: "Torpor listens overnight to detect, classify, and record sleep disturbances such as coughing, snoring, gasping, and sleep talking."
+        NSMotionUsageDescription: "Torpor uses subtle motion sensors alongside acoustic analysis to estimate your sleep stages (Light, Deep Torpor, REM, Awake) and trigger your Smart Phase Alarm."
+        UIBackgroundModes:
+          - audio
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true

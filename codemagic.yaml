@@ -78,18 +78,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'CarbPrep/**'
     scripts:
       - name: Build unsigned CarbPrep IPA on M2 and publish through TrueNAS
         script: |
@@ -99,18 +90,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'crimson/**'
     scripts:
       - name: Build unsigned crimson IPA on M2 and publish through TrueNAS
         script: |
@@ -120,18 +102,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'DeskSwitch/**'
     scripts:
       - name: Build unsigned DeskSwitch IPA on M2 and publish through TrueNAS
         script: |
@@ -141,18 +114,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'GlucoPulse/**'
     scripts:
       - name: Build unsigned GlucoPulse IPA on M2 and publish through TrueNAS
         script: |
@@ -162,18 +126,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'Keepwatch/**'
     scripts:
       - name: Build unsigned Keepwatch IPA on M2 and publish through TrueNAS
         script: |
@@ -183,18 +138,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'kith/**'
     scripts:
       - name: Build unsigned kith IPA on M2 and publish through TrueNAS
         script: |
@@ -204,18 +150,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'lumen/**'
     scripts:
       - name: Build unsigned lumen IPA on M2 and publish through TrueNAS
         script: |
@@ -225,18 +162,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'NASFiles/**'
     scripts:
       - name: Build unsigned NASFiles IPA on M2 and publish through TrueNAS
         script: |
@@ -246,18 +174,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'Nightfall/**'
     scripts:
       - name: Build unsigned Nightfall IPA on M2 and publish through TrueNAS
         script: |
@@ -267,18 +186,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'nocturne/**'
     scripts:
       - name: Build unsigned nocturne IPA on M2 and publish through TrueNAS
         script: |
@@ -288,18 +198,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'OmniContainer/**'
     scripts:
       - name: Build unsigned OmniContainer IPA on M2 and publish through TrueNAS
         script: |
@@ -309,18 +210,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'prism/**'
     scripts:
       - name: Build unsigned prism IPA on M2 and publish through TrueNAS
         script: |
@@ -330,18 +222,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'RaceboltTest/**'
     scripts:
       - name: Build unsigned RaceboltTest IPA on M2 and publish through TrueNAS
         script: |
@@ -351,18 +234,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'SonyAmpDSP/**'
     scripts:
       - name: Build unsigned SonyAmpDSP IPA on M2 and publish through TrueNAS
         script: |
@@ -372,18 +246,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'stark-watch/**'
     scripts:
       - name: Build unsigned stark-watch IPA on M2 and publish through TrueNAS
         script: |
@@ -393,18 +258,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'Catacomb/**'
     scripts:
       - name: Build unsigned Catacomb IPA on M2 and publish through TrueNAS
         script: |
@@ -414,18 +270,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'Grimoire/**'
     scripts:
       - name: Build unsigned Grimoire IPA on M2 and publish through TrueNAS
         script: |
@@ -435,18 +282,9 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 30
     environment:
+      groups:
+        - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'Reliquary/**'
     scripts:
       - name: Build unsigned Reliquary IPA on M2 and publish through TrueNAS
         script: |
@@ -459,17 +297,6 @@ workflows:
       groups:
         - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'Tether/**'
     scripts:
       - name: Build unsigned Tether IPA on M2 and publish through TrueNAS
         script: |
@@ -482,18 +309,21 @@ workflows:
       groups:
         - sidestore
       xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-    when:
-      changeset:
-        includes:
-          - 'TetherAndroid/**'
     scripts:
       - name: Build unsigned TetherAndroid IPA on M2 and publish through TrueNAS
         script: |
           bash TetherAndroid/build-and-publish.sh
+  torpor-unsigned-ipa:
+    name: Torpor iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Torpor IPA on M2 and publish through TrueNAS
+        script: |
+          bash Torpor/build-and-publish.sh

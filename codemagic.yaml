@@ -327,3 +327,17 @@ workflows:
       - name: Build unsigned Torpor IPA on M2 and publish through TrueNAS
         script: |
           bash Torpor/build-and-publish.sh
+  qwenstudio-unsigned-ipa:
+    name: QwenStudio iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned QwenStudio IPA on M2 and publish through TrueNAS
+        script: |
+          bash QwenStudio/build-and-publish.sh

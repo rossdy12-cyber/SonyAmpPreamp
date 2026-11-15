@@ -25,6 +25,19 @@ struct StudioCanvasView: View {
             .background(StudioTheme.bgDeep.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        isPromptFocused = false
+                        store.lockStealthImmediately()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "eye.slash.fill")
+                            Text("Hide")
+                        }
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(StudioTheme.cyanGlow)
+                    }
+                }
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 8) {
                         Image(systemName: "flame.fill")

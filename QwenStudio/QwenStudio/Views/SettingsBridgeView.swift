@@ -7,6 +7,7 @@ struct SettingsBridgeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    stealthConfigCard
                     pcBridgeCard
                     clusterConfigCard
                     aboutCard
@@ -15,9 +16,69 @@ struct SettingsBridgeView: View {
                 .padding(.bottom, 32)
             }
             .background(StudioTheme.bgDeep.ignoresSafeArea())
-            .navigationTitle("GPU Link & Cluster")
+            .navigationTitle("GPU Link & Stealth")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        store.lockStealthImmediately()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "eye.slash.fill")
+                            Text("Hide")
+                        }
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(StudioTheme.cyanGlow)
+                    }
+                }
+            }
         }
+    }
+
+    private var stealthConfigCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("STEALTH CAMOUFLAGE (COREDIAG DECOY)", systemImage: "eye.slash.circle.fill")
+                    .font(.system(size: 11, weight: .heavy))
+                    .tracking(0.8)
+                    .foregroundColor(StudioTheme.emerald)
+                Spacer()
+                Button {
+                    store.lockStealthImmediately()
+                } label: {
+                    Text("Lock Now")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(StudioTheme.crimson)
+                        .clipShape(Capsule())
+                }
+            }
+
+            Text("Disguises the app as 'CoreDiag' (System & Network Telemetry). Automatically hides the Studio whenever you swipe up or switch apps. To unlock from CoreDiag: hold 'CoreDiag v2.1 • KERNEL OK' for 1 second (Face ID) or enter your secret PIN in the Port box.")
+                .font(.system(size: 11))
+                .foregroundColor(StudioTheme.textSecondary)
+
+            Toggle("Auto-Lock to CoreDiag on Launch & App Switch", isOn: $store.requireStealthOnLaunch)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(StudioTheme.textPrimary)
+                .tint(StudioTheme.emerald)
+
+            HStack {
+                Text("Secret Port PIN:")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(StudioTheme.textPrimary)
+                TextField("2070", text: $store.stealthPin)
+                    .keyboardType(.numbersAndPunctuation)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundColor(StudioTheme.cyanGlow)
+                    .padding(8)
+                    .background(StudioTheme.bgDeep)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        .studioCard(borderColor: StudioTheme.emerald.opacity(0.4))
     }
 
     private var pcBridgeCard: some View {
@@ -93,7 +154,7 @@ struct SettingsBridgeView: View {
             Button {
                 store.saveSettings()
             } label: {
-                Label("Save & Test Home PC Connection", systemImage: "bolt.horizontal.circle.fill")
+                Label("Save All Settings & Test Connection", systemImage: "bolt.horizontal.circle.fill")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -135,11 +196,11 @@ struct SettingsBridgeView: View {
 
     private var aboutCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("QWEN 2.1 UNCENSORED STUDIO // iOS EDITION")
+            Text("COREDIAG // STEALTH STUDIO EDITION v1.1")
                 .font(.system(size: 11, weight: .heavy))
                 .tracking(0.8)
                 .foregroundColor(StudioTheme.textSecondary)
-            Text("• 119 Character Presets (Helluva Boss / Hazbin, MLP, Digimon, Pokémon, Anthro, Gaming & Anime)\n• 11 Anatomy & Shape Modes + Duo Scene Builder\n• 3 Engines: Standalone AI Cluster, Home PC RTX 2070S Bridge & Instant Cloud Flux\n• Signed for 365-Day OTA & SideStore on TrueNAS")
+            Text("• Disguised on iPhone Home Screen & SideStore as 'CoreDiag'\n• Vault stored in hidden Application Support (invisible in iOS Files app & iCloud Backup)\n• Instant App-Switcher Privacy Curtain + Face ID / PIN 2070 Unlock")
                 .font(.system(size: 12))
                 .foregroundColor(StudioTheme.textSecondary)
                 .lineSpacing(4)

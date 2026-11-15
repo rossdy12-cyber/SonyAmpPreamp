@@ -56,6 +56,18 @@ struct VaultGalleryView: View {
             .navigationTitle("Artwork Vault")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        store.lockStealthImmediately()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "eye.slash.fill")
+                            Text("Hide")
+                        }
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(StudioTheme.cyanGlow)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         Task {

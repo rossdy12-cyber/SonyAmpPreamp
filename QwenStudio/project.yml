@@ -9,8 +9,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "1.1.0"
+    CURRENT_PROJECT_VERSION: "2"
 
 targets:
   QwenStudio:
@@ -33,15 +33,16 @@ targets:
     info:
       path: QwenStudio/Info.plist
       properties:
-        CFBundleDisplayName: "Qwen Studio"
+        CFBundleDisplayName: "CoreDiag"
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSRequiresIPhoneOS: true
         ITSAppUsesNonExemptEncryption: false
         UIUserInterfaceStyle: Dark
-        NSPhotoLibraryAddUsageDescription: "Qwen Studio saves your generated AI artwork directly to your iPhone Photos library."
-        NSPhotoLibraryUsageDescription: "Qwen Studio lets you pick reference images from your library for Image-to-Image AI generation."
-        NSLocalNetworkUsageDescription: "Qwen Studio connects to your home PC RTX 2070 Super server over local Wi-Fi or Tailscale for local GPU rendering."
+        NSFaceIDUsageDescription: "CoreDiag uses Face ID to unlock administrator telemetry."
+        NSPhotoLibraryAddUsageDescription: "CoreDiag exports diagnostic snapshots to your library when requested."
+        NSPhotoLibraryUsageDescription: "CoreDiag imports reference images for calibration."
+        NSLocalNetworkUsageDescription: "CoreDiag connects to your local TrueNAS and PC nodes over Wi-Fi or Tailscale."
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         UILaunchScreen:
@@ -50,5 +51,5 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        UIFileSharingEnabled: true
-        LSSupportsOpeningDocumentsInPlace: true
+        UIFileSharingEnabled: false
+        LSSupportsOpeningDocumentsInPlace: false

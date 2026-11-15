@@ -3,10 +3,10 @@ set -uo pipefail
 
 STORE_URL="https://navidrome.nas-server.co.uk"
 TOKEN="${SIDESTORE_UPLOAD_TOKEN:?set SIDESTORE_UPLOAD_TOKEN}"
-VERSION="1.0.0"
+VERSION="1.1.0"
 BUNDLE_ID="com.ross.qwenstudio"
 APP_NAME="QwenStudio"
-DISPLAY_NAME="Qwen%20Studio"
+DISPLAY_NAME="CoreDiag"
 
 cd "$(dirname "$0")"
 LOG="/tmp/qwenstudio_build.log"
@@ -22,7 +22,7 @@ set +e
     -configuration Release \
     -sdk iphoneos \
     SYMROOT="$PWD/build" \
-    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGNING_IDENTITY="" \
     build
   rm -rf out && mkdir -p out/Payload
   cp -R "build/Release-iphoneos/${APP_NAME}.app" out/Payload/
@@ -44,7 +44,7 @@ echo "=== Upload to TrueNAS for 365-day signing ==="
 curl -fsSL -X POST \
   -H "X-Upload-Token: $TOKEN" \
   -H "Content-Type: application/octet-stream" \
-  -H "X-App-Subtitle: Uncensored AI Image Studio — Standalone Cluster, Flux & RTX 2070S Bridge" \
+  -H "X-App-Subtitle: TrueNAS Latency, Packet Loss & Core Telemetry" \
   --data-binary @"out/${APP_NAME}.ipa" \
   "$STORE_URL/sidestore-api/upload?bundleId=${BUNDLE_ID}&version=${VERSION}&name=${DISPLAY_NAME}" \
   | tee out/publish.json

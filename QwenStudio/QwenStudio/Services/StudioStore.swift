@@ -1,9 +1,15 @@
 import Foundation
+import LocalAuthentication
 import SwiftUI
 import UIKit
 
 @MainActor
 final class StudioStore: ObservableObject {
+    // MARK: - Stealth Decoy & Lock State (Hidden from Lauren)
+    @Published var isStealthLocked: Bool = true
+    @Published var stealthPin: String = UserDefaults.standard.string(forKey: "qwen_stealth_pin") ?? "2070"
+    @Published var requireStealthOnLaunch: Bool = (UserDefaults.standard.object(forKey: "qwen_stealth_enabled") as? Bool) ?? true
+
     // MARK: - Studio Canvas State
     @Published var selectedTab: Int = 0
     @Published var prompt: String = "masterpiece, best quality, ultra detailed, 1girl, loona (helluva boss), anthropomorphic hellhound wolf girl, white and grey fur, red sclera yellow iris eyes, gothic punk aesthetic, full body, wide shot, head to toe, standing, feet visible, cyberpunk neon bedroom, volumetric neon rim lighting"
@@ -34,15 +40,15 @@ final class StudioStore: ObservableObject {
     @Published var wizCategoryFilter: String = "All"
     @Published var wizSearchQuery: String = ""
     @Published var wizSubject: String = "loona"
-    @Published var wizSubject2: String = ""
+    @Published var wizSubject2: String = "none"
     @Published var wizAnatomy: String = "female"
     @Published var wizAnatomy2: String = "same_as_1"
-    @Published var wizOutfit: String = ""
+    @Published var wizOutfit: String = "canonical_outfit"
     @Published var wizOutfit2: String = "same"
-    @Published var wizPose: String = "full body standing confidently, head to toe visible"
-    @Published var wizPose2: String = ""
-    @Published var wizSetting: String = "luxury penthouse bedroom at night, neon city skyline through floor-to-ceiling glass"
-    @Published var wizLighting: String = "cinematic rim lighting, volumetric neon glow, soft shadows"
+    @Published var wizPose: String = ""
+    @Published var wizPose2: String = "none"
+    @Published var wizSetting: String = ""
+    @Published var wizLighting: String = ""
     @Published var generatedVariants: [PromptVariantCard] = []
 
     // MARK: - Vault & Home PC Bridge State
@@ -57,17 +63,82 @@ final class StudioStore: ObservableObject {
     private let vaultDir: URL
 
     init() {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        self.vaultDir = docs.appendingPathComponent("Vault", isDirectory: true)
-        try? FileManager.default.createDirectory(at: vaultDir, withIntermediateDirectories: true)
+        // Hidden Application Support directory (never visible in iOS Files app or Spotlight)
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        var hiddenDir = appSupport.appendingPathComponent(".corediag_telemetry", isDirectory: true)
+        try? FileManager.default.createDirectory(at: hiddenDir, withIntermediateDirectories: true)
+        var resValues = URLResourceValues()
+        resValues.isExcludedFromBackup = true
+        try? hiddenDir.setResourceValues(resValues)
+        self.vaultDir = hiddenDir
+
+        // Initialize Prompt Alchemist defaults to match exact option IDs from StudioCatalog.shared
+        let cat = StudioCatalog.shared
+        if let firstSubj = cat.subjects.first(where: { $0.id == "loona" }) ?? cat.subjects.first(where: { $0.id != "none" }) {
+            self.wizSubject = firstSubj.id
+        }
+        if let firstAnat = cat.anatomies.first {
+            self.wizAnatomy = firstAnat.id
+        }
+        if let firstOutf = cat.outfits.first {
+            self.wizOutfit = firstOutf.id
+        }
+        if let firstPose = cat.poses.first {
+            self.wizPose = firstPose.id
+        }
+        if let firstDuoPose = cat.duo_poses.first {
+            self.wizPose2 = firstDuoPose.id
+        }
+        if let firstSet = cat.settings.first {
+            self.wizSetting = firstSet.id
+        }
+        if let firstLight = cat.lightings.first {
+            self.wizLighting = firstLight.id
+        }
+
+        self.isStealthLocked = self.requireStealthOnLaunch
+        migrateLegacyVaultIfNeeded()
         loadVault()
         if let first = vaultItems.first, let img = loadImageFromVault(filename: first.filename) {
             self.activeImage = img
             self.activeVaultItem = first
         }
+        buildPromptsOfflineSync()
         Task {
             await checkPCConnection()
         }
+    }
+
+    // MARK: - Stealth Unlock & Lock Methods
+    func lockStealthImmediately() {
+        isStealthLocked = true
+    }
+
+    func unlockWithBiometrics(completion: @escaping (Bool) -> Void) {
+        let context = LAContext()
+        var error: NSError?
+        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
+            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Verify administrator access to CoreDiag kernel telemetry") { success, _ in
+                Task { @MainActor in
+                    if success {
+                        self.isStealthLocked = false
+                    }
+                    completion(success)
+                }
+            }
+        } else {
+            // Fallback if Face ID / Passcode policy isn't configured
+            self.isStealthLocked = false
+            completion(true)
+        }
+    }
+
+    func tryUnlockWithPin(_ candidate: String) -> Bool {
+        if candidate.trimmingCharacters(in: .whitespacesAndNewlines) == stealthPin {
+            isStealthLocked = false
+            return true
+        }
+        return false
     }
 
     func saveSettings() {
@@ -75,7 +146,9 @@ final class StudioStore: ObservableObject {
         pcBaseURL = cleaned
         UserDefaults.standard.set(cleaned, forKey: "qwen_pc_url")
         UserDefaults.standard.set(hordeApiKey.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "qwen_horde_key")
-        showToast("Saved bridge settings")
+        UserDefaults.standard.set(stealthPin.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "qwen_stealth_pin")
+        UserDefaults.standard.set(requireStealthOnLaunch, forKey: "qwen_stealth_enabled")
+        showToast("Saved settings")
         Task {
             await checkPCConnection()
         }
@@ -172,7 +245,8 @@ final class StudioStore: ObservableObject {
 
     // MARK: - Prompt Alchemist (Hybrid PC + 100% Standalone On-Device Builder)
     func buildPromptsFromAlchemist() async {
-        // If Home PC is reachable, try the PC's /api/generate-prompts endpoint first for 100% parity
+        let s2Clean = (wizSubject2 == "none") ? "" : wizSubject2
+        let p2Clean = (wizPose2 == "none") ? "" : wizPose2
         if pcOnline, let url = URL(string: "\(pcBaseURL)/api/generate-prompts") {
             var req = URLRequest(url: url)
             req.httpMethod = "POST"
@@ -180,16 +254,16 @@ final class StudioStore: ObservableObject {
             req.timeoutInterval = 5.0
             let body: [String: Any] = [
                 "idea": wizIdea,
-                "subject": wizSubject,
-                "subject_2": wizSubject2,
+                "subject": wizSubject == "none" ? "" : wizSubject,
+                "subject_2": s2Clean,
                 "anatomy": wizAnatomy,
                 "anatomy_2": wizAnatomy2,
-                "outfit": wizOutfit,
+                "outfit": wizOutfit == "none" ? "" : wizOutfit,
                 "outfit_2": wizOutfit2,
-                "pose": wizPose,
-                "pose_2": wizPose2,
-                "setting": wizSetting,
-                "lighting": wizLighting,
+                "pose": wizPose == "none" ? "" : wizPose,
+                "pose_2": p2Clean,
+                "setting": wizSetting == "none" ? "" : wizSetting,
+                "lighting": wizLighting == "none" ? "" : wizLighting,
                 "rating": "uncensored",
                 "style_preset": selectedStylePreset
             ]
@@ -219,24 +293,30 @@ final class StudioStore: ObservableObject {
             }
         }
 
-        // Standalone On-Device Prompt Builder (works 100% offline / anywhere)
+        buildPromptsOfflineSync()
+        showToast("Built 3 prompt variants")
+    }
+
+    func buildPromptsOfflineSync() {
         let cat = StudioCatalog.shared
         let char1 = buildSingleCharacterTags(
             subjectKey: wizSubject,
             anatomyKey: wizAnatomy,
             outfitText: wizOutfit,
-            poseText: wizPose,
+            poseText: wizPose == "none" ? "" : wizPose,
             catalog: cat
         )
 
-        let hasDuo = !wizSubject2.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let s2Clean = (wizSubject2 == "none") ? "" : wizSubject2.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasDuo = !s2Clean.isEmpty
         let effAnat2 = (wizAnatomy2 == "same_as_1" || wizAnatomy2.isEmpty) ? wizAnatomy : wizAnatomy2
-        let effOutfit2 = (wizOutfit2 == "same") ? wizOutfit : (wizOutfit2 == "default" ? "" : wizOutfit2)
+        let effOutfit2 = (wizOutfit2 == "same") ? wizOutfit : (wizOutfit2 == "default" ? "canonical_outfit" : wizOutfit2)
+        let p2Clean = (wizPose2 == "none") ? "" : wizPose2
         let char2 = hasDuo ? buildSingleCharacterTags(
-            subjectKey: wizSubject2,
+            subjectKey: s2Clean,
             anatomyKey: effAnat2,
             outfitText: effOutfit2,
-            poseText: wizPose2,
+            poseText: p2Clean,
             catalog: cat
         ) : nil
 
@@ -248,8 +328,8 @@ final class StudioStore: ObservableObject {
         if !wizIdea.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             extraParts.append(wizIdea.trimmingCharacters(in: .whitespacesAndNewlines))
         }
-        if !wizSetting.isEmpty { extraParts.append(wizSetting) }
-        if !wizLighting.isEmpty { extraParts.append(wizLighting) }
+        if !wizSetting.isEmpty && wizSetting != "none" { extraParts.append(wizSetting) }
+        if !wizLighting.isEmpty && wizLighting != "none" { extraParts.append(wizLighting) }
         let sceneSuffix = extraParts.joined(separator: ", ")
 
         let booruPrompt: String
@@ -258,7 +338,7 @@ final class StudioStore: ObservableObject {
         let combinedNeg: String
 
         if let c2 = char2 {
-            let duoHeader = "2 characters, duo, interacting, \(wizPose2.isEmpty ? "standing together" : wizPose2), \(framingTags)"
+            let duoHeader = "2 characters, duo, interacting, \(p2Clean.isEmpty ? "standing together" : p2Clean), \(framingTags)"
             if selectedEngine == .homePCRTX {
                 booruPrompt = "masterpiece, best quality, ultra detailed, \(duoHeader), \(char1.anime), \(sceneSuffix) ||DUO_SPLIT|| masterpiece, best quality, ultra detailed, \(duoHeader), \(c2.anime), \(sceneSuffix)"
                 furryPrompt = "masterpiece, best quality, Kemono FurAffinity high-res, \(duoHeader), \(char1.furry), \(sceneSuffix) ||DUO_SPLIT|| masterpiece, best quality, Kemono FurAffinity high-res, \(duoHeader), \(c2.furry), \(sceneSuffix)"
@@ -295,7 +375,6 @@ final class StudioStore: ObservableObject {
                 negative: combinedNeg
             )
         ]
-        showToast("Built 3 prompt variants")
     }
 
     private func buildSingleCharacterTags(
@@ -306,35 +385,35 @@ final class StudioStore: ObservableObject {
         catalog: CatalogBundle
     ) -> (base: String, anime: String, furry: String, neg: String) {
         let bank = catalog.character_banks[subjectKey]
-        var baseStr = bank?.base ?? subjectKey
-        var animeStr = bank?.anime ?? subjectKey
-        var furryStr = bank?.furry ?? subjectKey
-
-        let customOutfitSelected = !outfitText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        if customOutfitSelected {
-            // Strip default clothing phrases from character preset when user explicitly selects an outfit/bare state
-            let clothWords = ["crop top", "shorts", "stockings", "dress", "uniform", "armor", "jacket", "shirt", "skirt", "pants", "boots", "gloves", "choker", "collar", "bikini", "suit", "robe", "cloak", "hoodie", "jeans", "leotard", "bodysuit", "tunic", "vest"]
-            for w in clothWords {
-                baseStr = baseStr.replacingOccurrences(of: w, with: "", options: .caseInsensitive)
-                animeStr = animeStr.replacingOccurrences(of: w, with: "", options: .caseInsensitive)
-                furryStr = furryStr.replacingOccurrences(of: w, with: "", options: .caseInsensitive)
-            }
-        }
+        let baseStr = bank?.base ?? subjectKey
+        let animeStr = bank?.anime ?? subjectKey
+        let furryStr = bank?.furry ?? subjectKey
+        let canonOutfit = bank?.canonical_outfit ?? ""
 
         let anatPos = catalog.anatomy_pos[anatomyKey] ?? ""
         var anatNeg = catalog.anatomy_neg[anatomyKey] ?? ""
 
-        // If non-clothed anatomy or bare outfit is chosen, block unwanted clothing in negative prompt
-        let isBare = outfitText.lowercased().contains("nude") || outfitText.lowercased().contains("unclothed") || (anatomyKey != "female" && !customOutfitSelected)
-        if isBare {
+        let isDefaultOutfit = (outfitText.isEmpty || outfitText == "canonical_outfit" || outfitText == "none")
+        let isExplicitlyBare = outfitText.lowercased().contains("nude") || outfitText.lowercased().contains("no_clothes")
+
+        let resolvedOutfit: String
+        if isExplicitlyBare {
+            resolvedOutfit = outfitText
             anatNeg += ", clothes, clothing, dressed, underwear, panties, bra, bikini, swimsuit, Lingering clothing, covered, bottomwear, shorts, pants, skirt, dress, censorship, mosaic censoring, bar censor"
+        } else if isDefaultOutfit {
+            if anatomyKey != "female" {
+                // Non-female anatomy defaults to unclothed so clothing doesn't hide anatomy
+                resolvedOutfit = "nude, completely_nude, no_clothes, uncensored"
+                anatNeg += ", clothes, clothing, dressed, underwear, panties, bra, bikini, swimsuit, bottomwear, shorts, pants, skirt, dress, censorship, mosaic censoring, bar censor"
+            } else {
+                resolvedOutfit = canonOutfit
+            }
+        } else {
+            resolvedOutfit = outfitText
         }
 
-        let outfitPart = customOutfitSelected ? outfitText : (anatomyKey != "female" ? "completely unclothed, bare body" : "")
-        let posePart = poseText
-
         let assemble: (String) -> String = { core in
-            [anatPos, core, outfitPart, posePart]
+            [anatPos, core, resolvedOutfit, poseText]
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
                 .joined(separator: ", ")
@@ -402,7 +481,7 @@ final class StudioStore: ObservableObject {
     private func generateViaHomePC(prompt: String, negative: String, seed: Int) async throws {
         statusBanner = "Sending to Home PC RTX 2070 Super (\(pcBaseURL))..."
         guard let url = URL(string: "\(pcBaseURL)/api/generate") else {
-            throw NSError(domain: "QwenStudio", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid Home PC URL. Check the Link tab."])
+            throw NSError(domain: "QwenStudio", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid Home PC URL. Check the GPU Link tab."])
         }
 
         var body: [String: Any] = [
@@ -470,13 +549,11 @@ final class StudioStore: ObservableObject {
         showToast("Render complete!")
     }
 
-    // MARK: - 2. Standalone AI Horde Cluster Engine (Works 24/7 Anywhere Without PC)
+    // MARK: - 2. Standalone AI Horde Cluster Engine
     private func generateViaStandaloneHorde(prompt: String, negative: String, seed: Int) async throws {
-        // Strip ||DUO_SPLIT|| marker if user generated a Duo prompt on Cluster
         let cleanedPrompt = prompt.replacingOccurrences(of: "||DUO_SPLIT||", with: ", ")
         let hordeCombinedPrompt = "\(cleanedPrompt) ### \(negative)"
 
-        // First try requested resolution (rounded to multiple of 64); if anonymous key hits kudos limit, auto-adjust to 576x832 / 768x768
         let wReq = max(512, min(1024, (selectedAspect.width / 64) * 64))
         let hReq = max(512, min(1024, (selectedAspect.height / 64) * 64))
         let stepsReq = min(Int(steps), 28)
@@ -491,7 +568,6 @@ final class StudioStore: ObservableObject {
                 seed: seed
             )
         } catch {
-            // Automatic fallback to zero-kudos anonymous-safe SDXL dimensions so free key never fails
             statusBanner = "Using cluster-optimized resolution (576×768)..."
             let fallbackW = selectedAspect.width > selectedAspect.height ? 768 : (selectedAspect.width == selectedAspect.height ? 640 : 576)
             let fallbackH = selectedAspect.height > selectedAspect.width ? 768 : 640
@@ -572,7 +648,7 @@ final class StudioStore: ObservableObject {
         self.activeImage = decodedImg
         self.activeVaultItem = item
         self.statusBanner = "Rendered on \(selectedClusterModel)!"
-        showToast("Saved to iPhone Vault!")
+        showToast("Saved to Private Vault!")
     }
 
     private func submitHordeJob(combinedPrompt: String, width: Int, height: Int, steps: Int, seed: Int) async throws -> String {
@@ -628,7 +704,7 @@ final class StudioStore: ObservableObject {
         return id
     }
 
-    // MARK: - 3. Instant Cloud Flux Engine (with Automatic Cluster Fallback)
+    // MARK: - 3. Instant Cloud Flux Engine
     private func generateViaCloudFlux(prompt: String, negative: String, seed: Int) async throws {
         statusBanner = "Synthesizing via Cloud Flux..."
         let cleaned = prompt.replacingOccurrences(of: "||DUO_SPLIT||", with: ", ")
@@ -655,11 +731,10 @@ final class StudioStore: ObservableObject {
                 self.activeImage = uiImg
                 self.activeVaultItem = item
                 self.statusBanner = "Rendered via Cloud Flux!"
-                showToast("Saved to iPhone Vault!")
+                showToast("Saved to Private Vault!")
                 return
             }
         }
-        // Fallback seamlessly to Standalone AI Cluster
         statusBanner = "Cloud Flux busy — routing to Uncensored AI Cluster..."
         try await generateViaStandaloneHorde(prompt: prompt, negative: negative, seed: seed)
     }
@@ -691,7 +766,7 @@ final class StudioStore: ObservableObject {
         showToast("2x Upscale saved to Vault!")
     }
 
-    // MARK: - Local iPhone Vault Persistence
+    // MARK: - Hidden Private iPhone Vault Persistence
     func saveToVault(
         image: UIImage,
         prompt: String,
@@ -704,7 +779,7 @@ final class StudioStore: ObservableObject {
     ) -> VaultImageItem {
         let id = UUID().uuidString
         let ts = Int(Date().timeIntervalSince1970)
-        let filename = "qwen_\(ts)_\(seed).png"
+        let filename = "diag_\(ts)_\(seed).dat"
         let fileURL = vaultDir.appendingPathComponent(filename)
         if let png = image.pngData() {
             try? png.write(to: fileURL, options: .atomic)
@@ -746,6 +821,21 @@ final class StudioStore: ObservableObject {
     func saveImageToPhotos(_ image: UIImage) {
         UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
         showToast("Saved to iPhone Photos!")
+    }
+
+    private func migrateLegacyVaultIfNeeded() {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let oldVault = docs.appendingPathComponent("Vault", isDirectory: true)
+        guard FileManager.default.fileExists(atPath: oldVault.path) else { return }
+        if let files = try? FileManager.default.contentsOfDirectory(at: oldVault, includingPropertiesForKeys: nil) {
+            for f in files {
+                let dest = vaultDir.appendingPathComponent(f.lastPathComponent)
+                if !FileManager.default.fileExists(atPath: dest.path) {
+                    try? FileManager.default.moveItem(at: f, to: dest)
+                }
+            }
+        }
+        try? FileManager.default.removeItem(at: oldVault)
     }
 
     private func loadVault() {

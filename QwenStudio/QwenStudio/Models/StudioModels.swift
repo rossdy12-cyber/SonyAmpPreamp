@@ -120,6 +120,50 @@ struct PromptVariantCard: Identifiable, Codable, Hashable {
     let negative: String
 }
 
+struct ReliquaryMediaItem: Identifiable, Codable, Hashable {
+    var id: String { path }
+    let path: String
+    let name: String
+    let folder: String
+    let kind: String
+    let size: Int?
+    let taken: Double?
+    let width: Int?
+    let height: Int?
+    let duration: Double?
+    var favorite: Bool
+}
+
+struct ReliquaryFolderEntry: Identifiable, Codable, Hashable {
+    var id: String { path }
+    let name: String
+    let path: String
+    let count: Int
+    let latest: Double?
+    let cover: String?
+}
+
+struct ReliquaryListingResponse: Codable {
+    let path: String
+    let name: String
+    let folders: [ReliquaryFolderEntry]
+    let items: [ReliquaryMediaItem]
+}
+
+struct ReliquaryTimelineResponse: Codable {
+    let items: [ReliquaryMediaItem]
+    let offset: Int?
+    let done: Bool?
+}
+
+struct ReliquaryStatusResponse: Codable {
+    let images: Int
+    let videos: Int
+    let favorites: Int
+    let scanning: Bool
+    let root: String?
+}
+
 enum StudioCatalog {
     private static let encodedCatalog: String = """
 eyJzdWJqZWN0cyI6IFt7ImlkIjogIm5vbmUiLCAibGFiZWwiOiAiQ3VzdG9tIChVc2UgTXkgSWRlYSBBYm92ZSkiLCAiZ3JvdXAiOiAiU3RhbmRhcmQifSwg

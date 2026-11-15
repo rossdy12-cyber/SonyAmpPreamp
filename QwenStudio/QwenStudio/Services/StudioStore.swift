@@ -60,6 +60,22 @@ final class StudioStore: ObservableObject {
     @Published var pcGpuName: String = "Checking..."
     @Published var pcLocalModels: [String] = []
 
+    // MARK: - Reliquary Private Photos Drive State (TrueNAS IDrive-Sync :8788)
+    @Published var reliquaryURL: String = UserDefaults.standard.string(forKey: "qwen_reliquary_url") ?? "http://100.85.127.42:8788"
+    @Published var reliquaryToken: String = UserDefaults.standard.string(forKey: "qwen_reliquary_token") ?? (String(data: Data(base64Encoded: "TW90aGVyZmZ1Y2tlcjEhIQ==") ?? Data(), encoding: .utf8) ?? "")
+    @Published var reliquaryOnline: Bool = false
+    @Published var reliquaryStatus: ReliquaryStatusResponse? = nil
+    @Published var reliquaryIsLoading: Bool = false
+    @Published var reliquaryTimelineItems: [ReliquaryMediaItem] = []
+    @Published var reliquaryTimelineKind: String = "" // "" = All, "image" = Photos, "video" = Videos
+    @Published var reliquaryTimelineDone: Bool = false
+    @Published var reliquaryCurrentFolder: String = "patreon_incoming/patreon"
+    @Published var reliquaryFolders: [ReliquaryFolderEntry] = []
+    @Published var reliquaryFolderItems: [ReliquaryMediaItem] = []
+    @Published var reliquarySearchQuery: String = ""
+    @Published var reliquarySearchResults: [ReliquaryMediaItem] = []
+    @Published var reliquaryFavorites: [ReliquaryMediaItem] = []
+
     private let vaultDir: URL
 
     init() {
@@ -106,6 +122,7 @@ final class StudioStore: ObservableObject {
         buildPromptsOfflineSync()
         Task {
             await checkPCConnection()
+            await refreshReliquaryAll()
         }
     }
 
@@ -144,13 +161,18 @@ final class StudioStore: ObservableObject {
     func saveSettings() {
         let cleaned = pcBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "/+$", with: "", options: .regularExpression)
         pcBaseURL = cleaned
+        let cleanedRel = reliquaryURL.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "/+$", with: "", options: .regularExpression)
+        reliquaryURL = cleanedRel
         UserDefaults.standard.set(cleaned, forKey: "qwen_pc_url")
+        UserDefaults.standard.set(cleanedRel, forKey: "qwen_reliquary_url")
+        UserDefaults.standard.set(reliquaryToken.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "qwen_reliquary_token")
         UserDefaults.standard.set(hordeApiKey.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "qwen_horde_key")
         UserDefaults.standard.set(stealthPin.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "qwen_stealth_pin")
         UserDefaults.standard.set(requireStealthOnLaunch, forKey: "qwen_stealth_enabled")
         showToast("Saved settings")
         Task {
             await checkPCConnection()
+            await refreshReliquaryAll()
         }
     }
 
@@ -854,5 +876,250 @@ final class StudioStore: ObservableObject {
         if let data = try? JSONEncoder().encode(vaultItems) {
             try? data.write(to: indexURL, options: .atomic)
         }
+    }
+
+    // MARK: - Reliquary Private Photos Drive Client (TrueNAS IDrive-Sync :8788)
+    private func makeReliquaryRequest(path: String, queryItems: [URLQueryItem] = [], method: String = "GET") -> URLRequest? {
+        guard var comps = URLComponents(string: "\(reliquaryURL)\(path)") else { return nil }
+        if !queryItems.isEmpty {
+            comps.queryItems = queryItems
+        }
+        guard let url = comps.url else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        req.timeoutInterval = 12.0
+        let tok = reliquaryToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !tok.isEmpty {
+            req.setValue("Bearer \(tok)", forHTTPHeaderField: "Authorization")
+        }
+        return req
+    }
+
+    func reliquaryThumbURL(path: String, size: String = "s") -> URL? {
+        guard var comps = URLComponents(string: "\(reliquaryURL)/thumb") else { return nil }
+        var items = [
+            URLQueryItem(name: "path", value: path),
+            URLQueryItem(name: "size", value: size)
+        ]
+        let tok = reliquaryToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !tok.isEmpty {
+            items.append(URLQueryItem(name: "token", value: tok))
+        }
+        comps.queryItems = items
+        return comps.url
+    }
+
+    func reliquaryFileURL(path: String) -> URL? {
+        guard var comps = URLComponents(string: "\(reliquaryURL)/file") else { return nil }
+        var items = [URLQueryItem(name: "path", value: path)]
+        let tok = reliquaryToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !tok.isEmpty {
+            items.append(URLQueryItem(name: "token", value: tok))
+        }
+        comps.queryItems = items
+        return comps.url
+    }
+
+    func refreshReliquaryAll() async {
+        await fetchReliquaryStatus()
+        if reliquaryOnline {
+            await fetchReliquaryTimeline(reset: true)
+            await fetchReliquaryFolder(reliquaryCurrentFolder)
+            await fetchReliquaryFavorites()
+        }
+    }
+
+    func fetchReliquaryStatus() async {
+        guard let req = makeReliquaryRequest(path: "/api/status") else {
+            reliquaryOnline = false
+            return
+        }
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
+                reliquaryOnline = false
+                return
+            }
+            let status = try JSONDecoder().decode(ReliquaryStatusResponse.self, from: data)
+            self.reliquaryStatus = status
+            self.reliquaryOnline = true
+        } catch {
+            self.reliquaryOnline = false
+        }
+    }
+
+    func fetchReliquaryTimeline(reset: Bool = false) async {
+        if reset {
+            reliquaryTimelineItems = []
+            reliquaryTimelineDone = false
+        }
+        guard !reliquaryTimelineDone && !reliquaryIsLoading else { return }
+        reliquaryIsLoading = true
+        defer { reliquaryIsLoading = false }
+
+        let offset = reliquaryTimelineItems.count
+        var q = [
+            URLQueryItem(name: "offset", value: "\(offset)"),
+            URLQueryItem(name: "limit", value: "120")
+        ]
+        if !reliquaryTimelineKind.isEmpty {
+            q.append(URLQueryItem(name: "kind", value: reliquaryTimelineKind))
+        }
+        guard let req = makeReliquaryRequest(path: "/api/timeline", queryItems: q) else { return }
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { return }
+            let decoded = try JSONDecoder().decode(ReliquaryTimelineResponse.self, from: data)
+            if reset {
+                self.reliquaryTimelineItems = decoded.items
+            } else {
+                let existing = Set(self.reliquaryTimelineItems.map { $0.path })
+                let newOnes = decoded.items.filter { !existing.contains($0.path) }
+                self.reliquaryTimelineItems.append(contentsOf: newOnes)
+            }
+            self.reliquaryTimelineDone = decoded.done ?? (decoded.items.count < 120)
+            self.reliquaryOnline = true
+        } catch {
+            // Keep existing items on transient network blip
+        }
+    }
+
+    func fetchReliquaryFolder(_ folderPath: String) async {
+        reliquaryIsLoading = true
+        defer { reliquaryIsLoading = false }
+        let q = [URLQueryItem(name: "path", value: folderPath)]
+        guard let req = makeReliquaryRequest(path: "/api/list", queryItems: q) else { return }
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { return }
+            let decoded = try JSONDecoder().decode(ReliquaryListingResponse.self, from: data)
+            self.reliquaryCurrentFolder = decoded.path
+            self.reliquaryFolders = decoded.folders
+            self.reliquaryFolderItems = decoded.items
+            self.reliquaryOnline = true
+        } catch {
+            // Ignore
+        }
+    }
+
+    func searchReliquary(_ query: String) async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            reliquarySearchResults = []
+            return
+        }
+        reliquaryIsLoading = true
+        defer { reliquaryIsLoading = false }
+        let q = [URLQueryItem(name: "q", value: trimmed)]
+        guard let req = makeReliquaryRequest(path: "/api/search", queryItems: q) else { return }
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { return }
+            let decoded = try JSONDecoder().decode(ReliquaryTimelineResponse.self, from: data)
+            self.reliquarySearchResults = decoded.items
+        } catch {
+            // Ignore
+        }
+    }
+
+    func fetchReliquaryFavorites() async {
+        guard let req = makeReliquaryRequest(path: "/api/favorites") else { return }
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { return }
+            let decoded = try JSONDecoder().decode(ReliquaryTimelineResponse.self, from: data)
+            self.reliquaryFavorites = decoded.items
+        } catch {
+            // Ignore
+        }
+    }
+
+    func toggleReliquaryFavorite(_ item: ReliquaryMediaItem) async {
+        let newFav = !item.favorite
+        guard var req = makeReliquaryRequest(path: "/api/favorite", method: "POST") else { return }
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let payload: [String: Any] = ["path": item.path, "favorite": newFav]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+        do {
+            let (_, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { return }
+            if let idx = reliquaryTimelineItems.firstIndex(where: { $0.path == item.path }) {
+                reliquaryTimelineItems[idx].favorite = newFav
+            }
+            if let idx = reliquaryFolderItems.firstIndex(where: { $0.path == item.path }) {
+                reliquaryFolderItems[idx].favorite = newFav
+            }
+            if let idx = reliquarySearchResults.firstIndex(where: { $0.path == item.path }) {
+                reliquarySearchResults[idx].favorite = newFav
+            }
+            await fetchReliquaryFavorites()
+            await fetchReliquaryStatus()
+            showToast(newFav ? "Added to Reliquary Favorites ♥" : "Removed from Favorites")
+        } catch {
+            showToast("Failed to update favorite")
+        }
+    }
+
+    func triggerReliquaryRescan() async {
+        guard let req = makeReliquaryRequest(path: "/api/rescan", method: "POST") else { return }
+        _ = try? await URLSession.shared.data(for: req)
+        showToast("Triggered Reliquary Drive scan")
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
+        await fetchReliquaryStatus()
+    }
+
+    func downloadReliquaryUIImage(_ item: ReliquaryMediaItem, highRes: Bool = true) async -> UIImage? {
+        let targetURL = highRes ? (reliquaryFileURL(path: item.path) ?? reliquaryThumbURL(path: item.path, size: "m")) : reliquaryThumbURL(path: item.path, size: "m")
+        guard let url = targetURL else { return nil }
+        do {
+            let (data, resp) = try await URLSession.shared.data(from: url)
+            if let http = resp as? HTTPURLResponse, http.statusCode == 200, let img = UIImage(data: data) {
+                return img
+            }
+        } catch {}
+        if let fallbackURL = reliquaryThumbURL(path: item.path, size: "m"),
+           let (data, _) = try? await URLSession.shared.data(from: fallbackURL) {
+            return UIImage(data: data)
+        }
+        return nil
+    }
+
+    func saveReliquaryItemToLocalVault(_ item: ReliquaryMediaItem) async {
+        showToast("Downloading from Reliquary Drive...")
+        guard let img = await downloadReliquaryUIImage(item, highRes: true) else {
+            showToast("Could not download image")
+            return
+        }
+        _ = saveToVault(
+            image: img,
+            prompt: "Reliquary Drive: \(item.folder)/\(item.name)",
+            negativePrompt: "",
+            modelName: "Reliquary Private Drive",
+            engine: "reliquary_sync",
+            width: Int(img.size.width),
+            height: Int(img.size.height),
+            seed: -1
+        )
+        showToast("Saved to Offline Hidden Vault!")
+    }
+
+    func saveReliquaryItemToPhotos(_ item: ReliquaryMediaItem) async {
+        showToast("Downloading full-res photo...")
+        guard let img = await downloadReliquaryUIImage(item, highRes: true) else {
+            showToast("Could not download photo")
+            return
+        }
+        saveImageToPhotos(img)
+    }
+
+    func useReliquaryItemInStudio(_ item: ReliquaryMediaItem) async {
+        showToast("Loading into Studio Img2Img...")
+        guard let img = await downloadReliquaryUIImage(item, highRes: false) else {
+            showToast("Could not load reference image")
+            return
+        }
+        self.initImage = img
+        self.selectedTab = 0
+        showToast("Loaded as Studio Reference Image!")
     }
 }

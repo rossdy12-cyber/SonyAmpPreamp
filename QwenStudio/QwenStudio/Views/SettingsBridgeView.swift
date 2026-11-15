@@ -8,6 +8,7 @@ struct SettingsBridgeView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     stealthConfigCard
+                    reliquaryConfigCard
                     pcBridgeCard
                     clusterConfigCard
                     aboutCard
@@ -79,6 +80,61 @@ struct SettingsBridgeView: View {
             }
         }
         .studioCard(borderColor: StudioTheme.emerald.opacity(0.4))
+    }
+
+    private var reliquaryConfigCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("RELIQUARY PRIVATE PHOTOS DRIVE (IDRIVE-SYNC)", systemImage: "externaldrive.fill.badge.lock")
+                    .font(.system(size: 11, weight: .heavy))
+                    .tracking(0.8)
+                    .foregroundColor(StudioTheme.crimson)
+                Spacer()
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(store.reliquaryOnline ? StudioTheme.emerald : StudioTheme.amber)
+                        .frame(width: 8, height: 8)
+                    Text(store.reliquaryOnline ? "Synced" : "Offline")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(store.reliquaryOnline ? StudioTheme.emerald : StudioTheme.amber)
+                }
+            }
+
+            if let st = store.reliquaryStatus {
+                Text("Connected to TrueNAS Cloud-Drive_nises132 • \(st.images.formatted()) Private Photos • \(st.videos.formatted()) Videos • \(st.favorites) Favorites")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(StudioTheme.emerald)
+            } else {
+                Text("Syncs your private TrueNAS IDrive-Sync gallery (http://100.85.127.42:8788) directly into the Reliquary tab.")
+                    .font(.system(size: 12))
+                    .foregroundColor(StudioTheme.textSecondary)
+            }
+
+            TextField("http://100.85.127.42:8788", text: $store.reliquaryURL)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundColor(StudioTheme.textPrimary)
+                .padding(10)
+                .background(StudioTheme.bgDeep)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            HStack {
+                Text("Drive Token:")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(StudioTheme.textPrimary)
+                SecureField("Token", text: $store.reliquaryToken)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundColor(StudioTheme.cyanGlow)
+                    .padding(8)
+                    .background(StudioTheme.bgDeep)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        .studioCard(borderColor: StudioTheme.crimson.opacity(0.4))
     }
 
     private var pcBridgeCard: some View {
@@ -196,11 +252,11 @@ struct SettingsBridgeView: View {
 
     private var aboutCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("COREDIAG // STEALTH STUDIO EDITION v1.1")
+            Text("COREDIAG // STEALTH STUDIO + RELIQUARY EDITION v1.2")
                 .font(.system(size: 11, weight: .heavy))
                 .tracking(0.8)
                 .foregroundColor(StudioTheme.textSecondary)
-            Text("• Disguised on iPhone Home Screen & SideStore as 'CoreDiag'\n• Vault stored in hidden Application Support (invisible in iOS Files app & iCloud Backup)\n• Instant App-Switcher Privacy Curtain + Face ID / PIN 2070 Unlock")
+            Text("• Disguised on iPhone Home Screen & SideStore as 'CoreDiag'\n• Synced with TrueNAS Reliquary Private Drive (259,693 Photos & 6,997 Videos)\n• Vault stored in hidden Application Support (invisible in iOS Files app & iCloud Backup)\n• Instant App-Switcher Privacy Curtain + Face ID / PIN 2070 Unlock")
                 .font(.system(size: 12))
                 .foregroundColor(StudioTheme.textSecondary)
                 .lineSpacing(4)

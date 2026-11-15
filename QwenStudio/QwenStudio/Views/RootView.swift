@@ -26,17 +26,23 @@ struct RootView: View {
                         }
                         .tag(1)
 
+                    ReliquaryDriveView()
+                        .tabItem {
+                            Label("Reliquary", systemImage: "externaldrive.fill.badge.lock")
+                        }
+                        .tag(2)
+
                     VaultGalleryView()
                         .tabItem {
                             Label("Vault", systemImage: "photo.on.rectangle.angled")
                         }
-                        .tag(2)
+                        .tag(3)
 
                     SettingsBridgeView()
                         .tabItem {
                             Label("GPU Link", systemImage: "bolt.horizontal.icloud.fill")
                         }
-                        .tag(3)
+                        .tag(4)
                 }
                 .tint(StudioTheme.crimson)
             }

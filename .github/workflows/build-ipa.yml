@@ -6,6 +6,8 @@ on:
     paths-ignore:
       - 'sidestore-source.json'
       - 'README.md'
+      - 'WidgetPack/**'
+      - 'GlucoPulse/**'
   workflow_dispatch:
 
 permissions:

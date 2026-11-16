@@ -1,0 +1,50 @@
+name: Build 8-App WidgetKit Extension Pack
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'WidgetPack/**'
+      - '.github/workflows/build-widgets-pack.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-widgets-pack:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project & Compile All 8 Widget Extensions
+        working-directory: WidgetPack
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          for T in TorporWidget DeskSwitchWidget SentryCamWidget SonyAmpWidget TitheWidget VoltGuardWidget CarbPrepWidget VespersWidget; do
+            echo "=== Building $T ==="
+            xcodebuild build \
+              -project WidgetPack.xcodeproj \
+              -target "$T" \
+              -configuration Release \
+              -sdk iphoneos \
+              SYMROOT="$PWD/build" \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO
+          done
+          mkdir -p out
+          cd build/Release-iphoneos
+          zip -r9 "$OLDPWD/out/WidgetPack-appex.zip" *.appex
+          ls -la "$OLDPWD/out/WidgetPack-appex.zip"
+
+      - name: Upload WidgetPack Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WidgetPack-appex
+          path: WidgetPack/out/WidgetPack-appex.zip
+          if-no-files-found: error

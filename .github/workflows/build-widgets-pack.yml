@@ -25,7 +25,7 @@ jobs:
             brew install xcodegen
           fi
           xcodegen generate
-          for T in GlucoPulseWidget KeepwatchWidget TorporWidget DeskSwitchWidget SentryCamWidget SonyAmpWidget TitheWidget VoltGuardWidget CarbPrepWidget VespersWidget; do
+          for T in VoltGuardWidget; do
             echo "=== Building $T ==="
             xcodebuild build \
               -project WidgetPack.xcodeproj \

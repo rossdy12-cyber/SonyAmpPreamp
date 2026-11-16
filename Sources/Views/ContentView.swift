@@ -1,5 +1,23 @@
 import SwiftUI
+import AVKit
 import UniformTypeIdentifiers
+
+/// Native iOS AirPlay / Bluetooth / AirPods Pro 2 Route Picker
+struct AudioRoutePickerButton: UIViewRepresentable {
+    let tintColor: UIColor
+
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let picker = AVRoutePickerView()
+        picker.tintColor = tintColor
+        picker.activeTintColor = .systemGreen
+        picker.prioritizesVideoDevices = false
+        return picker
+    }
+
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {
+        uiView.tintColor = tintColor
+    }
+}
 
 struct ContentView: View {
     @StateObject private var navidrome = NavidromeClient()
@@ -17,31 +35,31 @@ struct ContentView: View {
             deepBg.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Top Hardware USB-C DAC Status Bar
+                // Top Hardware USB-C DAC & AirPods Pro 2 Status Bar
                 hardwareHeaderBar
 
                 TabView(selection: $selectedTab) {
                     PreampRackView(dsp: dspEngine, goldAccent: goldAccent, panelBg: panelBg)
                         .tabItem {
-                            Label("Sony DSP", systemImage: "slider.vertical.3")
+                            Label(dspEngine.activeProfileMode == .airPodsPro2 ? "AirPods DSP" : "Sony DSP", systemImage: dspEngine.activeProfileMode == .airPodsPro2 ? "airpodspro" : "slider.vertical.3")
                         }
                         .tag(0)
+
+                    YouTubeDSPView(dsp: dspEngine, goldAccent: goldAccent, panelBg: panelBg)
+                        .tabItem {
+                            Label("YouTube+ DSP", systemImage: "play.rectangle.fill")
+                        }
+                        .tag(1)
 
                     NavidromeLibraryView(navidrome: navidrome, dsp: dspEngine, goldAccent: goldAccent, panelBg: panelBg)
                         .tabItem {
                             Label("TrueNAS Hi-Fi", systemImage: "server.rack")
                         }
-                        .tag(1)
+                        .tag(2)
 
                     SoulSeekrView(acq: acqClient, goldAccent: goldAccent, panelBg: panelBg)
                         .tabItem {
                             Label("SoulSeekr", systemImage: "arrow.down.doc.fill")
-                        }
-                        .tag(2)
-
-                    EncoreLidarrView(acq: acqClient, goldAccent: goldAccent, panelBg: panelBg)
-                        .tabItem {
-                            Label("Encore", systemImage: "opticaldisc.fill")
                         }
                         .tag(3)
 
@@ -93,77 +111,133 @@ struct ContentView: View {
     private var hardwareHeaderBar: some View {
         VStack(spacing: 6) {
             HStack(spacing: 10) {
-                Image(systemName: dspEngine.isUSBDACConnected ? "cable.connector.horizontal" : "iphone.gen3")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(dspEngine.isUSBDACConnected ? .white : goldAccent)
+                Image(systemName: dspEngine.isAirPodsProConnected || dspEngine.activeProfileMode == .airPodsPro2 ? "airpodspro" : (dspEngine.isUSBDACConnected ? "cable.connector.horizontal" : "iphone.gen3"))
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor((dspEngine.isUSBDACConnected || dspEngine.isAirPodsProConnected) ? .white : goldAccent)
                     .padding(7)
-                    .background(dspEngine.isUSBDACConnected ? goldAccent : Color.white.opacity(0.1))
+                    .background((dspEngine.isUSBDACConnected || dspEngine.isAirPodsProConnected) ? goldAccent : Color.white.opacity(0.1))
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text("SONY ES PRE-AMP")
+                        Text(dspEngine.activeProfileMode == .airPodsPro2 ? "AIRPODS PRO 2 H2 DSP" : "SONY ES PRE-AMP")
                             .font(.system(size: 11, weight: .heavy, design: .monospaced))
                             .foregroundColor(goldAccent)
                         Text("•")
                             .foregroundColor(.gray)
-                        Text(String(format: "%.1f kHz 32-Bit DSP", dspEngine.sampleRateHz / 1000.0))
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        Text(String(format: "%.1f kHz 32-Bit", dspEngine.sampleRateHz / 1000.0))
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
                             .foregroundColor(.white.opacity(0.8))
                     }
                     Text(dspEngine.statusBanner)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(dspEngine.isUSBDACConnected ? .green : .white.opacity(0.7))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor((dspEngine.isUSBDACConnected || dspEngine.isAirPodsProConnected) ? .green : .white.opacity(0.75))
                         .lineLimit(1)
                 }
 
                 Spacer()
 
+                // Native iOS Route Picker for AirPods Pro 2 / USB-C / AirPlay
+                AudioRoutePickerButton(tintColor: UIColor(goldAccent))
+                    .frame(width: 28, height: 28)
+
                 Button {
                     dspEngine.dspBypassed.toggle()
                 } label: {
-                    Text(dspEngine.dspBypassed ? "BYPASSED" : "DSP ON")
+                    Text(dspEngine.dspBypassed ? "BYPASS" : "DSP ON")
                         .font(.system(size: 10, weight: .heavy, design: .monospaced))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 10)
+                        .padding(.horizontal, 9)
                         .padding(.vertical, 6)
                         .background(dspEngine.dspBypassed ? Color.gray.opacity(0.55) : goldAccent)
                         .cornerRadius(6)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(panelBg)
+
+            if selectedTab == 0 {
+                // Instant Output Acoustic Mode Switcher: Sony ES Pre-Amp vs AirPods Pro 2 H2 Studio
+                HStack(spacing: 8) {
+                    Button {
+                        dspEngine.switchProfileMode(.sonyAmp)
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "hifispeaker.2.fill")
+                                .font(.system(size: 11))
+                            Text("Sony ES Line-Driver")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        .foregroundColor(dspEngine.activeProfileMode == .sonyAmp ? .black : .white.opacity(0.85))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(dspEngine.activeProfileMode == .sonyAmp ? goldAccent : Color.white.opacity(0.08))
+                        .cornerRadius(7)
+                    }
+
+                    Button {
+                        dspEngine.switchProfileMode(.airPodsPro2)
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "airpodspro")
+                                .font(.system(size: 11))
+                            Text("AirPods Pro 2 Sounding")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        .foregroundColor(dspEngine.activeProfileMode == .airPodsPro2 ? .black : .white.opacity(0.85))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(dspEngine.activeProfileMode == .airPodsPro2 ? goldAccent : Color.white.opacity(0.08))
+                        .cornerRadius(7)
+                    }
+                }
+            }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(panelBg)
+    }
+
+    private func formatTime(_ sec: TimeInterval) -> String {
+        guard sec.isFinite && sec > 0 else { return "0:00" }
+        let m = Int(sec) / 60
+        let s = Int(sec) % 60
+        return String(format: "%d:%02d", m, s)
     }
 
     private var miniPlayerBar: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 5) {
             if let track = dspEngine.currentTrack {
-                // Scrubbable progress bar
-                Slider(
-                    value: Binding(
-                        get: { dspEngine.currentTime },
-                        set: { dspEngine.seek(to: $0) }
-                    ),
-                    in: 0...max(1, dspEngine.duration)
-                )
-                .tint(goldAccent)
+                // Scrubbable progress bar + time labels
+                HStack(spacing: 8) {
+                    Text(formatTime(dspEngine.currentTime))
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.gray)
+                    Slider(
+                        value: Binding(
+                            get: { dspEngine.currentTime },
+                            set: { dspEngine.seek(to: $0) }
+                        ),
+                        in: 0...max(1, dspEngine.duration)
+                    )
+                    .tint(goldAccent)
+                    Text(formatTime(dspEngine.duration))
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.gray)
+                }
                 .padding(.horizontal, 14)
 
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(track.title)
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 13, weight: .bold))
                             .foregroundColor(.white)
                             .lineLimit(1)
                         HStack(spacing: 6) {
                             Text(track.artist)
-                                .font(.system(size: 12))
+                                .font(.system(size: 11))
                                 .foregroundColor(.white.opacity(0.7))
                                 .lineLimit(1)
                             Text(track.qualityBadge)
-                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
                                 .foregroundColor(.black)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 2)
@@ -174,22 +248,38 @@ struct ContentView: View {
 
                     Spacer()
 
+                    Button {
+                        dspEngine.isShuffleEnabled.toggle()
+                    } label: {
+                        Image(systemName: "shuffle")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(dspEngine.isShuffleEnabled ? goldAccent : .gray)
+                    }
+
                     Button { dspEngine.previousTrack() } label: {
                         Image(systemName: "backward.fill")
-                            .font(.system(size: 18))
+                            .font(.system(size: 17))
                             .foregroundColor(.white)
                     }
 
                     Button { dspEngine.playPause() } label: {
                         Image(systemName: dspEngine.isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 34))
+                            .font(.system(size: 32))
                             .foregroundColor(goldAccent)
                     }
 
                     Button { dspEngine.nextTrack() } label: {
                         Image(systemName: "forward.fill")
-                            .font(.system(size: 18))
+                            .font(.system(size: 17))
                             .foregroundColor(.white)
+                    }
+
+                    Button {
+                        dspEngine.toggleRepeatMode()
+                    } label: {
+                        Image(systemName: dspEngine.repeatMode.icon)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(dspEngine.repeatMode == .off ? .gray : goldAccent)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -201,48 +291,81 @@ struct ContentView: View {
     }
 }
 
-// MARK: - TAB 1: SONY AMP PRE-AMP & 10-BAND EQ RACK
+// MARK: - TAB 1: SONY AMP PRE-AMP, AIRPODS PRO 2 H2 STUDIO & 10-BAND EQ RACK
 struct PreampRackView: View {
     @ObservedObject var dsp: AudioPreampEngine
     let goldAccent: Color
     let panelBg: Color
 
+    @State private var showSavePresetPrompt: Bool = false
+    @State private var customPresetName: String = ""
+    @State private var showSystemWideH2Sheet: Bool = false
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // 1. Live Stereo VU Meters & Voltage Estimator Card
+                // 1. Live Stereo VU Meters, 12-Band Spectrum Analyzer & Voltage/SPL Estimator
                 vuMeterAndVoltageCard
 
-                // 2. USB-C Auto-Detection & Pre-Amp Line-Driver Gain Boost
-                preampLineDriverCard
+                // 2. Dedicated AirPods Pro 2 H2 Sounding & 3D Spatial Studio (shown first in AirPods Mode, or below in Sony Mode)
+                if dsp.activeProfileMode == .airPodsPro2 {
+                    airPodsPro2SoundingCard
+                    presetsSection
+                    tenBandEQCard
+                    preampLineDriverCard
+                } else {
+                    preampLineDriverCard
+                    presetsSection
+                    airPodsPro2SoundingCard
+                    tenBandEQCard
+                }
 
-                // 3. One-Tap Sony Amp Presets
-                presetsSection
-
-                // 4. 10-Band Parametric Equalizer
-                tenBandEQCard
-
-                // 5. Instant Sony Amp Calibration & Bass Test Generator
+                // 5. Instant Sony Amp & AirPods Pro 2 Calibration Generator
                 calibrationGeneratorCard
             }
             .padding(14)
+        }
+        .alert("Save Custom DSP Preset", isPresented: $showSavePresetPrompt) {
+            TextField("Preset Name (e.g. Ross AirPods Bass+)", text: $customPresetName)
+            Button("Cancel", role: .cancel) { customPresetName = "" }
+            Button("Save") {
+                dsp.saveCurrentAsCustomPreset(name: customPresetName)
+                customPresetName = ""
+            }
+        } message: {
+            Text("Saves your current 10-band EQ, AirPods Pro 2 H2 sounding, stereo width, and preamp settings.")
         }
     }
 
     private var vuMeterAndVoltageCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("LINE-OUT LEVEL & VU METER", systemImage: "waveform.path.ecg.rectangle")
-                    .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                    .foregroundColor(goldAccent)
+                Label(
+                    dsp.activeProfileMode == .airPodsPro2 ? "H2 SPECTRUM & ACOUSTIC METER" : "LINE-OUT LEVEL & VU METER",
+                    systemImage: "waveform.path.ecg.rectangle"
+                )
+                .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                .foregroundColor(goldAccent)
+
                 Spacer()
-                Text(String(format: "EST. OUTPUT: %.2f Vrms", dsp.estimatedOutputVrms))
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(dsp.estimatedOutputVrms >= 1.1 ? Color.green : goldAccent)
-                    .cornerRadius(4)
+
+                if dsp.activeProfileMode == .airPodsPro2 {
+                    Text(String(format: "EST. HEADROOM: %.0f dB SPL", dsp.estimatedAirPodsSPL))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.green)
+                        .cornerRadius(4)
+                } else {
+                    Text(String(format: "EST. OUTPUT: %.2f Vrms", dsp.estimatedOutputVrms))
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(dsp.estimatedOutputVrms >= 1.1 ? Color.green : goldAccent)
+                        .cornerRadius(4)
+                }
             }
 
             // Left / Right Bar Meters
@@ -251,8 +374,30 @@ struct PreampRackView: View {
                 channelMeterRow(label: "R", level: dsp.rightLevel)
             }
 
+            // 12-Band Real-Time Spectrum Visualizer
+            HStack(alignment: .bottom, spacing: 4) {
+                ForEach(0..<dsp.spectrumBars.count, id: \.self) { idx in
+                    GeometryReader { geo in
+                        VStack {
+                            Spacer(minLength: 0)
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [goldAccent.opacity(0.65), goldAccent, .green],
+                                        startPoint: .bottom,
+                                        endPoint: .top
+                                    )
+                                )
+                                .frame(height: max(3, geo.size.height * CGFloat(dsp.spectrumBars[idx])))
+                        }
+                    }
+                }
+            }
+            .frame(height: 34)
+            .padding(.top, 2)
+
             HStack {
-                Text("UK/EU USB-C Cap: 0.50 Vrms")
+                Text(dsp.activeProfileMode == .airPodsPro2 ? "Route: \(dsp.outputDeviceName) • Stage: \(Int(dsp.stereoWidthPercent))%" : "UK/EU USB-C Cap: 0.50 Vrms")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.gray)
                 Spacer()
@@ -297,8 +442,166 @@ struct PreampRackView: View {
                         .frame(width: max(4, geo.size.width * CGFloat(level)))
                 }
             }
-            .frame(height: 12)
+            .frame(height: 11)
         }
+    }
+
+    // MARK: - AirPods Pro 2 H2 Sounding & 3D Spatial Mastering Card
+    private var airPodsPro2SoundingCard: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack {
+                Label("AIRPODS PRO 2 H2 SOUNDING & SPATIAL STUDIO", systemImage: "airpodspro")
+                    .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                    .foregroundColor(goldAccent)
+                Spacer()
+                Button("Harman Reset") {
+                    if let harman = EQPreset.airPodsPro2Presets.first {
+                        dsp.applyPreset(harman)
+                    }
+                }
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(goldAccent)
+            }
+
+            // 1. 45 Hz H2 Sub-Bass Extension
+            VStack(spacing: 4) {
+                HStack {
+                    Text("H2 Deep Sub-Bass Extension (45 Hz Low-Distortion Shelf)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.92))
+                    Spacer()
+                    Text(String(format: "%+.1f dB", dsp.airPodsSubBassDB))
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(goldAccent)
+                }
+                Slider(value: $dsp.airPodsSubBassDB, in: 0.0...8.0, step: 0.5)
+                    .tint(goldAccent)
+            }
+
+            // 2. 3.2 kHz Ear-Canal Pinna Vocal Presence Contour
+            VStack(spacing: 4) {
+                HStack {
+                    Text("Ear-Canal Vocal & Pinna Presence (3.2 kHz Contour)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.92))
+                    Spacer()
+                    Text(String(format: "%+.1f dB", dsp.airPodsVocalPresenceDB))
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(goldAccent)
+                }
+                Slider(value: $dsp.airPodsVocalPresenceDB, in: -4.0...6.0, step: 0.5)
+                    .tint(goldAccent)
+            }
+
+            // 3. 14 kHz DSEE Harmonic Silk Air Restoration
+            VStack(spacing: 4) {
+                HStack {
+                    Text("DSEE Extreme AAC Silk Air & Sparkle (14 kHz Shelf)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.92))
+                    Spacer()
+                    Text(String(format: "%+.1f dB", dsp.airPodsSilkAirDB))
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(goldAccent)
+                }
+                Slider(value: $dsp.airPodsSilkAirDB, in: 0.0...6.0, step: 0.5)
+                    .tint(goldAccent)
+            }
+
+            Divider().background(Color.white.opacity(0.15))
+
+            // 4. Stereo Soundstage Widener & Crossfeed (50% - 150%)
+            VStack(spacing: 4) {
+                HStack {
+                    Text("3D Stereo Soundstage Width (Crossfeed ↔ Wide Stage)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.92))
+                    Spacer()
+                    Text(String(format: "%.0f%%", dsp.stereoWidthPercent))
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(goldAccent)
+                }
+                Slider(value: $dsp.stereoWidthPercent, in: 50.0...150.0, step: 5.0)
+                    .tint(goldAccent)
+            }
+
+            // 5. Spatial Room Acoustics Wet/Dry + Room Model Selector
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Spatial Room Ambience (\(dsp.spatialRoomStyle.title))")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.92))
+                    Spacer()
+                    Text(String(format: "%.0f%% Wet", dsp.spatialReverbMix))
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundColor(goldAccent)
+                }
+                Slider(value: $dsp.spatialReverbMix, in: 0.0...45.0, step: 1.0)
+                    .tint(goldAccent)
+
+                HStack(spacing: 6) {
+                    ForEach(SpatialRoomStyle.allCases) { style in
+                        let active = dsp.spatialRoomStyle == style
+                        Button {
+                            dsp.spatialRoomStyle = style
+                        } label: {
+                            Text(style.title)
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(active ? .black : .white)
+                                .padding(.vertical, 5)
+                                .frame(maxWidth: .infinity)
+                                .background(active ? goldAccent : Color.white.opacity(0.08))
+                                .cornerRadius(5)
+                        }
+                    }
+                }
+            }
+
+            // 6. Left / Right Ear Trim Balance
+            VStack(spacing: 4) {
+                HStack {
+                    Text("L / R Ear Balance Trim")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.85))
+                    Spacer()
+                    if abs(dsp.stereoBalance) > 0.02 {
+                        Button("Center") { dsp.stereoBalance = 0.0 }
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(goldAccent)
+                    }
+                    Text(abs(dsp.stereoBalance) < 0.03 ? "CENTER" : (dsp.stereoBalance < 0 ? String(format: "L %.0f%%", abs(dsp.stereoBalance) * 100) : String(format: "R %.0f%%", dsp.stereoBalance * 100)))
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(goldAccent)
+                }
+                Slider(value: $dsp.stereoBalance, in: -0.5...0.5, step: 0.02)
+                    .tint(goldAccent)
+            }
+
+            Button {
+                showSystemWideH2Sheet = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "airpodspro")
+                    Text("Export Preset to iOS System-Wide AirPods H2 EQ")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+                .background(goldAccent)
+                .cornerRadius(8)
+            }
+            .sheet(isPresented: $showSystemWideH2Sheet) {
+                AirPodsSystemWideEQSheet(dsp: dsp, goldAccent: goldAccent, panelBg: panelBg)
+            }
+        }
+        .padding(14)
+        .background(panelBg)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(dsp.activeProfileMode == .airPodsPro2 ? goldAccent.opacity(0.45) : Color.clear, lineWidth: 1)
+        )
     }
 
     private var preampLineDriverCard: some View {
@@ -318,7 +621,7 @@ struct PreampRackView: View {
             // Main Pre-Amp Gain Slider (-6dB to +12dB)
             VStack(spacing: 4) {
                 HStack {
-                    Text("Pre-Amp Voltage Gain")
+                    Text("Pre-Amp Voltage / Headroom Gain")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white)
                     Spacer()
@@ -333,9 +636,9 @@ struct PreampRackView: View {
                 HStack(spacing: 6) {
                     ForEach([
                         ("0dB (0.5V)", Float(0.0)),
+                        ("+1.5dB (H2)", Float(1.5)),
                         ("+6dB (1.0V)", Float(6.0)),
                         ("+7.5dB (Sony)", Float(7.5)),
-                        ("+9.5dB (1.5V)", Float(9.5)),
                         ("+12dB (2.0V)", Float(12.0))
                     ], id: \.0) { label, val in
                         Button {
@@ -358,7 +661,7 @@ struct PreampRackView: View {
             // Sony MegaBass 65Hz Exciter
             VStack(spacing: 4) {
                 HStack {
-                    Text("Sony MegaBass (65 Hz Sub-Harmonic Shelf)")
+                    Text("Sony MegaBass (65 Hz Upper-Sub Punch Shelf)")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.white.opacity(0.9))
                     Spacer()
@@ -403,40 +706,50 @@ struct PreampRackView: View {
     }
 
     private var presetsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("SONY AMP ACOUSTIC PRESETS", systemImage: "sparkles")
+        let activePresets = dsp.activeProfileMode == .airPodsPro2 ? EQPreset.airPodsPro2Presets : EQPreset.sonyPresets
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label(
+                    dsp.activeProfileMode == .airPodsPro2 ? "AIRPODS PRO 2 ACOUSTIC PRESETS" : "SONY AMP ACOUSTIC PRESETS",
+                    systemImage: dsp.activeProfileMode == .airPodsPro2 ? "airpodspro" : "sparkles"
+                )
                 .font(.system(size: 11, weight: .heavy, design: .monospaced))
                 .foregroundColor(goldAccent)
 
+                Spacer()
+
+                Button {
+                    showSavePresetPrompt = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Save Custom")
+                    }
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(goldAccent)
+                    .cornerRadius(6)
+                }
+            }
+
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(EQPreset.builtInPresets) { preset in
-                    let isSelected = dsp.selectedPresetId == preset.id
-                    Button {
-                        dsp.applyPreset(preset)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Image(systemName: preset.icon)
-                                    .foregroundColor(isSelected ? .black : goldAccent)
-                                Spacer()
-                                Text(String(format: "%+.1fdB", preset.preampGainDB))
-                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundColor(isSelected ? .black.opacity(0.8) : goldAccent)
-                            }
-                            Text(preset.name)
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(isSelected ? .black : .white)
-                                .lineLimit(1)
-                            Text(preset.subtitle)
-                                .font(.system(size: 9))
-                                .foregroundColor(isSelected ? .black.opacity(0.75) : .gray)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                        }
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(isSelected ? goldAccent : Color.white.opacity(0.06))
-                        .cornerRadius(10)
+                ForEach(activePresets) { preset in
+                    presetCardButton(preset: preset, isCustom: false)
+                }
+            }
+
+            if !dsp.customPresets.isEmpty {
+                Divider().background(Color.white.opacity(0.15))
+                Text("YOUR SAVED CUSTOM PRESETS")
+                    .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                    .foregroundColor(goldAccent)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    ForEach(dsp.customPresets) { preset in
+                        presetCardButton(preset: preset, isCustom: true)
                     }
                 }
             }
@@ -444,6 +757,47 @@ struct PreampRackView: View {
         .padding(14)
         .background(panelBg)
         .cornerRadius(12)
+    }
+
+    private func presetCardButton(preset: EQPreset, isCustom: Bool) -> some View {
+        let isSelected = dsp.selectedPresetId == preset.id
+        return Button {
+            dsp.applyPreset(preset)
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Image(systemName: preset.icon)
+                        .foregroundColor(isSelected ? .black : goldAccent)
+                    Spacer()
+                    if isCustom {
+                        Button {
+                            dsp.deleteCustomPreset(id: preset.id)
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 10))
+                                .foregroundColor(isSelected ? .black : .red.opacity(0.85))
+                        }
+                    } else {
+                        Text(preset.targetProfile == .airPodsPro2 ? String(format: "+%.1fdB Sub", preset.airPodsSubBassDB) : String(format: "%+.1fdB", preset.preampGainDB))
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundColor(isSelected ? .black.opacity(0.8) : goldAccent)
+                    }
+                }
+                Text(preset.name)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(isSelected ? .black : .white)
+                    .lineLimit(1)
+                Text(preset.subtitle)
+                    .font(.system(size: 9))
+                    .foregroundColor(isSelected ? .black.opacity(0.75) : .gray)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? goldAccent : Color.white.opacity(0.06))
+            .cornerRadius(10)
+        }
     }
 
     private var tenBandEQCard: some View {
@@ -505,15 +859,16 @@ struct PreampRackView: View {
 
     private var calibrationGeneratorCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("INSTANT SONY AMP SOUND CHECK & CALIBRATION", systemImage: "waveform.badge.magnifyingglass")
+            Label("INSTANT SOUND CHECK & SPATIAL CALIBRATION", systemImage: "waveform.badge.magnifyingglass")
                 .font(.system(size: 11, weight: .heavy, design: .monospaced))
                 .foregroundColor(goldAccent)
 
-            Text("Test your USB-C to 3.5mm cable and Sony Amp line-level boost immediately without loading a song:")
+            Text("Test your AirPods Pro 2 45Hz H2 sub-bass & 3D stereo stage or Sony Amp 2V line-driver immediately:")
                 .font(.system(size: 11))
                 .foregroundColor(.gray)
 
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
+                calButton(title: "AirPods 3D Test", mode: "cal_airpods_spatial", icon: "airpodspro")
                 calButton(title: "50Hz Bass Pulse", mode: "cal_megabass", icon: "speaker.wave.3.fill")
                 calButton(title: "Hi-Fi EQ Chord", mode: "cal_chord", icon: "pianokeys")
                 calButton(title: "1kHz 2V Ref", mode: "cal_1khz", icon: "waveform")
@@ -531,9 +886,9 @@ struct PreampRackView: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: active ? "stop.circle.fill" : icon)
-                    .font(.system(size: 16))
+                    .font(.system(size: 15))
                 Text(title)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 9, weight: .bold))
                     .lineLimit(1)
             }
             .foregroundColor(active ? .black : .white)
@@ -975,7 +1330,7 @@ struct LocalAndQueueView: View {
                     }
 
                     if navidrome.offlineTracks.isEmpty {
-                        Text("Tap the download icon next to any track or album in TrueNAS Hi-Fi to pin lossless FLAC/MP3 files for offline USB-C Pre-Amp playback.")
+                        Text("Tap the download icon next to any track or album in TrueNAS Hi-Fi to pin lossless FLAC/MP3 files for offline AirPods Pro 2 or Sony USB-C Pre-Amp playback.")
                             .font(.system(size: 12))
                             .foregroundColor(.gray)
                     } else {
@@ -1059,7 +1414,7 @@ struct LocalAndQueueView: View {
                         .font(.system(size: 11, weight: .heavy, design: .monospaced))
                         .foregroundColor(goldAccent)
 
-                    Text("Load FLAC, WAV, ALAC, M4A, or MP3 files directly from the iPhone Files app, iCloud Drive, or SMB shares into the 32-bit Sony Amp Pre-Amp DSP:")
+                    Text("Load FLAC, WAV, ALAC, M4A, or MP3 files directly from the iPhone Files app, iCloud Drive, or SMB shares into the 32-bit Sony Amp & AirPods Pro 2 DSP:")
                         .font(.system(size: 12))
                         .foregroundColor(.gray)
 
@@ -1089,7 +1444,7 @@ struct LocalAndQueueView: View {
                         .foregroundColor(goldAccent)
 
                     if dsp.queue.isEmpty {
-                        Text("No tracks in queue yet. Select tracks from TrueNAS Hi-Fi, play your Offline Vault, or run a Sony Amp Calibration signal on Tab 1.")
+                        Text("No tracks in queue yet. Select tracks from TrueNAS Hi-Fi, play your Offline Vault, or run a calibration signal on Tab 1.")
                             .font(.system(size: 12))
                             .foregroundColor(.gray)
                             .padding(14)

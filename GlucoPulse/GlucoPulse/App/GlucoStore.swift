@@ -4,6 +4,7 @@ import Foundation
 import SwiftUI
 import UIKit
 import UserNotifications
+import WidgetKit
 
 enum GlucoseUnit: String, CaseIterable, Identifiable {
     case mmolL = "mmol/L"
@@ -1146,6 +1147,7 @@ final class GlucoStore: NSObject, ObservableObject {
         readings = combined
             .filter { $0.timestamp >= cutoff }
             .sorted { $0.timestamp < $1.timestamp }
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     func startDirectG7BLE() {
@@ -1543,6 +1545,31 @@ final class GlucoStore: NSObject, ObservableObject {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try JSONSerialization.data(withJSONObject: payload)
             _ = try await URLSession.shared.data(for: req)
+            WidgetCenter.shared.reloadAllTimelines()
+        } catch {}
+    }
+
+    func uploadBLEPumpStatusToNightscout() async {
+        guard let url = URL(string: "\(truenasBridgeBaseURL)/api/ble-devicestatus") else { return }
+        let iso = ISO8601DateFormatter()
+        let payload: [String: Any] = [
+            "device": pumpStatus.pumpSerialNumber.isEmpty ? "t:slim X2 BLE" : pumpStatus.pumpSerialNumber,
+            "created_at": iso.string(from: Date()),
+            "iobUnits": pumpStatus.iobUnits,
+            "activeBasalRate": pumpStatus.activeBasalRate,
+            "scheduledBasalRate": pumpStatus.scheduledBasalRate,
+            "reservoirUnits": pumpStatus.reservoirUnits,
+            "batteryPercent": pumpStatus.batteryPercent,
+            "controlIQMode": pumpStatus.controlIQMode,
+            "lastBolusUnits": pumpStatus.lastBolusUnits
+        ]
+        do {
+            var req = URLRequest(url: url, timeoutInterval: 8)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONSerialization.data(withJSONObject: payload)
+            _ = try await URLSession.shared.data(for: req)
+            WidgetCenter.shared.reloadAllTimelines()
         } catch {}
     }
 
@@ -2378,6 +2405,7 @@ extension GlucoStore: CBCentralManagerDelegate, CBPeripheralDelegate {
             parts.append("\(pumpStatus.batteryPercent)%")
         }
         tandemBLEStatus = parts.joined(separator: " · ")
+        Task { await self.uploadBLEPumpStatusToNightscout() }
     }
 
     @MainActor

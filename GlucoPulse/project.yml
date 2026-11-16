@@ -1,24 +1,27 @@
-# XcodeGen project description for GlucoPulse (Dexcom G7 + Tandem t:slim X2 Monitor).
+# XcodeGen project description for GlucoPulse (Dexcom G7 + Tandem t:slim X2 Monitor + WidgetKit).
 name: GlucoPulse
 options:
   bundleIdPrefix: app.truenas
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.0"
   createIntermediateGroups: true
 
 settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    MARKETING_VERSION: "2.3.0"
-    CURRENT_PROJECT_VERSION: "30"
+    MARKETING_VERSION: "2.4.0"
+    CURRENT_PROJECT_VERSION: "31"
 
 targets:
   GlucoPulse:
     type: application
     platform: iOS
+    deploymentTarget: "17.0"
     sources:
       - path: GlucoPulse
+    dependencies:
+      - target: GlucoPulseWidget
     settings:
       base:
         PRODUCT_NAME: GlucoPulse
@@ -59,5 +62,33 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+
+  GlucoPulseWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: GlucoPulseWidget
+    settings:
+      base:
+        PRODUCT_NAME: GlucoPulseWidget
+        PRODUCT_BUNDLE_IDENTIFIER: app.truenas.glucopulse.widget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        DEVELOPMENT_TEAM: ""
+        SKIP_INSTALL: "YES"
+    info:
+      path: GlucoPulseWidget/Info.plist
+      properties:
+        CFBundleDisplayName: GlucoPulse
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true

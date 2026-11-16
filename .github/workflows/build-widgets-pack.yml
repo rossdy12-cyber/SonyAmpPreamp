@@ -1,4 +1,4 @@
-name: Build 8-App WidgetKit Extension Pack
+name: Build 10-App Gothic Vampire WidgetKit Extension Pack
 
 on:
   push:
@@ -18,14 +18,14 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v4
 
-      - name: Generate Xcode Project & Compile All 8 Widget Extensions
+      - name: Generate Xcode Project & Compile All 10 Gothic Widget Extensions
         working-directory: WidgetPack
         run: |
           if ! command -v xcodegen &> /dev/null; then
             brew install xcodegen
           fi
           xcodegen generate
-          for T in TorporWidget DeskSwitchWidget SentryCamWidget SonyAmpWidget TitheWidget VoltGuardWidget CarbPrepWidget VespersWidget; do
+          for T in GlucoPulseWidget KeepwatchWidget TorporWidget DeskSwitchWidget SentryCamWidget SonyAmpWidget TitheWidget VoltGuardWidget CarbPrepWidget VespersWidget; do
             echo "=== Building $T ==="
             xcodebuild build \
               -project WidgetPack.xcodeproj \

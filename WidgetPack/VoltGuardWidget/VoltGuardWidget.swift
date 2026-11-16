@@ -13,38 +13,28 @@ struct VoltGuardEntry: TimelineEntry {
 
 struct VoltGuardProvider: TimelineProvider {
     func placeholder(in context: Context) -> VoltGuardEntry { readTelemetry() }
-    func getSnapshot(in context: Context, completion: @escaping (VoltGuardEntry) -> Void) {
-        completion(readTelemetry())
-    }
+    func getSnapshot(in context: Context, completion: @escaping (VoltGuardEntry) -> Void) { completion(readTelemetry()) }
     func getTimeline(in context: Context, completion: @escaping (Timeline<VoltGuardEntry>) -> Void) {
-        let entry = readTelemetry()
-        completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(10 * 60))))
+        completion(Timeline(entries: [readTelemetry()], policy: .after(Date().addingTimeInterval(10 * 60))))
     }
 
     private func readTelemetry() -> VoltGuardEntry {
         UIDevice.current.isBatteryMonitoringEnabled = true
         let rawLevel = UIDevice.current.batteryLevel
-        let pct = rawLevel >= 0 ? Int((rawLevel * 100).rounded()) : 82
+        let pct = rawLevel >= 0 ? Int((rawLevel * 100).rounded()) : 84
         let state = UIDevice.current.batteryState
         let charging = (state == .charging || state == .full)
         let lpm = ProcessInfo.processInfo.isLowPowerModeEnabled
         let therm: String
         switch ProcessInfo.processInfo.thermalState {
-        case .nominal: therm = "NOMINAL (31°C)"
-        case .fair: therm = "WARM (36°C)"
-        case .serious: therm = "HOT (40°C)"
-        case .critical: therm = "CRITICAL"
-        @unknown default: therm = "NOMINAL"
+        case .nominal: therm = "COLD CRYPT (31°C)"
+        case .fair: therm = "WARM EMBER (36°C)"
+        case .serious: therm = "FEVERED (40°C)"
+        case .critical: therm = "INFERNO"
+        @unknown default: therm = "COLD CRYPT"
         }
         let hrs = Double(pct) * (lpm ? 0.14 : 0.11)
-        return VoltGuardEntry(
-            date: Date(),
-            batteryPercent: pct,
-            isCharging: charging,
-            thermalLabel: therm,
-            lowPowerMode: lpm,
-            estHoursRemaining: hrs
-        )
+        return VoltGuardEntry(date: Date(), batteryPercent: pct, isCharging: charging, thermalLabel: therm, lowPowerMode: lpm, estHoursRemaining: hrs)
     }
 }
 
@@ -52,30 +42,24 @@ struct VoltGuardWidgetView: View {
     @Environment(\.widgetFamily) var family
     let entry: VoltGuardEntry
 
-    private var accent: Color {
-        if entry.batteryPercent <= 20 { return .red }
-        if entry.isCharging { return .green }
-        return Color(red: 0.25, green: 0.88, blue: 0.56)
-    }
-
     var body: some View {
         switch family {
         case .accessoryCircular:
             ZStack {
                 AccessoryWidgetBackground()
                 VStack(spacing: 0) {
-                    Image(systemName: entry.isCharging ? "bolt.batteryblock.fill" : "battery.100").font(.caption2)
-                    Text("\(entry.batteryPercent)%").font(.system(size: 13, weight: .black, design: .rounded))
+                    Text("✠").font(.caption2)
+                    Text("\(entry.batteryPercent)%").font(GothicTheme.serif(12, weight: .bold))
                 }
             }
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 2) {
-                Text("VoltGuard · \(entry.batteryPercent)%").font(.headline)
-                Text("Thermal: \(entry.thermalLabel)").font(.caption)
-                Text(String(format: "Est. Runtime: %.1f hrs", entry.estHoursRemaining)).font(.caption2).foregroundStyle(.secondary)
+                Text("✠ VoltGuard · \(entry.batteryPercent)%").font(GothicTheme.serif(13, weight: .bold))
+                Text(entry.thermalLabel).font(GothicTheme.serif(10))
+                Text(String(format: "Endurance: %.1f hours", entry.estHoursRemaining)).font(GothicTheme.serif(9)).foregroundStyle(.secondary)
             }
         case .accessoryInline:
-            Text("⚡ \(entry.batteryPercent)% · \(entry.thermalLabel) · \(String(format: "%.1fh", entry.estHoursRemaining))")
+            Text("✠ Vitality \(entry.batteryPercent)% · \(String(format: "%.1fh", entry.estHoursRemaining))")
         case .systemMedium:
             mediumView
         default:
@@ -85,52 +69,46 @@ struct VoltGuardWidgetView: View {
 
     private var smallView: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Image(systemName: "bolt.shield.fill").foregroundStyle(accent)
-                Text("VOLTGUARD").font(.system(size: 10, weight: .bold, design: .rounded)).foregroundStyle(.secondary)
-                Spacer()
-            }
+            GothicHeader(title: "VoltGuard", rightText: entry.isCharging ? "Risen" : "Drain")
             Spacer(minLength: 0)
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text("\(entry.batteryPercent)%")
-                    .font(.system(size: 38, weight: .black, design: .rounded))
-                    .foregroundStyle(accent)
-                if entry.isCharging {
-                    Image(systemName: "bolt.fill").foregroundStyle(.yellow)
-                }
-            }
-            Text(String(format: "~%.1f hrs runtime", entry.estHoursRemaining))
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+            Text("\(entry.batteryPercent)%")
+                .font(GothicTheme.display(38))
+                .foregroundStyle(GothicTheme.bone)
+            Text(String(format: "~%.1f hrs endurance", entry.estHoursRemaining))
+                .font(GothicTheme.serif(10.5, weight: .bold))
+                .italic()
+                .foregroundStyle(GothicTheme.bloodHi)
+            Spacer(minLength: 0)
             Text(entry.thermalLabel)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(.secondary)
+                .font(GothicTheme.serif(9, weight: .bold))
+                .foregroundStyle(GothicTheme.bone)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
+                .gothicPanel(active: true, corner: 5)
         }
     }
 
     private var mediumView: some View {
         HStack(spacing: 14) {
             smallView.frame(maxWidth: 135)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("POWER & THERMAL AUDIT")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
-                row(label: "Thermal State", value: entry.thermalLabel, color: .green)
-                row(label: "Power Mode", value: entry.lowPowerMode ? "Low Power" : "High Perf", color: entry.lowPowerMode ? .yellow : .cyan)
-                row(label: "Est. Discharge", value: String(format: "%.1f hours", entry.estHoursRemaining), color: accent)
+            VStack(alignment: .leading, spacing: 5) {
+                GothicHeader(title: "Vitality & Thermal Audit")
+                row("Vessel Heat", entry.thermalLabel)
+                row("Coven Stance", entry.lowPowerMode ? "Torpor Conserve" : "Full Blood")
+                row("Endurance", String(format: "%.1f Hours", entry.estHoursRemaining))
             }
         }
     }
 
-    private func row(label: String, value: String, color: Color) -> some View {
+    private func row(_ k: String, _ v: String) -> some View {
         HStack {
-            Text(label).font(.system(size: 11, weight: .medium, design: .rounded)).foregroundStyle(.secondary)
+            Text(k).font(GothicTheme.serif(10.5, weight: .medium)).foregroundStyle(GothicTheme.ash)
             Spacer()
-            Text(value).font(.system(size: 11, weight: .bold, design: .rounded)).foregroundStyle(color)
+            Text(v).font(GothicTheme.serif(10.5, weight: .bold)).foregroundStyle(GothicTheme.bone)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 8)
-        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+        .gothicPanel(active: false, corner: 6)
     }
 }
 
@@ -140,15 +118,11 @@ struct VoltGuardWidget: Widget {
         StaticConfiguration(kind: kind, provider: VoltGuardProvider()) { entry in
             VoltGuardWidgetView(entry: entry)
                 .containerBackground(for: .widget) {
-                    LinearGradient(
-                        colors: [Color(red: 0.02, green: 0.04, blue: 0.03), Color(red: 0.04, green: 0.11, blue: 0.08)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    GothicCathedralBackground()
                 }
         }
-        .configurationDisplayName("VoltGuard Power & Thermal")
-        .description("Live battery percentage, thermal state, and estimated discharge runtime.")
+        .configurationDisplayName("VoltGuard Vitality")
+        .description("Gothic Vampire battery vitality, thermal crypt state & runtime HUD.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }

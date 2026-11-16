@@ -3,8 +3,8 @@ import SwiftUI
 import AppIntents
 
 struct CarbPrepConfigIntent: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "CarbPrep T1D Bolus HUD"
-    static var description = IntentDescription("Instant T1D meal bolus calculator using your ICR, ISF, and live Nightscout glucose.")
+    static var title: LocalizedStringResource = "CarbPrep Elixir Calculus"
+    static var description = IntentDescription("Gothic Vampire T1D meal bolus calculator using live Nightscout glucose & IOB.")
 
     @Parameter(title: "Carb Ratio (1U per Xg)", default: 10.0)
     var icrGramsPerUnit: Double
@@ -71,29 +71,26 @@ struct CarbPrepWidgetView: View {
     @Environment(\.widgetFamily) var family
     let entry: CarbPrepEntry
 
-    private let crimson = Color(red: 0.90, green: 0.20, blue: 0.32)
-    private let cyan = Color(red: 0.38, green: 0.82, blue: 0.96)
-
     var body: some View {
         switch family {
         case .accessoryCircular:
             ZStack {
                 AccessoryWidgetBackground()
                 VStack(spacing: 0) {
-                    Text("30g").font(.caption2)
-                    Text(String(format: "%.1fU", entry.bolusFor(carbs: 30))).font(.system(size: 12, weight: .black, design: .rounded))
+                    Text("30g").font(GothicTheme.serif(9))
+                    Text(String(format: "%.1fU", entry.bolusFor(carbs: 30))).font(GothicTheme.serif(12, weight: .bold))
                 }
             }
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 2) {
-                Text(String(format: "CarbPrep · BG %.1f mmol/L", entry.currentMmol)).font(.headline)
+                Text(String(format: "✠ CarbPrep · BG %.1f", entry.currentMmol)).font(GothicTheme.serif(13, weight: .bold))
                 Text(String(format: "20g: %.1fU · 40g: %.1fU · 60g: %.1fU", entry.bolusFor(carbs: 20), entry.bolusFor(carbs: 40), entry.bolusFor(carbs: 60)))
-                    .font(.caption)
+                    .font(GothicTheme.serif(10))
                 Text(String(format: "ICR 1:%.0fg · IOB %.1fU", entry.config.icrGramsPerUnit, entry.iobUnits))
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(GothicTheme.serif(9)).foregroundStyle(.secondary)
             }
         case .accessoryInline:
-            Text(String(format: "🍽 30g=%.1fU · 60g=%.1fU (BG %.1f)", entry.bolusFor(carbs: 30), entry.bolusFor(carbs: 60), entry.currentMmol))
+            Text(String(format: "✠ 30g=%.1fU · 60g=%.1fU (BG %.1f)", entry.bolusFor(carbs: 30), entry.bolusFor(carbs: 60), entry.currentMmol))
         case .systemMedium:
             mediumView
         default:
@@ -103,21 +100,13 @@ struct CarbPrepWidgetView: View {
 
     private var smallView: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Image(systemName: "fork.knife").foregroundStyle(crimson)
-                Text("CARBPREP").font(.system(size: 10, weight: .bold, design: .rounded)).foregroundStyle(.secondary)
-                Spacer()
-                Text(String(format: "%.1f", entry.currentMmol))
-                    .font(.system(size: 11, weight: .black, design: .rounded))
-                    .foregroundStyle(.green)
-            }
+            GothicHeader(title: "CarbPrep", rightText: String(format: "%.1f", entry.currentMmol))
             Text(String(format: "ICR 1:%.0fg · IOB %.1fU", entry.config.icrGramsPerUnit, entry.iobUnits))
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(cyan)
-
-            Spacer(minLength: 2)
-
-            VStack(spacing: 4) {
+                .font(GothicTheme.serif(9.5, weight: .semibold))
+                .italic()
+                .foregroundStyle(GothicTheme.bloodHi)
+            Spacer(minLength: 0)
+            VStack(spacing: 3.5) {
                 carbRow(grams: 20)
                 carbRow(grams: 40)
                 carbRow(grams: 60)
@@ -126,59 +115,51 @@ struct CarbPrepWidgetView: View {
     }
 
     private var mediumView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "fork.knife").foregroundStyle(crimson)
-                Text("CARBPREP T1D MEAL BOLUS CALCULATOR")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(String(format: "BG %.1f mmol/L · IOB %.2fU", entry.currentMmol, entry.iobUnits))
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(.green)
-            }
-
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 7) {
+            GothicHeader(title: "CarbPrep · Sanguine Bolus Rite", rightText: String(format: "BG %.1f · IOB %.2fU", entry.currentMmol, entry.iobUnits))
+            HStack(spacing: 7) {
                 carbCard(grams: 15)
                 carbCard(grams: 30)
                 carbCard(grams: 45)
                 carbCard(grams: 60)
                 carbCard(grams: 80)
             }
-
-            Text(String(format: "Ratio 1U : %.0fg carbs · Correction 1U : %.1f mmol/L (Target %.1f)", entry.config.icrGramsPerUnit, entry.config.isfMmolPerUnit, entry.config.targetMmol))
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
+            GothicOrnamentRule()
+            Text(String(format: "Ratio 1U : %.0fg · Correction 1U : %.1f mmol/L (Target %.1f)", entry.config.icrGramsPerUnit, entry.config.isfMmolPerUnit, entry.config.targetMmol))
+                .font(GothicTheme.serif(9.5))
+                .italic()
+                .foregroundStyle(GothicTheme.ash)
+                .lineLimit(1)
         }
     }
 
     private func carbRow(grams: Int) -> some View {
         HStack {
-            Text("\(grams)g Carbs")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
+            Text("\(grams)g Offering")
+                .font(GothicTheme.serif(10, weight: .semibold))
+                .foregroundStyle(GothicTheme.bone)
             Spacer()
             Text(String(format: "%.1f U", entry.bolusFor(carbs: Double(grams))))
-                .font(.system(size: 12, weight: .black, design: .rounded))
-                .foregroundStyle(cyan)
+                .font(GothicTheme.serif(11, weight: .bold))
+                .foregroundStyle(GothicTheme.bloodHi)
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
-        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+        .gothicPanel(active: false, corner: 5)
     }
 
     private func carbCard(grams: Int) -> some View {
-        VStack(spacing: 3) {
+        VStack(spacing: 2) {
             Text("\(grams)g")
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(.secondary)
+                .font(GothicTheme.serif(10.5, weight: .bold))
+                .foregroundStyle(GothicTheme.ash)
             Text(String(format: "%.1fU", entry.bolusFor(carbs: Double(grams))))
-                .font(.system(size: 15, weight: .black, design: .rounded))
-                .foregroundStyle(cyan)
+                .font(GothicTheme.display(16))
+                .foregroundStyle(GothicTheme.bone)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(Color.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 6)
+        .gothicPanel(active: true, corner: 6)
     }
 }
 
@@ -188,15 +169,11 @@ struct CarbPrepWidget: Widget {
         AppIntentConfiguration(kind: kind, intent: CarbPrepConfigIntent.self, provider: CarbPrepProvider()) { entry in
             CarbPrepWidgetView(entry: entry)
                 .containerBackground(for: .widget) {
-                    LinearGradient(
-                        colors: [Color(red: 0.03, green: 0.015, blue: 0.02), Color(red: 0.11, green: 0.03, blue: 0.05)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    GothicCathedralBackground()
                 }
         }
-        .configurationDisplayName("CarbPrep T1D Bolus")
-        .description("Instant meal bolus guide factoring in your ICR, ISF, live glucose, and active IOB.")
+        .configurationDisplayName("CarbPrep Sanguine Bolus")
+        .description("Gothic Vampire T1D meal bolus calculator factoring in ICR, ISF, live BG & IOB.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }

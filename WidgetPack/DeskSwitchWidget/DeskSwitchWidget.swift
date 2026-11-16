@@ -3,17 +3,16 @@ import SwiftUI
 import AppIntents
 
 struct DeskSwitchActionIntent: AppIntent {
-    static var title: LocalizedStringResource = "Run DeskSwitch Action"
+    static var title: LocalizedStringResource = "Invoke DeskSwitch Rite"
 
     @Parameter(title: "Action")
     var action: String
 
-    init() { self.action = "wake" }
+    init() { self.action = "monitor" }
     init(action: String) { self.action = action }
 
     func perform() async throws -> some IntentResult {
         UserDefaults.standard.set(action, forKey: "deskswitch.widget.lastAction")
-        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "deskswitch.widget.lastActionAt")
         if let url = URL(string: "http://100.85.127.42:18998/ops/status") {
             _ = try? await URLSession.shared.data(from: url)
         }
@@ -23,23 +22,31 @@ struct DeskSwitchActionIntent: AppIntent {
 
 struct DeskSwitchEntry: TimelineEntry {
     let date: Date
-    let pcOnline: Bool
     let activeDisplay: String
-    let lastAction: String
+    let activeKey: String
 }
 
 struct DeskSwitchProvider: TimelineProvider {
     func placeholder(in context: Context) -> DeskSwitchEntry {
-        DeskSwitchEntry(date: Date(), pcOnline: true, activeDisplay: "4K Monitor", lastAction: "Ready")
+        DeskSwitchEntry(date: Date(), activeDisplay: "Desk 4K Altar", activeKey: "monitor")
     }
     func getSnapshot(in context: Context, completion: @escaping (DeskSwitchEntry) -> Void) {
-        completion(placeholder(in: context))
+        completion(load())
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<DeskSwitchEntry>) -> Void) {
-        let act = UserDefaults.standard.string(forKey: "deskswitch.widget.lastAction") ?? "Monitor"
-        let display = act == "tv" ? "Living Room 4K TV" : "Desk 4K Monitor"
-        let entry = DeskSwitchEntry(date: Date(), pcOnline: true, activeDisplay: display, lastAction: act.uppercased())
-        completion(Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(10 * 60))))
+        completion(Timeline(entries: [load()], policy: .after(Date().addingTimeInterval(15 * 60))))
+    }
+
+    private func load() -> DeskSwitchEntry {
+        let act = UserDefaults.standard.string(forKey: "deskswitch.widget.lastAction") ?? "monitor"
+        let disp: String
+        switch act {
+        case "tv": disp = "Sanctum 4K TV"
+        case "wake": disp = "Awakened (WoL)"
+        case "sleep": disp = "In Torpor"
+        default: disp = "Desk 4K Altar"
+        }
+        return DeskSwitchEntry(date: Date(), activeDisplay: disp, activeKey: act)
     }
 }
 
@@ -47,24 +54,21 @@ struct DeskSwitchWidgetView: View {
     @Environment(\.widgetFamily) var family
     let entry: DeskSwitchEntry
 
-    private let crimson = Color(red: 0.88, green: 0.18, blue: 0.30)
-    private let cyan = Color(red: 0.35, green: 0.82, blue: 0.96)
-
     var body: some View {
         switch family {
         case .accessoryCircular:
             ZStack {
                 AccessoryWidgetBackground()
-                Image(systemName: "display.2").font(.title3)
+                Text("✠ PC").font(GothicTheme.serif(12, weight: .bold))
             }
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 2) {
-                Text("ROSS-DYMOND-PC").font(.headline)
-                Text("Display: \(entry.activeDisplay)").font(.caption)
-                Text("Status: Online · Tailscale").font(.caption2).foregroundStyle(.secondary)
+                Text("✠ DeskSwitch · PC").font(GothicTheme.serif(13, weight: .bold))
+                Text(entry.activeDisplay).font(GothicTheme.serif(11))
+                Text("Monitor · 4K TV · Wake · Torpor").font(GothicTheme.serif(9)).foregroundStyle(.secondary)
             }
         case .accessoryInline:
-            Text("🖥 PC Online · \(entry.activeDisplay)")
+            Text("✠ PC: \(entry.activeDisplay)")
         case .systemMedium:
             mediumView
         default:
@@ -73,69 +77,57 @@ struct DeskSwitchWidgetView: View {
     }
 
     private var smallView: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Circle().fill(Color.green).frame(width: 7, height: 7)
-                Text("DESKSWITCH")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-
+        VStack(alignment: .leading, spacing: 5) {
+            GothicHeader(title: "DeskSwitch", rightText: "PC")
             Text(entry.activeDisplay)
-                .font(.system(size: 15, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
+                .font(GothicTheme.display(15))
+                .foregroundStyle(GothicTheme.bone)
                 .lineLimit(1)
-
             Spacer(minLength: 0)
-
-            HStack(spacing: 6) {
-                actionBtn(title: "Monitor", icon: "display", action: "monitor", color: cyan)
-                actionBtn(title: "4K TV", icon: "tv.fill", action: "tv", color: crimson)
+            HStack(spacing: 5) {
+                riteBtn("Monitor", icon: "display", key: "monitor")
+                riteBtn("4K TV", icon: "tv.fill", key: "tv")
             }
-            HStack(spacing: 6) {
-                actionBtn(title: "Wake", icon: "bolt.fill", action: "wake", color: .green)
-                actionBtn(title: "Sleep", icon: "moon.fill", action: "sleep", color: .purple)
+            HStack(spacing: 5) {
+                riteBtn("Awaken", icon: "bolt.fill", key: "wake")
+                riteBtn("Torpor", icon: "moon.fill", key: "sleep")
             }
         }
     }
 
     private var mediumView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Circle().fill(Color.green).frame(width: 7, height: 7)
-                Text("ROSS-DYMOND-PC · DESKSWITCH HUD")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(entry.activeDisplay)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(cyan)
-            }
-
+            GothicHeader(title: "DeskSwitch · ROSS-DYMOND-PC", rightText: entry.activeDisplay)
             HStack(spacing: 8) {
-                actionBtn(title: "Monitor", icon: "display", action: "monitor", color: cyan)
-                actionBtn(title: "4K TV", icon: "tv.fill", action: "tv", color: crimson)
-                actionBtn(title: "Wake PC", icon: "bolt.fill", action: "wake", color: .green)
-                actionBtn(title: "Sleep PC", icon: "moon.zzz.fill", action: "sleep", color: .purple)
+                riteBtn("Monitor", icon: "display", key: "monitor")
+                riteBtn("4K TV", icon: "tv.fill", key: "tv")
+                riteBtn("Awaken", icon: "bolt.fill", key: "wake")
+                riteBtn("Torpor", icon: "moon.zzz.fill", key: "sleep")
             }
+            GothicOrnamentRule()
+            Text("Command display altars and Wake-on-LAN across the Nocturne LAN.")
+                .font(GothicTheme.serif(10))
+                .italic()
+                .foregroundStyle(GothicTheme.ash)
+                .lineLimit(1)
         }
     }
 
-    private func actionBtn(title: String, icon: String, action: String, color: Color) -> some View {
-        Button(intent: DeskSwitchActionIntent(action: action)) {
-            VStack(spacing: 4) {
+    private func riteBtn(_ title: String, icon: String, key: String) -> some View {
+        let isSel = (entry.activeKey == key)
+        return Button(intent: DeskSwitchActionIntent(action: key)) {
+            VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(color)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(isSel ? GothicTheme.bone : GothicTheme.bloodHi)
                 Text(title)
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .font(GothicTheme.serif(9.5, weight: .bold))
+                    .foregroundStyle(GothicTheme.bone)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.vertical, 6)
-            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+            .padding(.vertical, 5)
+            .gothicPanel(active: isSel, corner: 7)
         }
         .buttonStyle(.plain)
     }
@@ -147,15 +139,11 @@ struct DeskSwitchWidget: Widget {
         StaticConfiguration(kind: kind, provider: DeskSwitchProvider()) { entry in
             DeskSwitchWidgetView(entry: entry)
                 .containerBackground(for: .widget) {
-                    LinearGradient(
-                        colors: [Color(red: 0.03, green: 0.015, blue: 0.025), Color(red: 0.11, green: 0.03, blue: 0.06)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    GothicCathedralBackground()
                 }
         }
-        .configurationDisplayName("DeskSwitch PC & Display")
-        .description("One-tap Monitor/4K TV switcher, Wake-on-LAN, and Sleep controls.")
+        .configurationDisplayName("DeskSwitch Altar")
+        .description("Gothic Vampire PC Monitor/TV switcher & Wake-on-LAN controls.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }

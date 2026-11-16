@@ -15,27 +15,26 @@ struct VespersProvider: TimelineProvider {
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<VespersEntry>) -> Void) {
         let now = Date()
-        let entry = makeEntry(for: now)
-        completion(Timeline(entries: [entry], policy: .after(now.addingTimeInterval(30 * 60))))
+        completion(Timeline(entries: [makeEntry(for: now)], policy: .after(now.addingTimeInterval(30 * 60))))
     }
 
     private func makeEntry(for date: Date) -> VespersEntry {
         let h = Calendar.current.component(.hour, from: date)
         switch h {
         case 0..<5:
-            return VespersEntry(date: date, canonicalHour: "MATINS", latinMotto: "In nocte vigilate", nextHourText: "Lauds at 05:00")
+            return VespersEntry(date: date, canonicalHour: "MATINS", latinMotto: "In nocte vigilate", nextHourText: "Lauds · V Hora")
         case 5..<8:
-            return VespersEntry(date: date, canonicalHour: "LAUDS", latinMotto: "Aurora lucis rutilat", nextHourText: "Terce at 09:00")
+            return VespersEntry(date: date, canonicalHour: "LAUDS", latinMotto: "Aurora lucis rutilat", nextHourText: "Terce · IX Hora")
         case 8..<12:
-            return VespersEntry(date: date, canonicalHour: "TERCE", latinMotto: "Nunc Sancte nobis Spiritus", nextHourText: "Sext at 12:00")
+            return VespersEntry(date: date, canonicalHour: "TERCE", latinMotto: "Nunc Sancte nobis Spiritus", nextHourText: "Sext · XII Hora")
         case 12..<15:
-            return VespersEntry(date: date, canonicalHour: "SEXT", latinMotto: "Rector potens, verax Deus", nextHourText: "None at 15:00")
+            return VespersEntry(date: date, canonicalHour: "SEXT", latinMotto: "Rector potens, verax Deus", nextHourText: "None · XV Hora")
         case 15..<18:
-            return VespersEntry(date: date, canonicalHour: "NONE", latinMotto: "Rerum Deus tenax vigor", nextHourText: "Vespers at 18:00")
+            return VespersEntry(date: date, canonicalHour: "NONE", latinMotto: "Rerum Deus tenax vigor", nextHourText: "Vespers · XVIII Hora")
         case 18..<21:
-            return VespersEntry(date: date, canonicalHour: "VESPERS", latinMotto: "Lucis Creator optime", nextHourText: "Compline at 21:00")
+            return VespersEntry(date: date, canonicalHour: "VESPERS", latinMotto: "Lucis Creator optime", nextHourText: "Compline · XXI Hora")
         default:
-            return VespersEntry(date: date, canonicalHour: "COMPLINE", latinMotto: "Te lucis ante terminum", nextHourText: "Matins at 00:00")
+            return VespersEntry(date: date, canonicalHour: "COMPLINE", latinMotto: "Te lucis ante terminum", nextHourText: "Matins · Media Nocte")
         }
     }
 }
@@ -44,27 +43,24 @@ struct VespersWidgetView: View {
     @Environment(\.widgetFamily) var family
     let entry: VespersEntry
 
-    private let crimson = Color(red: 0.86, green: 0.16, blue: 0.28)
-    private let bone = Color(red: 0.94, green: 0.90, blue: 0.86)
-
     var body: some View {
         switch family {
         case .accessoryCircular:
             ZStack {
                 AccessoryWidgetBackground()
                 VStack(spacing: 0) {
-                    Image(systemName: "bell.fill").font(.caption2)
-                    Text(entry.canonicalHour.prefix(4)).font(.system(size: 11, weight: .bold, design: .serif))
+                    Text("✠").font(.caption2)
+                    Text(entry.canonicalHour.prefix(4)).font(GothicTheme.serif(11, weight: .bold))
                 }
             }
         case .accessoryRectangular:
             VStack(alignment: .leading, spacing: 2) {
-                Text("Vespers · \(entry.canonicalHour)").font(.headline)
-                Text(entry.latinMotto).font(.caption).italic()
-                Text(entry.date, format: .dateTime.weekday(.wide).day().month()).font(.caption2).foregroundStyle(.secondary)
+                Text("✠ Vespers · \(entry.canonicalHour)").font(GothicTheme.serif(13, weight: .bold))
+                Text(entry.latinMotto).font(GothicTheme.serif(10)).italic()
+                Text(entry.date, format: .dateTime.weekday(.wide).day().month()).font(GothicTheme.serif(9)).foregroundStyle(.secondary)
             }
         case .accessoryInline:
-            Text("🕯 \(entry.canonicalHour) · \(entry.latinMotto)")
+            Text("✠ \(entry.canonicalHour) · \(entry.latinMotto)")
         case .systemMedium:
             mediumView
         default:
@@ -74,60 +70,55 @@ struct VespersWidgetView: View {
 
     private var smallView: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Image(systemName: "flame.fill").foregroundStyle(crimson)
-                Text("VESPERS").font(.system(size: 10, weight: .bold, design: .serif)).foregroundStyle(.secondary)
-                Spacer()
-            }
+            GothicHeader(title: "Vespers")
             Spacer(minLength: 0)
             Text(entry.canonicalHour)
-                .font(.system(size: 22, weight: .black, design: .serif))
-                .foregroundStyle(bone)
+                .font(GothicTheme.display(22))
+                .foregroundStyle(GothicTheme.bone)
             Text(entry.latinMotto)
-                .font(.system(size: 11, weight: .medium, design: .serif))
+                .font(GothicTheme.serif(10.5, weight: .medium))
                 .italic()
-                .foregroundStyle(crimson)
+                .foregroundStyle(GothicTheme.bloodHi)
             Spacer(minLength: 0)
+            GothicOrnamentRule()
             Text(entry.date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated))
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(.secondary)
+                .font(GothicTheme.serif(10.5, weight: .bold))
+                .foregroundStyle(GothicTheme.bone)
         }
     }
 
     private var mediumView: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Image(systemName: "flame.fill").foregroundStyle(crimson)
-                    Text("VESPERS SANCTUM")
-                        .font(.system(size: 10, weight: .bold, design: .serif))
-                        .foregroundStyle(.secondary)
-                }
+                GothicHeader(title: "Vespers · Liturgia Horarum")
                 Spacer()
                 Text(entry.canonicalHour)
-                    .font(.system(size: 28, weight: .black, design: .serif))
-                    .foregroundStyle(bone)
+                    .font(GothicTheme.display(28))
+                    .foregroundStyle(GothicTheme.bone)
                 Text(entry.latinMotto)
-                    .font(.system(size: 13, weight: .medium, design: .serif))
+                    .font(GothicTheme.serif(12.5, weight: .medium))
                     .italic()
-                    .foregroundStyle(crimson)
+                    .foregroundStyle(GothicTheme.bloodHi)
                 Spacer()
                 Text(entry.nextHourText)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
+                    .font(GothicTheme.serif(10, weight: .bold))
+                    .foregroundStyle(GothicTheme.ash)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .center, spacing: 2) {
                 Text(entry.date, format: .dateTime.day())
-                    .font(.system(size: 42, weight: .black, design: .serif))
-                    .foregroundStyle(bone)
+                    .font(GothicTheme.display(36))
+                    .foregroundStyle(GothicTheme.bone)
                 Text(entry.date, format: .dateTime.weekday(.wide))
-                    .font(.system(size: 13, weight: .bold, design: .serif))
-                    .foregroundStyle(crimson)
+                    .font(GothicTheme.serif(11, weight: .bold))
+                    .foregroundStyle(GothicTheme.bloodHi)
                 Text(entry.date, format: .dateTime.month(.wide))
-                    .font(.system(size: 11, weight: .medium, design: .serif))
-                    .foregroundStyle(.secondary)
+                    .font(GothicTheme.serif(10))
+                    .foregroundStyle(GothicTheme.ash)
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .gothicPanel(active: true, corner: 8)
         }
     }
 }
@@ -138,15 +129,11 @@ struct VespersWidget: Widget {
         StaticConfiguration(kind: kind, provider: VespersProvider()) { entry in
             VespersWidgetView(entry: entry)
                 .containerBackground(for: .widget) {
-                    LinearGradient(
-                        colors: [Color(red: 0.03, green: 0.01, blue: 0.015), Color(red: 0.12, green: 0.025, blue: 0.045)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    GothicCathedralBackground()
                 }
         }
         .configurationDisplayName("Vespers Canonical Calendar")
-        .description("Gothic canonical hour, Latin motto, and calendar date.")
+        .description("Gothic Vampire canonical hour, Latin motto, and sanctum date.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }

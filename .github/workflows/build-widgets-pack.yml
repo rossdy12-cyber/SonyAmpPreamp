@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   build-widgets-pack:
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     steps:
       - name: Checkout Source
         uses: actions/checkout@v4

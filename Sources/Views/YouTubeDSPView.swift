@@ -51,7 +51,7 @@ final class YouTubeNativeClient: ObservableObject {
     func loadInitialIfNeeded() {
         guard !hasLoadedInitial else { return }
         hasLoadedInitial = true
-        Task { await search(query: "Phonk 2026 mix") }
+        Task { await search(query: "Phonk 2026") }
     }
 
     func search(query: String) async {
@@ -134,12 +134,12 @@ struct YouTubeDSPView: View {
     @State private var showActiveQueueSheet: Bool = false
 
     private let quickCategories = [
-        ("Phonk 2026", "Phonk 2026 mix"),
-        ("Nightcore", "Nightcore hits"),
-        ("Rock & Metal", "Heavy Metal Rock anthems"),
-        ("Bass Test", "Subwoofer 45Hz Bass Boosted"),
-        ("Drum & Bass", "Liquid Drum and Bass mix"),
-        ("Synthwave", "Dark Synthwave Cyberpunk mix")
+        ("Phonk 2026", "Phonk 2026"),
+        ("Nightcore", "Nightcore"),
+        ("Rock & Metal", "Heavy Metal Rock"),
+        ("Bass Test", "Subwoofer 45Hz Bass Test"),
+        ("Drum & Bass", "Drum and Bass"),
+        ("Synthwave", "Dark Synthwave")
     ]
 
     var body: some View {

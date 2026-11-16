@@ -183,19 +183,16 @@ final class AudioPreampEngine: ObservableObject {
     private func setupAudioSession() {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(
-                .playback,
-                mode: .default,
-                policy: .longFormAudio,
-                options: [.allowBluetoothA2DP, .allowAirPlay]
-            )
-            try session.setPreferredSampleRate(48000.0)
-            try session.setPreferredIOBufferDuration(0.005)
-            try session.setActive(true)
-            sampleRateHz = session.sampleRate
+            // Note: .playback automatically supports Bluetooth A2DP & AirPlay; passing non-empty options
+            // alongside policy: .longFormAudio throws OSStatus -50 (kAudio_ParamError) and breaks background audio!
+            try session.setCategory(.playback, mode: .default, policy: .longFormAudio, options: [])
         } catch {
-            statusBanner = "AudioSession notice: \(error.localizedDescription)"
+            try? session.setCategory(.playback, mode: .default, options: [])
         }
+        try? session.setPreferredSampleRate(48000.0)
+        try? session.setPreferredIOBufferDuration(0.005)
+        try? session.setActive(true, options: [])
+        sampleRateHz = session.sampleRate
     }
 
     private func observeRouteChanges() {
@@ -206,6 +203,25 @@ final class AudioPreampEngine: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.evaluateCurrentAudioRoute()
+            }
+        }
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self else { return }
+            let typeVal = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            let optVal = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt
+            Task { @MainActor in
+                if typeVal == AVAudioSession.InterruptionType.ended.rawValue {
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                    self.startEngineIfNeeded()
+                    if let optVal, AVAudioSession.InterruptionOptions(rawValue: optVal).contains(.shouldResume) {
+                        self.playerNode.play()
+                        self.isPlaying = true
+                    }
+                }
             }
         }
     }
@@ -744,7 +760,7 @@ final class AudioPreampEngine: ObservableObject {
         return localURL
     }
 
-    private func prebufferYouTubeIfNeeded(_ item: PlayableItem) {
+    func prebufferYouTubeIfNeeded(_ item: PlayableItem) {
         guard let vid = item.youTubeVideoId else { return }
         Task.detached(priority: .utility) {
             let cacheDir = FileManager.default.temporaryDirectory.appendingPathComponent("YouTubeDSPCache", isDirectory: true)

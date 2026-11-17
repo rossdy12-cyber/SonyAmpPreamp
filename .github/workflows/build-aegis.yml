@@ -39,7 +39,7 @@ jobs:
         working-directory: AegisBrowser
         run: |
           mkdir -p out/Payload
-          cp -R "build/Release-iphoneos/AegisBrowser.app" out/Payload/
+          cp -R "build/Release-iphoneos/Aegis.app" out/Payload/AegisBrowser.app/
           cd out && zip -r9 AegisBrowser.ipa Payload
 
       - name: Upload AegisBrowser IPA Artifact

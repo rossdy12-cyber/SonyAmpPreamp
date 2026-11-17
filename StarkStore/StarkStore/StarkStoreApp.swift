@@ -48,7 +48,9 @@ final class StoreClient {
         bundleId.lowercased().map { ($0.isLetter || $0.isNumber) ? String($0) : "_" }.joined()
     }
 
-    /// POSTs the login form and captures the 303 Location header to extract the 32-hex account key.
+    /// POSTs the login form; the server 303-redirects to /sidestore-api/store/<key>.
+    /// We follow the redirect with a plain session and read the key from the final URL —
+    /// no custom redirect interception, which proved unreliable on-device.
     func login(username: String, password: String) async throws -> String {
         var body = URLComponents()
         body.queryItems = [
@@ -61,19 +63,21 @@ final class StoreClient {
         req.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
         req.httpBody = body.percentEncodedQuery?.data(using: .utf8)
 
-        let delegate = RedirectCapture()
-        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
-        defer { session.finishTasksAndInvalidate() }
-        let (_, resp) = try await session.data(for: req)
+        let (_, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse else { throw StoreError.badResponse }
-        if http.statusCode == 401 || http.statusCode == 429 {
-            throw StoreError.badCredentials
+        if http.statusCode == 401 { throw StoreError.badCredentials }
+        if http.statusCode == 429 { throw StoreError.throttled }
+        if http.statusCode == 403 { throw StoreError.blockedByCloudflare }
+        if let finalURL = resp.url?.absoluteString, let key = Self.extractKey(from: finalURL) {
+            return key
         }
-        guard let location = delegate.capturedLocation,
-              let key = StoreClient.extractKey(from: location) else {
-            throw StoreError.badCredentials
+        // Fallback: the store page body also contains keyed links.
+        if let fallbackURL = URL(string: Self.base + "/sidestore/"),
+           let (body2, _) = try? await URLSession.shared.data(from: fallbackURL) {
+            let html = String(data: body2, encoding: .utf8) ?? ""
+            if let key = Self.extractKey(from: html) { return key }
         }
-        return key
+        throw StoreError.noKeyInResponse
     }
 
     /// Extracts a 32-hex key from either a bare key or a full store URL.
@@ -109,12 +113,18 @@ final class StoreClient {
         case badCredentials
         case badKey
         case badResponse
+        case throttled
+        case blockedByCloudflare
+        case noKeyInResponse
 
         var errorDescription: String? {
             switch self {
-            case .badCredentials: return "Wrong username or password (or too many attempts — wait a few minutes)."
+            case .badCredentials: return "Wrong username or password."
             case .badKey: return "Store key rejected — sign in again in Settings."
             case .badResponse: return "The store didn't respond as expected."
+            case .throttled: return "Too many attempts — wait a few minutes and try again."
+            case .blockedByCloudflare: return "Blocked by Cloudflare (bot protection). Try again or use the key option."
+            case .noKeyInResponse: return "Login accepted but the key couldn't be read — try again."
             }
         }
     }
@@ -128,6 +138,8 @@ final class RedirectCapture: NSObject, URLSessionDelegate {
         completionHandler(nil)  // stop following; we only want the key out of the Location header
     }
 }
+
+// Kept for reference — login() now follows redirects with a plain session.
 
 // MARK: - Update engine
 

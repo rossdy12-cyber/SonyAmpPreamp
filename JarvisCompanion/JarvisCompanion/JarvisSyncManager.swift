@@ -223,7 +223,7 @@ final class JarvisSyncManager: ObservableObject {
     }
 }
 
-struct DeepAiMessage: Identifiable {
+struct DeepAiMessage: Identifiable, Equatable {
     let id: String
     let role: String
     let model: String

@@ -42,7 +42,7 @@ final class StoreClient {
     static let base = "https://navidrome.nas-server.co.uk"
 
     func slugify(_ bundleId: String) -> String {
-        bundleId.lowercased().map { $0.isLetter || $0.isNumber ? $0 : "_" }.joined()
+        bundleId.lowercased().map { ($0.isLetter || $0.isNumber) ? String($0) : "_" }.joined()
     }
 
     /// POSTs the login form and captures the 303 Location header to extract the 32-hex account key.

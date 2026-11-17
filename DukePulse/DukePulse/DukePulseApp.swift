@@ -1386,12 +1386,12 @@ final class GarageStore: ObservableObject {
 
     init() {
         docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        trips = load("trips.json", [Trip].self)
-        fuelEntries = load("fuel.json", [FuelEntry].self).sorted { $0.odometerKm > $1.odometerKm }
+        trips = load("trips.json", [Trip].self) ?? []
+        fuelEntries = (load("fuel.json", [FuelEntry].self) ?? []).sorted { $0.odometerKm > $1.odometerKm }
         if let saved = load("service.json", [ServiceItem].self), !saved.isEmpty {
             serviceItems = saved
         } else {
-            serviceItems = ServiceItem.defaultItems()
+            serviceItems = Self.defaultItems()
         }
     }
 
@@ -1686,27 +1686,8 @@ struct GarageView: View {
 
     private var fuelSection: some View {
         Section {
-            ForEach(fuelSummaries) { entry in
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack {
-                        Text(entry.date, format: .dateTime.day().month().year())
-                            .font(.subheadline.weight(.semibold))
-                        Spacer()
-                        Text(String(format: "%.2f L", entry.litres))
-                            .font(.subheadline.monospacedDigit())
-                    }
-                    HStack {
-                        Text(String(format: "odo %.0f km", entry.odometerKm))
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                        if let consumption = entry.litresPer100km {
-                            Spacer()
-                            Text(String(format: "%.2f L/100km • %.0f mpg (UK)", consumption, 282.481 / consumption))
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(ktmOrange)
-                        }
-                    }
-                }
+            ForEach(store.fuelEntries) { entry in
+                fuelRow(entry)
             }
             if store.fuelEntries.count >= 2 {
                 HStack {
@@ -1726,31 +1707,40 @@ struct GarageView: View {
         }
     }
 
-    private struct FuelSummary: Identifiable {
-        var id: UUID { entry.id }
-        let entry: FuelEntry
-        let litresPer100km: Double?
-        let date: Date
-    }
-
-    private var fuelSummaries: [FuelSummary] {
-        // Entries are sorted newest/highest-odo first; segment = distance back to previous (older) entry
-        var out: [FuelSummary] = []
-        for (i, e) in store.fuelEntries.enumerated() {
-            var consumption: Double? = nil
-            if i + 1 < store.fuelEntries.count {
-                let seg = e.odometerKm - store.fuelEntries[i + 1].odometerKm
-                if seg > 20 && e.litres > 0 {  // ignore tiny/overlapping segments
-                    consumption = e.litres / seg * 100.0
+    private func fuelRow(_ entry: FuelEntry) -> some View {
+        let consumption = consumptionFor(entry)
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(entry.date, format: .dateTime.day().month().year())
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(String(format: "%.2f L", entry.litres))
+                    .font(.subheadline.monospacedDigit())
+            }
+            HStack {
+                Text(String(format: "odo %.0f km", entry.odometerKm))
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                if let consumption = consumption {
+                    Spacer()
+                    Text(String(format: "%.2f L/100km • %.0f mpg (UK)", consumption, 282.481 / consumption))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(ktmOrange)
                 }
             }
-            out.append(FuelSummary(entry: e, litresPer100km: consumption, date: e.date))
         }
-        return out
+    }
+
+    private func consumptionFor(_ entry: FuelEntry) -> Double? {
+        guard let idx = store.fuelEntries.firstIndex(where: { $0.id == entry.id }),
+              idx + 1 < store.fuelEntries.count else { return nil }
+        let seg = entry.odometerKm - store.fuelEntries[idx + 1].odometerKm
+        guard seg > 20 && entry.litres > 0 else { return nil }  // ignore tiny/overlapping segments
+        return entry.litres / seg * 100.0
     }
 
     private var averageLitresPer100km: Double {
-        let vals = fuelSummaries.compactMap { $0.litresPer100km }
+        let vals = store.fuelEntries.compactMap { consumptionFor($0) }
         guard !vals.isEmpty else { return 0 }
         return vals.reduce(0, +) / Double(vals.count)
     }

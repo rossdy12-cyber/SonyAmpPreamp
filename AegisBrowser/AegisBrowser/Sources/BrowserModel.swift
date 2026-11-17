@@ -5,11 +5,11 @@ import Combine
 
 // MARK: - Tab
 
-final class Tab: Identifiable, Equatable {
+final class Tab: Identifiable, Equatable, ObservableObject {
     let id = UUID()
     let isPrivate: Bool
     let restoreURL: URL?
-    private(set) var webView: WKWebView?
+    var webView: WKWebView?
     var blocking = true
     var desktopUA = false
     var snapshot: UIImage?
@@ -114,7 +114,7 @@ final class BrowserModel: NSObject, ObservableObject {
         return t
     }
 
-    private var currentPrivateMode = false
+    var currentPrivateMode = false
 
     func setPrivateMode(_ on: Bool) {
         currentPrivateMode = on
@@ -193,7 +193,7 @@ final class BrowserModel: NSObject, ObservableObject {
         cfg.preferences.isElementFullscreenEnabled = true
         cfg.userContentController.add(ConfigCoordinator(), name: "aegisMenu")
         if let rl = ruleList, t.blocking, store.blockerEnabled {
-            cfg.userContentController.add(rl, forPageLoad: false)
+            cfg.userContentController.add(rl, for: .allPageLoads)
         }
         let scripts: [(String, WKUserScriptInjectionTime)] = [
             (Blocker.bootstrapJS, .atDocumentEnd),
@@ -234,7 +234,7 @@ final class BrowserModel: NSObject, ObservableObject {
         let shouldBlock = store.blockerEnabled && !(targetHost.map { store.blockerWhitelist.contains($0) } ?? false)
         if shouldBlock != t.blocking {
             t.blocking = shouldBlock
-            if shouldBlock { cc.add(rl, forPageLoad: false) }
+            if shouldBlock { cc.add(rl, for: .allPageLoads) }
             else { cc.removeAllContentRuleLists() }
         }
     }

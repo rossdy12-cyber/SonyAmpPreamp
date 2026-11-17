@@ -52,7 +52,7 @@ struct NewTabPageView: View {
                         } label: {
                             VStack(spacing: 6) {
                                 ZStack {
-                                    RoundedRectangle(cornerRadius: 14).fill(Gothic.field())
+                                    Gothic.field()
                                     Image(systemName: "plus").foregroundColor(Gothic.crimson)
                                 }
                                 .frame(width: 60, height: 60)
@@ -109,8 +109,7 @@ struct FavoriteCell: View {
         } label: {
             VStack(spacing: 6) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Gothic.field())
+                    Gothic.field()
                     Text(initial)
                         .font(.system(size: 24, weight: .black, design: .rounded))
                         .foregroundColor(Gothic.crimson)
@@ -348,5 +347,5 @@ struct SettingsView: View {
         }
     }
 
-    private var blockerRuleCount: Int { "11,000+" }
+    private var blockerRuleCount: String { "11,000+" }
 }

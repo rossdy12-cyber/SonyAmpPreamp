@@ -35,24 +35,13 @@ struct BrowserScreen: View {
                 t.webView?.evaluateJavaScript("window.__aegisSetDark && __aegisSetDark(\(store.forceDark)); window.__aegisSetZoom && __aegisSetZoom(\(store.textZoom));", completionHandler: nil)
             }
         }
-        .sheet(item: sheetBinding) { which in
-            switch which {
-            case "downloads": DownloadsView()
-            case "history": HistoryView()
-            case "bookmarks": BookmarksView()
-            case "settings": SettingsView()
-            default: EmptyView()
-            }
-        }
-        .confirmationDialog(item: $model.pendingLinkMenu) { info in
-            LinkMenu(info: info)
+        .confirmationDialog("Link", isPresented: Binding(
+            get: { model.pendingLinkMenu != nil },
+            set: { if !$0 { model.pendingLinkMenu = nil } }
+        ), titleVisibility: .hidden) {
+            if let info = model.pendingLinkMenu { LinkMenu(info: info) }
         }
     }
-
-    private var sheetBinding: Binding<String?> {
-        Binding(get: { activeSheet }, set: { activeSheet = $0 })
-    }
-    @State private var activeSheet: String? = nil
 }
 
 // MARK: - Address bar
@@ -126,8 +115,8 @@ struct ProgressBar: View {
 
 struct BottomToolbar: View {
     @ObservedObject var model = BrowserModel.shared
+    @ObservedObject var store = DataStore.shared
     @State private var sheet: String? = nil
-    @State private var showMenu = false
 
     var body: some View {
         HStack {
@@ -413,7 +402,7 @@ struct FindInPageBar: View {
                     .submitLabel(.done)
                     .autocorrectionDisabled()
                     .onSubmit { run(0) }
-                Text("\(count > 0 ? "" : "0")\(count) hits")
+                Text("\(count) hits")
                     .font(.system(size: 11)).foregroundColor(.gray)
                 Button { run(1) } label: { Image(systemName: "arrow.down") }
                 Button { run(-1) } label: { Image(systemName: "arrow.up") }

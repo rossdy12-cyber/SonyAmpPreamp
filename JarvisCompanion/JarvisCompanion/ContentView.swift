@@ -267,6 +267,33 @@ struct DeepAiChatView: View {
     private let crimson = Color(red: 1.0, green: 0.09, blue: 0.27)
     private let bgDark = Color(red: 0.04, green: 0.01, blue: 0.02)
 
+    private func bubble(_ m: DeepAiMessage) -> some View {
+        let isUser = m.role == "USER"
+        let labelColor: Color = isUser ? Color(red: 1.0, green: 0.7, blue: 0.75) : crimson
+        let bubbleBg: Color = isUser ? Color(red: 0.35, green: 0.05, blue: 0.11) : Color.white.opacity(0.06)
+        let borderOpacity: Double = isUser ? 0.5 : 0.25
+        let stamp = m.time.count >= 5 ? String(m.time.suffix(8).prefix(5)) : ""
+        return VStack(alignment: .leading, spacing: 3) {
+            Text(isUser ? "YOU" : "DEEPAI")
+                .font(.system(size: 9, design: .monospaced).weight(.bold))
+                .foregroundColor(labelColor)
+            Text(m.text)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundColor(.white)
+                .textSelection(.enabled)
+            if !stamp.isEmpty {
+                Text(stamp)
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.gray)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
+        .padding(9)
+        .background(bubbleBg)
+        .overlay(RoundedRectangle(cornerRadius: 9).stroke(crimson.opacity(borderOpacity), lineWidth: 1))
+        .cornerRadius(9)
+    }
+
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
@@ -300,25 +327,8 @@ struct DeepAiChatView: View {
                                     .padding(.top, 30)
                             }
                             ForEach(sync.deepAiMessages) { m in
-                                let isUser = m.role == "USER"
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(isUser ? "YOU" : "DEEPAI")
-                                        .font(.system(size: 9, design: .monospaced).weight(.bold))
-                                        .foregroundColor(isUser ? Color(red: 1.0, green: 0.7, blue: 0.75) : crimson)
-                                    Text(m.text)
-                                        .font(.system(size: 12, design: .monospaced))
-                                        .foregroundColor(.white)
-                                        .textSelection(.enabled)
-                                    Text(String(m.time.suffix(8).prefix(5)))
-                                        .font(.system(size: 9, design: .monospaced))
-                                        .foregroundColor(.gray)
-                                }
-                                .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
-                                .padding(9)
-                                .background(isUser ? Color(red: 0.35, green: 0.05, blue: 0.11) : Color.white.opacity(0.06))
-                                .overlay(RoundedRectangle(cornerRadius: 9).stroke(crimson.opacity(isUser ? 0.5 : 0.25), lineWidth: 1))
-                                .cornerRadius(9)
-                                .id(m.id)
+                                bubble(m)
+                                    .id(m.id)
                             }
                             if sync.deepAiWorking {
                                 HStack(spacing: 6) {

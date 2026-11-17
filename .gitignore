@@ -3,3 +3,5 @@ _Processed_Zips/
 *.pyc
 __pycache__/
 .DS_Store
+api-key.txt
+*/out/

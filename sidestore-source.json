@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.8",
+          "date": "2026-11-17",
+          "localizedDescription": "v2.4.8: JarvisCompanion: DeepAiMessage Equatable (onChange requirement)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.8/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.7",
           "date": "2026-11-17",
           "localizedDescription": "v2.4.7: JarvisCompanion v1.1.0: native DeepAI Code chat tab - message the PC agent from the phone (TabView: SYNC + DEEPAI, streaming status, model badge)",

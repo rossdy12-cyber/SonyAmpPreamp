@@ -40,6 +40,9 @@ struct StoreSource: Codable {
 final class StoreClient {
     static let shared = StoreClient()
     static let base = "https://navidrome.nas-server.co.uk"
+    /// URLSession sends no User-Agent by default, and the store's Cloudflare zone
+    /// rejects UA-less requests with error 1010 — so every request must carry one.
+    static let userAgent = "StarkStore/2.0 (iPhone; iOS)"
 
     func slugify(_ bundleId: String) -> String {
         bundleId.lowercased().map { ($0.isLetter || $0.isNumber) ? String($0) : "_" }.joined()
@@ -55,6 +58,7 @@ final class StoreClient {
         var req = URLRequest(url: URL(string: Self.base + "/sidestore-api/login")!)
         req.httpMethod = "POST"
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        req.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
         req.httpBody = body.percentEncodedQuery?.data(using: .utf8)
 
         let delegate = RedirectCapture()
@@ -82,7 +86,9 @@ final class StoreClient {
 
     func fetchSource(key: String) async throws -> StoreSource {
         let url = URL(string: Self.base + "/sidestore-api/source/\(key).json")!
-        let (data, resp) = try await URLSession.shared.data(from: url)
+        var req = URLRequest(url: url)
+        req.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
+        let (data, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             throw StoreError.badKey
         }

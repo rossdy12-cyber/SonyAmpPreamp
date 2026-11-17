@@ -1,0 +1,50 @@
+name: Build JarvisCompanion v1.1 IPA (DeepAI tab)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'JarvisCompanion/**'
+      - '.github/workflows/build-jarviscompanion.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-jarviscompanion:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project & Build JarvisCompanion (Unsigned)
+        working-directory: JarvisCompanion
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          xcodebuild clean build \
+            -project JarvisCompanion.xcodeproj \
+            -target JarvisCompanion \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package Payload into JarvisCompanion.ipa
+        working-directory: JarvisCompanion
+        run: |
+          mkdir -p out/Payload
+          cp -R "build/Release-iphoneos/JarvisCompanion.app" out/Payload/
+          cd out && zip -r9 JarvisCompanion.ipa Payload
+
+      - name: Upload JarvisCompanion IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JarvisCompanion-ipa
+          path: JarvisCompanion/out/JarvisCompanion.ipa
+          if-no-files-found: error

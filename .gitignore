@@ -4,5 +4,5 @@ _Processed_Zips/
 __pycache__/
 .DS_Store
 api-key.txt
-*/out/
 tconnectsync.txt
+*/out/

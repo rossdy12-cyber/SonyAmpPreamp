@@ -1,0 +1,50 @@
+name: Build DeskSwitch IPA (Gothic PC Desk Controller)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'DeskSwitch/**'
+      - '.github/workflows/build-deskswitch.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deskswitch:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project & Build DeskSwitch (Unsigned)
+        working-directory: DeskSwitch
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          xcodebuild clean build \
+            -project DeskSwitch.xcodeproj \
+            -target DeskSwitch \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package Payload into DeskSwitch.ipa
+        working-directory: DeskSwitch
+        run: |
+          mkdir -p out/Payload
+          cp -R "build/Release-iphoneos/DeskSwitch.app" out/Payload/
+          cd out && zip -r9 DeskSwitch.ipa Payload
+
+      - name: Upload DeskSwitch IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeskSwitch-ipa
+          path: DeskSwitch/out/DeskSwitch.ipa
+          if-no-files-found: error

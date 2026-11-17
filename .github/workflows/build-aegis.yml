@@ -1,0 +1,50 @@
+name: Build Aegis Browser IPA (Gothic Daily-Driver Web Browser)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'AegisBrowser/**'
+      - '.github/workflows/build-aegis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-aegis:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project & Build AegisBrowser (Unsigned)
+        working-directory: AegisBrowser
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          xcodebuild clean build \
+            -project AegisBrowser.xcodeproj \
+            -target AegisBrowser \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package Payload into AegisBrowser.ipa
+        working-directory: AegisBrowser
+        run: |
+          mkdir -p out/Payload
+          cp -R "build/Release-iphoneos/AegisBrowser.app" out/Payload/
+          cd out && zip -r9 AegisBrowser.ipa Payload
+
+      - name: Upload AegisBrowser IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AegisBrowser-ipa
+          path: AegisBrowser/out/AegisBrowser.ipa
+          if-no-files-found: error

@@ -53,6 +53,7 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         NSBluetoothAlwaysUsageDescription: "DukePulse connects to your Bluetooth ELM327 OBD2 reader plugged into the KTM Duke 125 diagnostic port to display live engine data, temperatures and fault codes."
-        NSBluetoothPeripheralUsageDescription: "DukePulse connects to your Bluetooth ELM327 OBD2 reader to display live KTM Duke 125 engine data."
+        NSBluetoothPeripheralUsageDescription: "DukePulse connects to your Bluetooth ELM327 OBD2 reader to display live KTM Duke 125 engine data.",
+        NSLocationWhenInUseUsageDescription: "DukePulse records your GPS track during rides to log trip distance, fuel consumption and service intervals for your KTM Duke 125.",
         UIBackgroundModes:
           - bluetooth-central

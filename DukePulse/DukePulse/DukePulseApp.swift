@@ -1,5 +1,7 @@
 import SwiftUI
 import CoreBluetooth
+import CoreLocation
+import MapKit
 
 // MARK: - Models
 
@@ -650,8 +652,9 @@ struct DukePulseRootView: View {
         TabView(selection: $tab) {
             DashboardView().tabItem { Label("Dash", systemImage: "gauge.high") }.tag(0)
             SensorsView().tabItem { Label("Sensors", systemImage: "waveform.path.ecg") }.tag(1)
-            DiagnosticsView().tabItem { Label("Faults", systemImage: "wrench.and.screwdriver") }.tag(2)
-            ConnectView().tabItem { Label("Connect", systemImage: "antenna.radiowaves.left.and.right") }.tag(3)
+            GarageView().tabItem { Label("Garage", systemImage: "motorcycle") }.tag(2)
+            DiagnosticsView().tabItem { Label("Faults", systemImage: "wrench.and.screwdriver") }.tag(3)
+            ConnectView().tabItem { Label("Connect", systemImage: "antenna.radiowaves.left.and.right") }.tag(4)
         }
         .tint(Color(red: 1.0, green: 0.42, blue: 0.04))
         .onAppear { engine.startBluetooth() }
@@ -1333,5 +1336,679 @@ struct ConnectView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+// MARK: - Garage: Trip Logging, Fuel & Service (GPS + OBD)
+
+struct TrackPoint: Codable {
+    let lat: Double
+    let lon: Double
+    let t: Date
+}
+
+struct Trip: Codable, Identifiable {
+    let id: UUID
+    let date: Date
+    var distanceMeters: Double
+    var durationSeconds: Double
+    var maxSpeedKmh: Double
+    var avgSpeedKmh: Double
+    var maxRPM: Double
+    var engineSeconds: Int
+    var track: [TrackPoint]
+}
+
+struct FuelEntry: Codable, Identifiable {
+    let id: UUID
+    let date: Date
+    var litres: Double
+    var totalCost: Double
+    var odometerKm: Double
+}
+
+struct ServiceItem: Codable, Identifiable {
+    let id: UUID
+    var name: String
+    var intervalKm: Double
+    var lastDoneOdoKm: Double
+    var note: String
+}
+
+final class GarageStore: ObservableObject {
+    static let shared = GarageStore()
+
+    @Published var trips: [Trip] = []
+    @Published var fuelEntries: [FuelEntry] = []
+    @Published var serviceItems: [ServiceItem] = []
+
+    private let docs: URL
+
+    init() {
+        docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        trips = load("trips.json", [Trip].self)
+        fuelEntries = load("fuel.json", [FuelEntry].self).sorted { $0.odometerKm > $1.odometerKm }
+        if let saved = load("service.json", [ServiceItem].self), !saved.isEmpty {
+            serviceItems = saved
+        } else {
+            serviceItems = ServiceItem.defaultItems()
+        }
+    }
+
+    static func defaultItems() -> [ServiceItem] {
+        [
+            ServiceItem(id: UUID(), name: "Oil & filter change", intervalKm: 7500, lastDoneOdoKm: 0, note: "Editable — set to your KTM service schedule"),
+            ServiceItem(id: UUID(), name: "Chain clean & lube", intervalKm: 1000, lastDoneOdoKm: 0, note: "Every ~1,000 km or after rain"),
+            ServiceItem(id: UUID(), name: "Valve clearance check", intervalKm: 20000, lastDoneOdoKm: 0, note: "Per workshop manual interval")
+        ]
+    }
+
+    private func load<T: Decodable>(_ name: String, _ type: T.Type) -> T? {
+        guard let data = try? Data(contentsOf: docs.appendingPathComponent(name)) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
+
+    private func persist<T: Encodable>(_ value: T, _ name: String) {
+        if let data = try? JSONEncoder().encode(value) {
+            try? data.write(to: docs.appendingPathComponent(name), options: .atomic)
+        }
+    }
+
+    func saveTrips() { persist(trips, "trips.json") }
+    func saveFuel() { persist(fuelEntries, "fuel.json") }
+    func saveService() { persist(serviceItems, "service.json") }
+
+    func addTrip(_ trip: Trip) {
+        trips.insert(trip, at: 0)
+        saveTrips()
+    }
+
+    func deleteTrip(_ trip: Trip) {
+        trips.removeAll { $0.id == trip.id }
+        saveTrips()
+    }
+
+    func addFuelEntry(litres: Double, totalCost: Double, odometerKm: Double) {
+        fuelEntries.insert(FuelEntry(id: UUID(), date: Date(), litres: litres, totalCost: totalCost, odometerKm: odometerKm), at: 0)
+        fuelEntries.sort { $0.odometerKm > $1.odometerKm }
+        saveFuel()
+    }
+
+    // App odometer = user-entered base + all logged GPS distance (finished + in-progress)
+    func currentOdoKm(baseOdoKm: Double, inProgressMeters: Double) -> Double {
+        let logged = trips.reduce(0.0) { $0 + $1.distanceMeters }
+        return baseOdoKm + (logged + inProgressMeters) / 1000.0
+    }
+
+    var totalLoggedKm: Double {
+        trips.reduce(0.0) { $0 + $1.distanceMeters } / 1000.0
+    }
+}
+
+final class TripRecorder: NSObject, ObservableObject, CLLocationManagerDelegate {
+    @Published var isLogging = false
+    @Published var currentDistanceM: Double = 0
+    @Published var currentDurationSec: Double = 0
+    @Published var currentMaxSpeedKmh: Double = 0
+    @Published var currentPoints: Int = 0
+    @Published var currentEngineSeconds: Int = 0
+    @Published var locationDenied = false
+
+    private let manager = CLLocationManager()
+    private var startDate: Date?
+    private var lastLocation: CLLocation?
+    private var track: [TrackPoint] = []
+    private var speedSamples: [Double] = []
+    private var maxRPM: Double = 0
+    private var tickTimer: Timer?
+
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter = 10
+        manager.pausesLocationUpdatesAutomatically = true
+        manager.activityType = .automotiveNavigation
+    }
+
+    func start() {
+        let status = manager.authorizationStatus
+        if status == .denied || status == .restricted {
+            locationDenied = true
+            return
+        }
+        locationDenied = false
+        if status == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+        }
+        startDate = Date()
+        track = []
+        speedSamples = []
+        lastLocation = nil
+        currentDistanceM = 0
+        currentDurationSec = 0
+        currentMaxSpeedKmh = 0
+        currentPoints = 0
+        currentEngineSeconds = 0
+        maxRPM = 0
+        isLogging = true
+        manager.startUpdatingLocation()
+        tickTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            self?.tick()
+        }
+    }
+
+    func stop() {
+        manager.stopUpdatingLocation()
+        tickTimer?.invalidate()
+        tickTimer = nil
+        isLogging = false
+        guard let start = startDate, currentDistanceM > 30 else {
+            startDate = nil
+            return
+        }
+        let duration = Date().timeIntervalSince(start)
+        let avg = speedSamples.isEmpty ? 0.0 : speedSamples.reduce(0, +) / Double(speedSamples.count)
+        let trip = Trip(
+            id: UUID(),
+            date: start,
+            distanceMeters: currentDistanceM,
+            durationSeconds: duration,
+            maxSpeedKmh: currentMaxSpeedKmh,
+            avgSpeedKmh: avg,
+            maxRPM: maxRPM,
+            engineSeconds: currentEngineSeconds,
+            track: track
+        )
+        GarageStore.shared.addTrip(trip)
+        startDate = nil
+    }
+
+    private func tick() {
+        guard isLogging, let start = startDate else { return }
+        currentDurationSec = Date().timeIntervalSince(start)
+        // Pull live OBD values into the trip record
+        let engine = OBDEngine.shared
+        if let rpm = engine.rpm {
+            maxRPM = max(maxRPM, rpm)
+            if rpm > 250 { currentEngineSeconds += 5 }  // engine actually running
+        }
+        if let kmh = engine.speed {
+            speedSamples.append(kmh)
+        }
+        if let last = lastLocation, track.last.map({ Date().timeIntervalSince($0.t) }) ?? 999 >= 5 {
+            track.append(TrackPoint(lat: last.coordinate.latitude, lon: last.coordinate.longitude, t: Date()))
+            currentPoints = track.count
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard isLogging else { return }
+        for loc in locations {
+            guard loc.horizontalAccuracy >= 0 && loc.horizontalAccuracy < 30 else { continue }
+            if let prev = lastLocation {
+                let d = prev.distance(from: loc)
+                if d > 3 && d < 400 {  // reject GPS jitter and teleports
+                    currentDistanceM += d
+                }
+            }
+            let kmh = max(0, loc.speed * 3.6)
+            currentMaxSpeedKmh = max(currentMaxSpeedKmh, kmh)
+            lastLocation = loc
+        }
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        locationDenied = (status == .denied || status == .restricted)
+        if status == .authorizedWhenInUse || status == .authorizedAlways, isLogging {
+            manager.startUpdatingLocation()
+        }
+    }
+}
+
+// MARK: - Garage Tab
+
+struct GarageView: View {
+    @StateObject private var store = GarageStore.shared
+    @StateObject private var recorder = TripRecorder()
+    @AppStorage("dukepulse.baseOdo") private var baseOdo: Double = 0
+    @State private var showFuelSheet = false
+    @State private var showOdoSheet = false
+
+    var currentOdo: Double { store.currentOdoKm(baseOdoKm: baseOdo, inProgressMeters: recorder.isLogging ? recorder.currentDistanceM : 0) }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                recorderSection
+                tripsSection
+                fuelSection
+                serviceSection
+                odoSection
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color(red: 0.03, green: 0.03, blue: 0.045))
+            .navigationTitle("Garage")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showFuelSheet = true
+                    } label: {
+                        Image(systemName: "drop.circle")
+                    }
+                }
+            }
+            .sheet(isPresented: $showFuelSheet) {
+                FuelEntrySheet(defaultOdo: currentOdo)
+            }
+            .sheet(isPresented: $showOdoSheet) {
+                OdometerSheet(baseOdo: baseOdo)
+                    .environmentObject(store)
+            }
+        }
+        .environmentObject(store)
+        .environmentObject(recorder)
+    }
+
+    private var recorderSection: some View {
+        Section {
+            VStack(spacing: 12) {
+                HStack {
+                    Image(systemName: recorder.isLogging ? "record.circle" : "location.circle")
+                        .font(.title2)
+                        .foregroundStyle(recorder.isLogging ? Color.red : ktmOrange)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(recorder.isLogging ? "Recording ride…" : "Ride logger")
+                            .font(.subheadline.weight(.bold))
+                        if recorder.isLogging {
+                            Text(String(format: "%.1f km • %d:%02d • %d pts", recorder.currentDistanceM / 1000, Int(recorder.currentDurationSec) / 60, Int(recorder.currentDurationSec) % 60, recorder.currentPoints))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("GPS track + live OBD (speed, RPM, engine hours)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Button {
+                        recorder.isLogging ? recorder.stop() : recorder.start()
+                    } label: {
+                        Text(recorder.isLogging ? "Stop" : "Start")
+                            .font(.subheadline.weight(.bold))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(recorder.isLogging ? Color.red : ktmOrange))
+                            .foregroundStyle(.white)
+                    }
+                }
+                if recorder.locationDenied {
+                    Text("Location access denied — enable it in iOS Settings to log rides.")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
+    }
+
+    private var tripsSection: some View {
+        Section("Trips (\(store.trips.count)) — \(String(format: "%.0f", store.totalLoggedKm)) km logged") {
+            if store.trips.isEmpty {
+                Text("No trips yet. Hit Start before you ride — distance, top speed, engine hours and your GPS track get saved automatically when you stop.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(store.trips) { trip in
+                NavigationLink(destination: TripDetailView(trip: trip)) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(trip.date, format: .dateTime.day().month().hour().minute())
+                                .font(.subheadline.weight(.semibold))
+                            Text(String(format: "%.1f km • %d:%02d • avg %.0f km/h", trip.distanceMeters / 1000, Int(trip.durationSeconds) / 3600, (Int(trip.durationSeconds) / 60) % 60, trip.avgSpeedKmh))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "map")
+                            .foregroundStyle(ktmOrange)
+                    }
+                }
+            }
+            .onDelete { indexSet in
+                indexSet.forEach { idx in
+                    if idx < store.trips.count { store.deleteTrip(store.trips[idx]) }
+                }
+            }
+        }
+    }
+
+    private var fuelSection: some View {
+        Section {
+            ForEach(fuelSummaries) { entry in
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Text(entry.date, format: .dateTime.day().month().year())
+                            .font(.subheadline.weight(.semibold))
+                        Spacer()
+                        Text(String(format: "%.2f L", entry.litres))
+                            .font(.subheadline.monospacedDigit())
+                    }
+                    HStack {
+                        Text(String(format: "odo %.0f km", entry.odometerKm))
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        if let consumption = entry.litresPer100km {
+                            Spacer()
+                            Text(String(format: "%.2f L/100km • %.0f mpg (UK)", consumption, 282.481 / consumption))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(ktmOrange)
+                        }
+                    }
+                }
+            }
+            if store.fuelEntries.count >= 2 {
+                HStack {
+                    Text("Average")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(String(format: "%.2f L/100km • %.0f mpg (UK)", averageLitresPer100km, averageLitresPer100km > 0 ? 282.481 / averageLitresPer100km : 0))
+                        .font(.caption.weight(.bold).monospacedDigit())
+                        .foregroundStyle(ktmOrange)
+                }
+            }
+        } header: {
+            Text("Fuel log")
+        } footer: {
+            Text("Consumption is computed from GPS-measured distance between fill-ups, so accuracy improves as the log grows.")
+        }
+    }
+
+    private struct FuelSummary: Identifiable {
+        var id: UUID { entry.id }
+        let entry: FuelEntry
+        let litresPer100km: Double?
+        let date: Date
+    }
+
+    private var fuelSummaries: [FuelSummary] {
+        // Entries are sorted newest/highest-odo first; segment = distance back to previous (older) entry
+        var out: [FuelSummary] = []
+        for (i, e) in store.fuelEntries.enumerated() {
+            var consumption: Double? = nil
+            if i + 1 < store.fuelEntries.count {
+                let seg = e.odometerKm - store.fuelEntries[i + 1].odometerKm
+                if seg > 20 && e.litres > 0 {  // ignore tiny/overlapping segments
+                    consumption = e.litres / seg * 100.0
+                }
+            }
+            out.append(FuelSummary(entry: e, litresPer100km: consumption, date: e.date))
+        }
+        return out
+    }
+
+    private var averageLitresPer100km: Double {
+        let vals = fuelSummaries.compactMap { $0.litresPer100km }
+        guard !vals.isEmpty else { return 0 }
+        return vals.reduce(0, +) / Double(vals.count)
+    }
+
+    private var serviceSection: some View {
+        Section("Service reminders (engine-km based)") {
+            ForEach($store.serviceItems) { $item in
+                ServiceProgressRow(item: $item, currentOdoKm: currentOdo)
+            }
+            Text("Distances come from logged GPS trips plus your odometer baseline — edit the intervals to match your KTM workshop manual.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var odoSection: some View {
+        Section("Odometer") {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(format: "%.0f km", currentOdo))
+                        .font(.title3.weight(.heavy).monospacedDigit())
+                        .foregroundStyle(.white)
+                    Text(String(format: "baseline %.0f km + %.0f km logged", baseOdo, store.totalLoggedKm))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Set baseline") {
+                    showOdoSheet = true
+                }
+                .font(.caption.weight(.bold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(ktmOrange))
+                .foregroundStyle(.black)
+            }
+        }
+    }
+}
+
+struct ServiceProgressRow: View {
+    @Binding var item: ServiceItem
+    let currentOdoKm: Double
+
+    private var sinceKm: Double { max(0, currentOdoKm - item.lastDoneOdoKm) }
+    private var fraction: Double { item.intervalKm > 0 ? min(1, sinceKm / item.intervalKm) : 0 }
+    private var dueKm: Double { item.intervalKm - sinceKm }
+    private var isDue: Bool { dueKm <= 0 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(item.name)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(isDue ? "DUE" : String(format: "%.0f km left", dueKm))
+                    .font(.caption.weight(.bold).monospacedDigit())
+                    .foregroundStyle(isDue ? Color.red : (fraction > 0.85 ? Color.orange : Color.green))
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.08))
+                    Capsule()
+                        .fill(isDue ? Color.red : ktmOrange)
+                        .frame(width: max(4, geo.size.width * CGFloat(fraction)))
+                }
+            }
+            .frame(height: 6)
+            HStack {
+                Text(item.note)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Mark done") {
+                    item.lastDoneOdoKm = currentOdoKm
+                    GarageStore.shared.saveService()
+                }
+                .font(.caption2.weight(.bold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(Color.white.opacity(0.1)))
+                .foregroundStyle(ktmOrange)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct TripDetailView: View {
+    let trip: Trip
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                TrackMapView(points: trip.track)
+                    .frame(height: 280)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    GarageStat(title: "Distance", value: String(format: "%.1f km", trip.distanceMeters / 1000))
+                    GarageStat(title: "Duration", value: String(format: "%d:%02d", Int(trip.durationSeconds) / 3600, (Int(trip.durationSeconds) / 60) % 60))
+                    GarageStat(title: "Max speed", value: String(format: "%.0f km/h", trip.maxSpeedKmh))
+                    GarageStat(title: "Avg speed", value: String(format: "%.0f km/h", trip.avgSpeedKmh))
+                    GarageStat(title: "Max RPM", value: String(format: "%.0f", trip.maxRPM))
+                    GarageStat(title: "Engine on", value: String(format: "%d min", trip.engineSeconds / 60))
+                }
+            }
+            .padding(16)
+        }
+        .background(Color(red: 0.03, green: 0.03, blue: 0.045).ignoresSafeArea())
+        .navigationTitle(trip.date.formatted(date: .abbreviated, time: .shortened))
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct GarageStat: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.headline.monospacedDigit())
+                .foregroundStyle(.white)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(red: 0.07, green: 0.07, blue: 0.095))
+        )
+    }
+}
+
+struct TrackMapView: UIViewRepresentable {
+    let points: [TrackPoint]
+
+    func makeUIView(context: Context) -> MKMapView {
+        let map = MKMapView()
+        map.isScrollEnabled = false
+        map.isZoomEnabled = false
+        map.isRotateEnabled = false
+        map.delegate = context.coordinator
+        return map
+    }
+
+    func updateUIView(_ map: MKMapView, context: Context) {
+        guard context.coordinator.renderedCount != points.count else { return }
+        context.coordinator.renderedCount = points.count
+        map.removeOverlays(map.overlays)
+        guard points.count >= 2 else { return }
+        let coords = points.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
+        let polyline = MKPolyline(coordinates: coords, count: coords.count)
+        map.addOverlay(polyline)
+        map.setVisibleMapRect(polyline.boundingMapRect, edgePadding: UIEdgeInsets(top: 30, left: 30, bottom: 30, right: 30), animated: false)
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator: NSObject, MKMapViewDelegate {
+        var renderedCount = -1
+
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let line = overlay as? MKPolyline {
+                let r = MKPolylineRenderer(polyline: line)
+                r.strokeColor = UIColor(red: 1.0, green: 0.42, blue: 0.04, alpha: 0.9)
+                r.lineWidth = 4
+                return r
+            }
+            return MKOverlayRenderer(overlay: overlay)
+        }
+    }
+}
+
+struct FuelEntrySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let defaultOdo: Double
+    @State private var litresText = ""
+    @State private var costText = ""
+    @State private var odoText = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Fill-up") {
+                    TextField("Litres (e.g. 11.5)", text: $litresText)
+                        .keyboardType(.decimalPad)
+                    TextField("Total cost £ (e.g. 18.20)", text: $costText)
+                        .keyboardType(.decimalPad)
+                    TextField("Odometer km", text: $odoText)
+                        .keyboardType(.numberPad)
+                }
+                Section {
+                    Text(String(format: "Suggested odometer: %.0f km (baseline + logged GPS distance). Adjust to match the dash.", defaultOdo))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Add fill-up")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        let litres = Double(litresText.replacingOccurrences(of: ",", with: ".")) ?? 0
+                        let cost = Double(costText.replacingOccurrences(of: ",", with: ".")) ?? 0
+                        let odo = Double(odoText) ?? defaultOdo
+                        if litres > 0 {
+                            GarageStore.shared.addFuelEntry(litres: litres, totalCost: cost, odometerKm: odo)
+                            dismiss()
+                        }
+                    }
+                    .disabled((Double(litresText.replacingOccurrences(of: ",", with: ".")) ?? 0) <= 0)
+                }
+            }
+            .onAppear { if odoText.isEmpty { odoText = String(format: "%.0f", defaultOdo) } }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+struct OdometerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("dukepulse.baseOdo") var baseOdo: Double = 0
+    @State private var text = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Odometer baseline") {
+                    TextField("Current odometer km (from the dash)", text: $text)
+                        .keyboardType(.numberPad)
+                    Text("Set this to the bike's current odometer reading once. DukePulse then adds every GPS-logged trip distance on top.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Set odometer")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        if let v = Double(text) { baseOdo = v }
+                        dismiss()
+                    }
+                    .disabled(Double(text) == nil)
+                }
+            }
+            .onAppear { text = String(format: "%.0f", baseOdo) }
+        }
+        .preferredColorScheme(.dark)
     }
 }

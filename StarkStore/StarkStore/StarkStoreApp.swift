@@ -276,6 +276,7 @@ final class UpdateEngine: ObservableObject {
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "starkstore.lastCheckEpoch")
             let newCount = updates.count
             statusMessage = apps.isEmpty ? "Store returned no apps." : "Store synced — \(apps.count) apps, \(newCount) update(s) available"
+            StarkStoreAppDelegate.registerPushIfNeeded()
             if autoNotify && newCount > 0 {
                 await postUpdateNotification(updates: updates)
             }
@@ -385,6 +386,7 @@ struct SectionHeader: View {
 struct StarkStoreApp: App {
     @StateObject private var engine = UpdateEngine.shared
     @Environment(\.scenePhase) private var scenePhase
+    @UIApplicationDelegateAdaptor(StarkStoreAppDelegate.self) private var appDelegate
 
     init() {
         UpdateEngine.registerBackgroundTask()
@@ -401,6 +403,71 @@ struct StarkStoreApp: App {
                 engine.scheduleBackgroundRefresh()
             }
         }
+    }
+}
+
+// MARK: - APNs push (instant update notifications, no BGTask wait)
+final class StarkStoreAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    static var pushRegistrationRequested = false
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    /// Called once we have a store key (launch or after login).
+    static func registerPushIfNeeded() {
+        guard UserDefaults.standard.string(forKey: "starkstore.key") != nil else { return }
+        guard !pushRegistrationRequested else { return }
+        pushRegistrationRequested = true
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+            guard granted else { return }
+            DispatchQueue.main.async {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
+    }
+
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        let hexToken = deviceToken.map { String(format: "%02x", $0) }.joined()
+        let bid = Bundle.main.bundleIdentifier ?? "app.starkstore.client"
+        let deviceName = UIDevice.current.name
+        Task.detached {
+            var req = URLRequest(url: URL(string: "\(StoreClient.base)/sidestore-api/starkstore-push")!)
+            req.httpMethod = "POST"
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue(StoreClient.userAgent, forHTTPHeaderField: "User-Agent")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: [
+                "action": "register",
+                "token": hexToken,
+                "bundleId": bid,
+                "device": deviceName
+            ])
+            _ = try? await URLSession.shared.data(for: req)
+        }
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        // Expected until the app is signed with a push-capable provisioning profile.
+        // Push entitlement missing -> just stay on BGTask-based notifications.
+    }
+
+    // Show push banners even when Stark Store is open
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .list, .sound, .badge])
     }
 }
 

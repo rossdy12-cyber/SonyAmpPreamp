@@ -3,7 +3,7 @@ set -uo pipefail
 
 STORE_URL="https://navidrome.nas-server.co.uk"
 TOKEN="${SIDESTORE_UPLOAD_TOKEN:?set SIDESTORE_UPLOAD_TOKEN}"
-VERSION="2.0.2"
+VERSION="2.0.3"
 BUNDLE_ID="app.starkstore.client"
 APP_NAME="StarkStore"
 

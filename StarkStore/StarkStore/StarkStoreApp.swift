@@ -14,10 +14,10 @@ struct StoreVersion: Codable {
     let minOSVersion: String?
 }
 
-struct StoreApp: Codable, Identifiable {
+struct StoreApp: Identifiable {
+    let id: String
     let name: String
     let bundleIdentifier: String
-    var id: String { bundleIdentifier }
     let subtitle: String?
     let localizedDescription: String?
     let developerName: String?
@@ -30,9 +30,9 @@ struct StoreApp: Codable, Identifiable {
     let versions: [StoreVersion]?
 }
 
-struct StoreSource: Codable {
+struct StoreSource {
     let name: String?
-    let apps: [StoreApp]?
+    let apps: [StoreApp]
 }
 
 // MARK: - Store client
@@ -96,7 +96,47 @@ final class StoreClient {
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             throw StoreError.badKey
         }
-        return try JSONDecoder().decode(StoreSource.self, from: data)
+        return try Self.parseSource(data)
+    }
+
+    /// Tolerant parse: several catalog entries lack fields (e.g. `version` on older apps),
+    /// and a single strict-decode failure kills the whole list. Parse manually, skip nothing.
+    static func parseSource(_ data: Data) throws -> StoreSource {
+        guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let appsRaw = root["apps"] as? [[String: Any]] else {
+            throw StoreError.badResponse
+        }
+        let apps: [StoreApp] = appsRaw.compactMap { d in
+            guard let bid = d["bundleIdentifier"] as? String, !bid.isEmpty else { return nil }
+            let versions = (d["versions"] as? [[String: Any]])?.compactMap { v -> StoreVersion? in
+                guard let ver = v["version"] as? String else { return nil }
+                return StoreVersion(
+                    version: ver,
+                    date: v["date"] as? String,
+                    localizedDescription: v["localizedDescription"] as? String,
+                    downloadURL: v["downloadURL"] as? String,
+                    size: v["size"] as? Int,
+                    minOSVersion: v["minOSVersion"] as? String
+                )
+            }
+            let name = (d["name"] as? String) ?? bid
+            return StoreApp(
+                id: bid,
+                name: name,
+                bundleIdentifier: bid,
+                subtitle: d["subtitle"] as? String,
+                localizedDescription: d["localizedDescription"] as? String,
+                developerName: d["developerName"] as? String,
+                iconURL: d["iconURL"] as? String,
+                tintColor: d["tintColor"] as? String,
+                version: (d["version"] as? String) ?? versions?.first?.version ?? "0",
+                versionDate: d["versionDate"] as? String,
+                downloadURL: d["downloadURL"] as? String,
+                size: d["size"] as? Int,
+                versions: versions
+            )
+        }
+        return StoreSource(name: root["name"] as? String, apps: apps)
     }
 
     func manifestURL(key: String, bundleId: String) -> String {
@@ -626,7 +666,7 @@ struct AppRow: View {
                     .foregroundStyle(Gothic.ash)
                     .lineLimit(1)
                 HStack(spacing: 6) {
-                    Text("v\(app.version)")
+                    Text(app.version == "0" ? "—" : "v\(app.version)")
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(Gothic.ash)
                     if let installed = installedVersion {

@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.1",
+          "date": "2026-11-17",
+          "localizedDescription": "v2.4.1: DukePulse: fix invalid trailing commas in project.yml info block",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.1/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "1.2.0",
           "date": "2026-11-09",
           "localizedDescription": "v1.2.0: Added AVAudioMixerNode hardware sample-rate converter (44.1kHz / 96kHz -> 48kHz USB-C DAC), instant MP3 transcoding stream, and fixed Navidrome album playback.",

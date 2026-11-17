@@ -1,9 +1,10 @@
-name: Build 10-App Gothic Vampire WidgetKit Extension Pack
+name: Build VoltGuard v1.2.0 Auto-Guardian IPA
 
 on:
   push:
     branches: [ main, master ]
     paths:
+      - 'VoltGuard/**'
       - 'WidgetPack/**'
       - '.github/workflows/build-widgets-pack.yml'
   workflow_dispatch:
@@ -18,33 +19,30 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v4
 
-      - name: Generate Xcode Project & Compile All 10 Gothic Widget Extensions
-        working-directory: WidgetPack
+      - name: Build VoltGuard v1.2.0 + VoltGuardWidget Extension
+        working-directory: VoltGuard
         run: |
           if ! command -v xcodegen &> /dev/null; then
             brew install xcodegen
           fi
           xcodegen generate
-          for T in VoltGuardWidget; do
-            echo "=== Building $T ==="
-            xcodebuild build \
-              -project WidgetPack.xcodeproj \
-              -target "$T" \
-              -configuration Release \
-              -sdk iphoneos \
-              SYMROOT="$PWD/build" \
-              CODE_SIGN_IDENTITY="" \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGNING_ALLOWED=NO
-          done
-          mkdir -p out
-          cd build/Release-iphoneos
-          zip -r9 "$OLDPWD/out/WidgetPack-appex.zip" *.appex
-          ls -la "$OLDPWD/out/WidgetPack-appex.zip"
+          xcodebuild build \
+            -project VoltGuard.xcodeproj \
+            -target VoltGuard \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+          mkdir -p out/Payload
+          cp -R "build/Release-iphoneos/VoltGuard.app" out/Payload/
+          ls -la "out/Payload/VoltGuard.app/PlugIns"
+          cd out && zip -r9 VoltGuard.ipa Payload
 
-      - name: Upload WidgetPack Artifact
+      - name: Upload VoltGuard IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WidgetPack-appex
-          path: WidgetPack/out/WidgetPack-appex.zip
+          name: VoltGuard-ipa
+          path: VoltGuard/out/VoltGuard.ipa
           if-no-files-found: error

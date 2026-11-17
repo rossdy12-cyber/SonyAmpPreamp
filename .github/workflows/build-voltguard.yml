@@ -1,0 +1,52 @@
+name: Build VoltGuard Honest Battery Monitor IPA
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'VoltGuard/**'
+      - 'WidgetPack/VoltGuardWidget/**'
+      - 'WidgetPack/Shared/**'
+      - '.github/workflows/build-voltguard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-voltguard:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project & Build VoltGuard + Widget
+        working-directory: VoltGuard
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          xcodebuild clean build \
+            -project VoltGuard.xcodeproj \
+            -target VoltGuard \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package Payload into VoltGuard.ipa
+        working-directory: VoltGuard
+        run: |
+          mkdir -p out/Payload
+          cp -R "build/Release-iphoneos/VoltGuard.app" out/Payload/
+          cd out && zip -r9 VoltGuard.ipa Payload
+
+      - name: Upload VoltGuard IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoltGuard-ipa
+          path: VoltGuard/out/VoltGuard.ipa
+          if-no-files-found: error

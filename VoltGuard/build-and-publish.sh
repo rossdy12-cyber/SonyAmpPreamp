@@ -3,7 +3,7 @@ set -uo pipefail
 
 STORE_URL="https://navidrome.nas-server.co.uk"
 TOKEN="${SIDESTORE_UPLOAD_TOKEN:?set SIDESTORE_UPLOAD_TOKEN}"
-VERSION="1.0.0"
+VERSION="1.3.0"
 BUNDLE_ID="com.ross.voltguard"
 APP_NAME="VoltGuard"
 DISPLAY_NAME="VoltGuard"

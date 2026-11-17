@@ -1,0 +1,50 @@
+name: Build Stark Store IPA (Gothic Auto-Update Store)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'StarkStore/**'
+      - '.github/workflows/build-starkstore.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-starkstore:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project & Build StarkStore (Unsigned)
+        working-directory: StarkStore
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          xcodebuild clean build \
+            -project StarkStore.xcodeproj \
+            -target StarkStore \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package Payload into StarkStore.ipa
+        working-directory: StarkStore
+        run: |
+          mkdir -p out/Payload
+          cp -R "build/Release-iphoneos/StarkStore.app" out/Payload/
+          cd out && zip -r9 StarkStore.ipa Payload
+
+      - name: Upload StarkStore IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StarkStore-ipa
+          path: StarkStore/out/StarkStore.ipa
+          if-no-files-found: error

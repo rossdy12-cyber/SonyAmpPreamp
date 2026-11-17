@@ -37,7 +37,7 @@ final class Tab: Identifiable, Equatable, ObservableObject {
 
 final class DownloadTask: ObservableObject, Identifiable {
     let id = UUID()
-    let filename: String
+    var filename: String
     let url: URL
     @Published var progress: Double = 0
     @Published var done = false
@@ -193,7 +193,7 @@ final class BrowserModel: NSObject, ObservableObject {
         cfg.preferences.isElementFullscreenEnabled = true
         cfg.userContentController.add(ConfigCoordinator(), name: "aegisMenu")
         if let rl = ruleList, t.blocking, store.blockerEnabled {
-            cfg.userContentController.add(rl, for: .allPageLoads)
+            cfg.userContentController.add(rl)
         }
         let scripts: [(String, WKUserScriptInjectionTime)] = [
             (Blocker.bootstrapJS, .atDocumentEnd),
@@ -234,7 +234,7 @@ final class BrowserModel: NSObject, ObservableObject {
         let shouldBlock = store.blockerEnabled && !(targetHost.map { store.blockerWhitelist.contains($0) } ?? false)
         if shouldBlock != t.blocking {
             t.blocking = shouldBlock
-            if shouldBlock { cc.add(rl, for: .allPageLoads) }
+            if shouldBlock { cc.add(rl) }
             else { cc.removeAllContentRuleLists() }
         }
     }

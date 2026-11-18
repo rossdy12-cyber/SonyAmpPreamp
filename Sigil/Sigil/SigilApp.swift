@@ -102,7 +102,7 @@ enum TotpEngine {
             issuer = bits.first?.removingPercentEncoding ?? ""
             account = bits.dropFirst().joined(separator: ":").removingPercentEncoding ?? labelPart
         } else {
-            account = labelPart.replacingPercentEncoding ?? labelPart
+            account = labelPart.removingPercentEncoding ?? labelPart
         }
         var secret = "", digits = 6, period = 30, algorithm = "SHA1"
         for pair in query.components(separatedBy: "&") {

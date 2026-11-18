@@ -394,6 +394,7 @@ final class PageHostController: UIViewController {
     let index: Int
     private var playerViewController: AVPlayerViewController?
     private var statusLabel: UILabel?
+    private var gradientLayer: CAGradientLayer?
 
     init(item: PlayableItem, index: Int) {
         self.item = item
@@ -423,8 +424,8 @@ final class PageHostController: UIViewController {
         let gradient = CAGradientLayer()
         gradient.colors = [UIColor.clear.cgColor, UIColor(red: 0, green: 0, blue: 0, alpha: 0.85).cgColor]
         gradient.frame = CGRect(x: 0, y: view.bounds.height * 0.62, width: view.bounds.width, height: view.bounds.height * 0.38)
-        gradient.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         view.layer.addSublayer(gradient)
+        gradientLayer = gradient
 
         let sub = UILabel()
         sub.text = item.subtitle
@@ -458,9 +459,10 @@ final class PageHostController: UIViewController {
         view.addGestureRecognizer(tap)
     }
 
-    override func viewSafeAreaInsetsDidChange() {
-        super.viewSafeAreaInsetsDidChange()
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
         playerViewController?.view.frame = view.bounds
+        gradientLayer?.frame = CGRect(x: 0, y: view.bounds.height * 0.62, width: view.bounds.width, height: view.bounds.height * 0.38)
     }
 
     @objc private func togglePlay() {

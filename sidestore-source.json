@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.12",
+          "date": "2026-11-18",
+          "localizedDescription": "v2.4.12: Revenant: fix AVQueuePlayer-only property, CALayer masks, CollectionListView sources wiring",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.12/SonyAmpPreamp.ipa",
+          "size": 668149,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.11",
           "date": "2026-11-18",
           "localizedDescription": "v2.4.11: Revenant v1.0.0: gothic vertical cinema - REELS feed (vault + archive.org classics), ARCHIVE browse (4 collections), VAULT (Jellyfin AI-Shorts), STUDIO import-via-URL through NAS receiver; coffin icon",

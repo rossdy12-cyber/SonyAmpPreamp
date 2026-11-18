@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.14",
+          "date": "2026-11-18",
+          "localizedDescription": "v2.4.14: Sigil v1.0.0: gothic authenticator - TOTP (SHA1/256/512, 6-8 digits), QR otpauth scanner, Keychain-sealed secrets, Face ID crypt lock, export/restore",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.14/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.13",
           "date": "2026-11-18",
           "localizedDescription": "v2.4.13: Revenant: gradient sizing via viewDidLayoutSubviews (CALayer autoresizingMask unavailable on iOS)",

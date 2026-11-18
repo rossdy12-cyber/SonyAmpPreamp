@@ -26,6 +26,20 @@ final class JarvisSyncManager: ObservableObject {
     @Published var batteryPercent: Int = 100
     @Published var batteryState: String = "Full"
 
+    // ---- PC selector (v1.2): target either PC, or let AUTO fail over ----
+    @Published var pcTarget: String {
+        didSet {
+            UserDefaults.standard.set(pcTarget, forKey: "jarvis_pc_target")
+            Task { @MainActor in await sendHeartbeatAndFetchFeed() }
+        }
+    }
+    @Published var aetherOnline: Bool = false
+    @Published var gamingOnline: Bool = false
+
+    let aetherLan = "http://192.168.0.185:7777"
+    let aetherTailscale = "http://100.76.215.23:7777"
+    let gamingTailscale = "http://100.102.4.54:7777"
+
     // DeepAI Code bridge (MK-VII tab 09 agent on the PC)
     @Published var deepAiMessages: [DeepAiMessage] = []
     @Published var deepAiWorking: Bool = false
@@ -36,6 +50,7 @@ final class JarvisSyncManager: ObservableObject {
 
     private init() {
         self.serverHost = UserDefaults.standard.string(forKey: "jarvis_server_host") ?? "http://192.168.0.185:7777"
+        self.pcTarget = UserDefaults.standard.string(forKey: "jarvis_pc_target") ?? "aether"
         UIDevice.current.isBatteryMonitoringEnabled = true
         updateBatteryTelemetry()
         startHeartbeat()
@@ -68,12 +83,50 @@ final class JarvisSyncManager: ObservableObject {
 
     func sendHeartbeatAndFetchFeed() async {
         updateBatteryTelemetry()
-        let base = serverHost.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
-        guard let url = URL(string: "\(base)/api/iphone/heartbeat") else { return }
+        // Candidate order per target: aether = LAN then Tailscale; gaming = Tailscale; auto = both PCs.
+        var order: [(host: String, isAether: Bool)] = []
+        switch pcTarget {
+        case "aether":
+            order = [(aetherLan, true), (aetherTailscale, true)]
+        case "gaming":
+            order = [(gamingTailscale, false)]
+        default:
+            order = [(aetherLan, true), (aetherTailscale, true), (gamingTailscale, false)]
+        }
+
+        var connected = false
+        var aetherOk = false
+        var gamingOk = false
+
+        for candidate in order {
+            if await heartbeatOnce(candidate.host) {
+                connected = true
+                if candidate.isAether {
+                    aetherOk = true
+                } else {
+                    gamingOk = true
+                }
+                if serverHost != candidate.host {
+                    serverHost = candidate.host
+                }
+                break
+            }
+        }
+
+        aetherOnline = aetherOk
+        gamingOnline = gamingOk
+        if !connected {
+            isConnected = false
+            statusMessage = "Searching for J.A.R.V.I.S. (no PC answered)"
+        }
+    }
+
+    private func heartbeatOnce(_ base: String) async -> Bool {
+        guard let url = URL(string: "\(base)/api/iphone/heartbeat") else { return false }
 
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
-        req.timeoutInterval = 5.0
+        req.timeoutInterval = 4.0
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let payload: [String: Any] = [
@@ -106,18 +159,10 @@ final class JarvisSyncManager: ObservableObject {
                     }
                     self.recentNotifications = mapped
                 }
-            } else {
-                isConnected = false
-                statusMessage = "HTTP Error from J.A.R.V.I.S."
+                return true
             }
-        } catch {
-            // Automatic fallback to Tailscale IP if LAN IP is unreachable (e.g. on 5G/LTE away from home)
-            if serverHost.contains("192.168.0.185") {
-                serverHost = "http://100.76.215.23:7777"
-            }
-            isConnected = false
-            statusMessage = "Searching for J.A.R.V.I.S. (\(error.localizedDescription))"
-        }
+        } catch {}
+        return false
     }
 
     func pushNotificationToJarvis(app: String, title: String, body: String, category: String = "message", speakOnPc: Bool = true) async -> Bool {

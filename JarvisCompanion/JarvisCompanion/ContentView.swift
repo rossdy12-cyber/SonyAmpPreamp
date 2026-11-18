@@ -50,22 +50,32 @@ struct ContentView: View {
                             .cornerRadius(6)
                         }
 
-                        HStack(spacing: 8) {
-                            Button("LAN (192.168.0.185)") {
-                                sync.serverHost = "http://192.168.0.185:7777"
-                                Task { await sync.sendHeartbeatAndFetchFeed() }
-                            }
-                            .font(.system(size: 11, design: .monospaced))
-                            .buttonStyle(.bordered)
-                            .tint(crimson)
+                        Picker("PC", selection: $sync.pcTarget) {
+                            Text("AETHER-PC").tag("aether")
+                            Text("GAMING-PC").tag("gaming")
+                            Text("AUTO").tag("auto")
+                        }
+                        .pickerStyle(.segmented)
+                        .font(.system(size: 11, design: .monospaced))
 
-                            Button("TAILSCALE (100.76.215.23)") {
-                                sync.serverHost = "http://100.76.215.23:7777"
-                                Task { await sync.sendHeartbeatAndFetchFeed() }
-                            }
-                            .font(.system(size: 11, design: .monospaced))
-                            .buttonStyle(.bordered)
-                            .tint(.cyan)
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(sync.aetherOnline ? Color.green : Color.red)
+                                .frame(width: 8, height: 8)
+                            Text("AETHER")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.gray)
+                            Circle()
+                                .fill(sync.gamingOnline ? Color.green : Color.red)
+                                .frame(width: 8, height: 8)
+                            Text("GAMING")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.gray)
+                            Spacer()
+                            Text(sync.serverHost.replacingOccurrences(of: "http://", with: ""))
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundColor(.cyan)
+                                .lineLimit(1)
                         }
                     }
                     .padding()

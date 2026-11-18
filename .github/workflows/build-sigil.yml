@@ -1,0 +1,50 @@
+name: Build Sigil IPA (Gothic Authenticator)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'Sigil/**'
+      - '.github/workflows/build-sigil.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-sigil:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project & Build Sigil (Unsigned)
+        working-directory: Sigil
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          xcodebuild clean build \
+            -project Sigil.xcodeproj \
+            -target Sigil \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package Payload into Sigil.ipa
+        working-directory: Sigil
+        run: |
+          mkdir -p out/Payload
+          cp -R "build/Release-iphoneos/Sigil.app" out/Payload/
+          cd out && zip -r9 Sigil.ipa Payload
+
+      - name: Upload Sigil IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sigil-ipa
+          path: Sigil/out/Sigil.ipa
+          if-no-files-found: error

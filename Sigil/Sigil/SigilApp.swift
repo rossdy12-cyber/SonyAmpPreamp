@@ -4,6 +4,7 @@ import LocalAuthentication
 import AVFoundation
 import AudioToolbox
 import UIKit
+import UserNotifications
 
 // ============================================================
 //  SIGIL — gothic authenticator (Duo-Mobile style, our crypt)
@@ -161,8 +162,59 @@ enum CryptVault {
 
 // MARK: - Root
 
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    static var shared: AppDelegate?
+
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        AppDelegate.shared = self
+        UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().setNotificationCategories([
+            UNNotificationCategory(identifier: "SIGIL_APPROVAL", actions: [
+                UNNotificationAction(identifier: "SIGIL_APPROVE", title: "✓ APPROVE", options: [.foreground]),
+                UNNotificationAction(identifier: "SIGIL_DENY", title: "✕ DENY", options: [.destructive])
+            ], intents: [])
+        ])
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
+            DispatchQueue.main.async {
+                if granted {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
+        }
+        return true
+    }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
+        Task { @MainActor in
+            await SigilEngine.shared.registerPush(token: hex)
+        }
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        SigilEngine.shared.pushStatus = "Push registration failed: \(error.localizedDescription)"
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        return [.banner, .sound]
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        let userInfo = response.notification.request.content.userInfo
+        guard let requestId = userInfo["requestId"] as? String else { return }
+        if response.actionIdentifier == "SIGIL_APPROVE" {
+            await SigilEngine.shared.respond(requestId: requestId, approve: true)
+        } else if response.actionIdentifier == "SIGIL_DENY" {
+            await SigilEngine.shared.respond(requestId: requestId, approve: false)
+        } else {
+            await SigilEngine.shared.loadPending()
+        }
+    }
+}
+
 @main
 struct SigilApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -172,12 +224,14 @@ struct SigilApp: App {
 }
 
 struct ContentView: View {
-    @StateObject private var engine = SigilEngine()
+    @StateObject private var engine = SigilEngine.shared
 
     var body: some View {
         TabView {
             CodesView(engine: engine)
                 .tabItem { Label("SIGILS", systemImage: "key.horizontal.fill") }
+            SealsView(engine: engine)
+                .tabItem { Label("SEALS", systemImage: "checkmark.shield.fill") }
             SettingsView(engine: engine)
                 .tabItem { Label("CRYPT", systemImage: "lock.shield") }
         }
@@ -189,12 +243,18 @@ struct ContentView: View {
 
 @MainActor
 final class SigilEngine: ObservableObject {
+    static let shared = SigilEngine()
+
     @Published var accounts: [SigilAccount] = []
     @Published var now = Date()
     @Published var unlocked = false
     @Published var cryptLockEnabled: Bool {
         didSet { UserDefaults.standard.set(cryptLockEnabled, forKey: "sigil.cryptLock") }
     }
+    @Published var pushStatus = "Not registered"
+    @Published var pendingRequests: [SigilApproval] = []
+
+    let receiverBases = ["http://100.85.127.42:18998", "https://navidrome.nas-server.co.uk"]
 
     private var timer: Timer?
 
@@ -262,6 +322,189 @@ final class SigilEngine: ObservableObject {
             }
         }
         return added
+    }
+
+    // ---- login approval bridge ----
+
+    func registerPush(token: String) async {
+        for base in receiverBases {
+            guard let url = URL(string: "\(base)/sidestore-api/sigil/register") else { continue }
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.timeoutInterval = 10
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: ["token": token])
+            do {
+                let (data, resp) = try await URLSession.shared.data(for: req)
+                if let http = resp as? HTTPURLResponse, http.statusCode == 200,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   (json["ok"] as? Bool) == true {
+                    pushStatus = "Sealed to the crypt (\((json["deviceCount"] as? Int) ?? 1) device(s))"
+                    return
+                }
+            } catch { continue }
+        }
+        pushStatus = "Push registration failed — approval pushes won't arrive"
+    }
+
+    func respond(requestId: String, approve: Bool) async {
+        for base in receiverBases {
+            guard let url = URL(string: "\(base)/sidestore-api/sigil/respond") else { continue }
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.timeoutInterval = 10
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: ["id": requestId, "approve": approve])
+            do {
+                let (data, resp) = try await URLSession.shared.data(for: req)
+                if let http = resp as? HTTPURLResponse, http.statusCode == 200,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   (json["ok"] as? Bool) == true {
+                    await loadPending()
+                    return
+                }
+            } catch { continue }
+        }
+    }
+
+    func loadPending() async {
+        for base in receiverBases {
+            guard let url = URL(string: "\(base)/sidestore-api/sigil/pending") else { continue }
+            do {
+                let (data, resp) = try await URLSession.shared.data(from: url)
+                if let http = resp as? HTTPURLResponse, http.statusCode == 200,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   (json["ok"] as? Bool) == true {
+                    let items = (json["pending"] as? [[String: Any]]) ?? []
+                    let mapped: [SigilApproval] = items.compactMap { dict in
+                        guard let id = dict["id"] as? String else { return nil }
+                        return SigilApproval(
+                            id: id,
+                            service: (dict["service"] as? String) ?? "Unknown",
+                            detail: (dict["detail"] as? String) ?? "",
+                            ts: (dict["ts"] as? Double) ?? 0
+                        )
+                    }
+                    await MainActor.run { pendingRequests = mapped }
+                    return
+                }
+            } catch { continue }
+        }
+    }
+}
+
+struct SigilApproval: Identifiable, Equatable {
+    let id: String
+    let service: String
+    let detail: String
+    let ts: Double
+}
+
+// MARK: - SEALS tab (login approvals)
+
+struct SealsView: View {
+    @ObservedObject var engine: SigilEngine
+    @State private var pollTimer: Timer?
+
+    var body: some View {
+        ZStack {
+            cryptBg.ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("PUSH STATUS")
+                            .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                            .foregroundColor(ashDim)
+                        Text(engine.pushStatus)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundColor(engine.pushStatus.contains("Sealed") ? .green : .orange)
+                    }
+                    .padding(13)
+                    .background(Color(red: 0.06, green: 0.01, blue: 0.03))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(crimson.opacity(0.3), lineWidth: 1))
+
+                    if engine.pendingRequests.isEmpty {
+                        VStack(spacing: 10) {
+                            Image(systemName: "checkmark.shield")
+                                .font(.system(size: 34))
+                                .foregroundColor(bloodDim)
+                            Text("No logins awaiting your seal.")
+                                .font(.system(size: 13, design: .monospaced))
+                                .foregroundColor(ashDim)
+                            Text("When any of your services asks for approval, it appears here — and as a notification with APPROVE / DENY buttons.")
+                                .font(.system(size: 11))
+                                .foregroundColor(ashDim.opacity(0.8))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 20)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 30)
+                    } else {
+                        ForEach(engine.pendingRequests) { req in
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(req.service.uppercased())
+                                    .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                                    .foregroundColor(crimson)
+                                if !req.detail.isEmpty {
+                                    Text(req.detail)
+                                        .font(.system(size: 12))
+                                        .foregroundColor(ashText)
+                                }
+                                Text("asked \(Date(timeIntervalSince1970: req.ts), style: .relative) ago")
+                                    .font(.system(size: 9, design: .monospaced))
+                                    .foregroundColor(ashDim)
+                                HStack(spacing: 10) {
+                                    Button {
+                                        Task { await engine.respond(requestId: req.id, approve: true) }
+                                    } label: {
+                                        Text("✓ APPROVE")
+                                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(10)
+                                            .background(Color.green.opacity(0.85))
+                                            .foregroundColor(.white)
+                                            .cornerRadius(8)
+                                    }
+                                    Button {
+                                        Task { await engine.respond(requestId: req.id, approve: false) }
+                                    } label: {
+                                        Text("✕ DENY")
+                                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(10)
+                                            .background(crimson)
+                                            .foregroundColor(.white)
+                                            .cornerRadius(8)
+                                    }
+                                }
+                            }
+                            .padding(13)
+                            .background(Color(red: 0.06, green: 0.01, blue: 0.03))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(crimson.opacity(0.4), lineWidth: 1))
+                        }
+                    }
+                }
+                .padding(14)
+            }
+        }
+        .navigationTitle("")
+        .overlay(alignment: .top) {
+            Text("SEALS")
+                .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                .foregroundColor(crimson)
+                .padding(.top, 2)
+        }
+        .onAppear {
+            Task { await engine.loadPending() }
+            pollTimer?.invalidate()
+            pollTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { _ in
+                Task { @MainActor in await engine.loadPending() }
+            }
+        }
+        .onDisappear {
+            pollTimer?.invalidate()
+            pollTimer = nil
+        }
     }
 }
 

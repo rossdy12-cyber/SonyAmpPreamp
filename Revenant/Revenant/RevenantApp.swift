@@ -409,7 +409,6 @@ final class PageHostController: UIViewController {
 
         let pvc = AVPlayerViewController()
         let player = AVPlayer(url: item.url)
-        player.automaticallyWaitsToReduceStalling = true
         pvc.player = player
         pvc.showsPlaybackControls = false
         pvc.videoGravity = .resizeAspect
@@ -424,7 +423,7 @@ final class PageHostController: UIViewController {
         let gradient = CAGradientLayer()
         gradient.colors = [UIColor.clear.cgColor, UIColor(red: 0, green: 0, blue: 0, alpha: 0.85).cgColor]
         gradient.frame = CGRect(x: 0, y: view.bounds.height * 0.62, width: view.bounds.width, height: view.bounds.height * 0.38)
-        gradient.autoresizingMask = [.flexibleHeight]
+        gradient.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         view.layer.addSublayer(gradient)
 
         let sub = UILabel()
@@ -513,7 +512,7 @@ struct BrowseView: View {
                 List {
                     ForEach(ARCHIVE_COLLECTIONS, id: \.id) { c in
                         NavigationLink {
-                            CollectionListView(collection: c)
+                            CollectionListView(collection: c, sources: sources)
                         } label: {
                             HStack {
                                 Image(systemName: "film")
@@ -540,6 +539,7 @@ struct BrowseView: View {
 
 struct CollectionListView: View {
     let collection: (id: String, name: String)
+    @ObservedObject var sources: RevenantSources
     @State private var items: [PlayableItem] = []
     @State private var status = "Digging through the archive…"
     @State private var playing: PlayableItem?

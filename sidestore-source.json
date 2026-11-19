@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.23",
+          "date": "2026-11-19",
+          "localizedDescription": "v2.4.23: Knell v1.0.0: gothic ringtone forge - procedural composition (D-minor, bell overtones, ADSR, detuned oscs), offline AAC .m4r rendering, preview, tone archive, share-sheet export, install guide",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.23/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.22",
           "date": "2026-11-19",
           "localizedDescription": "v2.4.22: Pulseline: compile fixes - workoutType API, intervalComponents, chart modifiers, rawValue cast",

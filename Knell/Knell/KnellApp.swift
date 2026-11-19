@@ -174,6 +174,7 @@ enum KnellForge {
             let v = max(-1.0, min(1.0, samples[i]))
             pcm16[i] = Int16(v * 32767.0)
         }
+        var wav = Data()
         let dataBytes = pcm16.withUnsafeBytes { Data($0) }
         let byteRate = Int(sampleRate) * 2
         func append(_ v: UInt32) { withUnsafeBytes(of: v.littleEndian) { wav.append(contentsOf: $0) } }

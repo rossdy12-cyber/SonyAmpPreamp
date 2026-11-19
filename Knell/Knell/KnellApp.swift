@@ -200,7 +200,15 @@ enum KnellForge {
         try? FileManager.default.removeItem(at: m4rURL)
         await export.export()
         print("[Knell] export status: \(export.status.rawValue), error: \(String(describing: export.error))")
-        print("[Knell] m4a exists: \(FileManager.default.fileExists(atPath: m4rURL.path))")
+        // CHECK: if the export didn't complete, THROW so we see the error on screen
+        guard export.status == .completed else {
+            let msg = export.error?.localizedDescription ?? "status \(export.status.rawValue)"
+            throw NSError(domain: "Knell", code: 2, userInfo: [NSLocalizedDescriptionKey: "Export failed: \(msg)"])
+        }
+        guard FileManager.default.fileExists(atPath: m4rURL.path) else {
+            throw NSError(domain: "Knell", code: 3, userInfo: [NSLocalizedDescriptionKey: "Export completed but output file missing"])
+        }
+        print("[Knell] m4a exists, size: \((try? FileManager.default.attributesOfItem(atPath: m4rURL.path)[.size]) ?? 0)")
         try? FileManager.default.removeItem(at: wavURL)
         return m4rURL
     }

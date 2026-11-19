@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.46",
+          "date": "2026-11-19",
+          "localizedDescription": "v2.4.46: Knell: declare wav Data variable",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.46/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.45",
           "date": "2026-11-19",
           "localizedDescription": "v2.4.45: Knell: convert Float samples to Int16 PCM for correct WAV header (fixes AVAssetExportSession 'operation could not be completed')",

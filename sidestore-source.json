@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.20",
+          "date": "2026-11-19",
+          "localizedDescription": "v2.4.20: Sigil v1.2.1: add missing TabView selection tags (tabs bounced back to SIGILS)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.20/SonyAmpPreamp.ipa",
+          "size": 668149,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.19",
           "date": "2026-11-19",
           "localizedDescription": "v2.4.19: Sigil v1.2.0: Face ID approval gate - optional biometric confirmation before APPROVE (banner action opens app + Face ID, in-app approve gated), CRYPT tab toggle",

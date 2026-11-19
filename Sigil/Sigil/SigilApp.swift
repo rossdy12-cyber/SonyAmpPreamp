@@ -172,7 +172,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             UNNotificationCategory(identifier: "SIGIL_APPROVAL", actions: [
                 UNNotificationAction(identifier: "SIGIL_APPROVE", title: "✓ APPROVE", options: [.foreground]),
                 UNNotificationAction(identifier: "SIGIL_DENY", title: "✕ DENY", options: [.destructive])
-            ], intents: [])
+            ], intentIdentifiers: [])
         ])
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
             DispatchQueue.main.async {

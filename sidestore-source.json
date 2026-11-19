@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.29",
+          "date": "2026-11-19",
+          "localizedDescription": "v2.4.29: Knell v1.0.3: native UIDocumentPicker export (bypasses flaky share-sheet Files extension)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.29/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.28",
           "date": "2026-11-19",
           "localizedDescription": "v2.4.28: Knell: writeWavFile lives on ForgeState not KnellForge",

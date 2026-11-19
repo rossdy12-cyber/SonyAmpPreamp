@@ -658,10 +658,10 @@ struct ShareSheet: UIViewControllerRepresentable {
 struct CryptView: View {
     private func installSteps() -> [String] {
         [
-            "Forge your tone and tap FORGE .M4R — the share sheet appears.",
-            "Choose Save to Files (or AirDrop it to yourself).",
-            "Open the Files app, find the .m4r file, and tap it.",
-            "iOS offers to set it as your ringtone — confirm.",
+            "Forge your tone and tap FORGE .M4A — the Files browser appears.",
+            "Save the .m4a file to On My iPhone or iCloud Drive.",
+            "Open the Files app, find the .m4a file, and rename it: change the extension to .m4r.",
+            "Tap the renamed .m4r file — iOS offers to set it as your ringtone.",
             "Settings → Sounds & Haptics → Ringtone → pick your tone."
         ]
     }

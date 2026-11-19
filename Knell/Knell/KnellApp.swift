@@ -599,16 +599,20 @@ final class DocumentExportHost: NSObject, UIDocumentPickerDelegate {
 
     func present(url: URL) {
         DispatchQueue.main.async {
-            // UIKit hard-asserts in initForExportingURLs if the file is missing
-            guard FileManager.default.fileExists(atPath: url.path) else {
-                log("export picker aborted: file missing at " + url.path)
-                return
-            }
-            guard let top = Self.keyTopViewController() else { return }
-            let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
-            self.picker = picker   // strong ref keeps it alive
-            top.present(picker, animated: true)
+            Self.presentOnMain(url: url)
         }
+    }
+
+    private static func presentOnMain(url: URL) {
+        // UIKit hard-asserts in initForExportingURLs if the file is missing
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            log("export picker aborted: file missing at " + url.path)
+            return
+        }
+        guard let top = keyTopViewController() else { return }
+        let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+        shared.picker = picker   // strong ref keeps it alive
+        top.present(picker, animated: true)
     }
 
     private static func keyTopViewController() -> UIViewController? {

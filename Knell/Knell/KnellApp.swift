@@ -337,13 +337,23 @@ final class ForgeState: ObservableObject {
             let stamp = Int(Date().timeIntervalSince1970) % 100000
             let p = params
             let docs = docsDir
+            print("[Knell] docs dir: \(docs.path)")
+            print("[Knell] docs exists: \(FileManager.default.fileExists(atPath: docs.path))")
             // heavy synthesis must NOT run on the main thread
             let url = try await Task.detached(priority: .userInitiated) {
-                try await KnellForge.renderToM4R(name: "Knell_\(stamp)", params: p, toDirectory: docs)
+                let u = try await KnellForge.renderToM4R(name: "Knell_\(stamp)", params: p, toDirectory: docs)
+                print("[Knell] rendered to: \(u.path)")
+                print("[Knell] file exists: \(FileManager.default.fileExists(atPath: u.path))")
+                let size = (try? FileManager.default.attributesOfItem(atPath: u.path)[.size]) ?? "unknown"
+                print("[Knell] file size: \(size)")
+                return u
             }.value
             loadTones()
+            print("[Knell] loadTones found: \(tones.count) tones")
+            for t in tones { print("[Knell] tone: \(t.name) at \(t.fileURL.path)") }
             statusMessage = "Forged — \(tones.count) tone(s) in the ARCHIVE. Choose a destination to export."
             rendering = false
+            print("[Knell] presenting picker for: \(url.path)")
             DocumentExportHost.shared.present(url: url)
         } catch {
             statusMessage = "Forge failed: \(error.localizedDescription)"

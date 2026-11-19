@@ -192,7 +192,8 @@ enum KnellForge {
             }
             if let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)) {
                 buffer.frameLength = AVAudioFrameCount(count)
-                if let channel = buffer.floatChannelData[0] {
+                if let channelData = buffer.floatChannelData {
+                    let channel = channelData.pointee
                     for i in 0..<count {
                         channel[i] = chunk[i]
                     }
@@ -201,7 +202,6 @@ enum KnellForge {
             }
             offset += count
         }
-        try audioFile.close()
 
         guard FileManager.default.fileExists(atPath: m4rURL.path) else {
             throw NSError(domain: "Knell", code: 3, userInfo: [NSLocalizedDescriptionKey: "AAC write completed but file missing"])

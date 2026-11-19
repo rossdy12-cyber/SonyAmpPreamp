@@ -203,7 +203,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         let userInfo = response.notification.request.content.userInfo
         guard let requestId = userInfo["requestId"] as? String else { return }
         if response.actionIdentifier == "SIGIL_APPROVE" {
-            await SigilEngine.shared.respond(requestId: requestId, approve: true)
+            if SigilEngine.shared.biometricApproveEnabled {
+                SigilEngine.shared.awaitingApprovalRequestId = requestId
+            } else {
+                await SigilEngine.shared.respond(requestId: requestId, approve: true)
+            }
         } else if response.actionIdentifier == "SIGIL_DENY" {
             await SigilEngine.shared.respond(requestId: requestId, approve: false)
         } else {
@@ -225,9 +229,10 @@ struct SigilApp: App {
 
 struct ContentView: View {
     @StateObject private var engine = SigilEngine.shared
+    @State private var tab = 0
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             CodesView(engine: engine)
                 .tabItem { Label("SIGILS", systemImage: "key.horizontal.fill") }
             SealsView(engine: engine)
@@ -236,6 +241,9 @@ struct ContentView: View {
                 .tabItem { Label("CRYPT", systemImage: "lock.shield") }
         }
         .accentColor(crimson)
+        .onChange(of: engine.awaitingApprovalRequestId) { rid in
+            if rid != nil { tab = 1 }
+        }
     }
 }
 
@@ -253,6 +261,10 @@ final class SigilEngine: ObservableObject {
     }
     @Published var pushStatus = "Not registered"
     @Published var pendingRequests: [SigilApproval] = []
+    @Published var biometricApproveEnabled: Bool {
+        didSet { UserDefaults.standard.set(biometricApproveEnabled, forKey: "sigil.biometricApprove") }
+    }
+    @Published var awaitingApprovalRequestId: String? = nil
 
     let receiverBases = ["http://100.85.127.42:18998", "https://navidrome.nas-server.co.uk"]
 
@@ -260,6 +272,7 @@ final class SigilEngine: ObservableObject {
 
     init() {
         cryptLockEnabled = UserDefaults.standard.bool(forKey: "sigil.cryptLock")
+        biometricApproveEnabled = UserDefaults.standard.bool(forKey: "sigil.biometricApprove")
         accounts = CryptVault.load()
         unlocked = !cryptLockEnabled
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -347,6 +360,18 @@ final class SigilEngine: ObservableObject {
         pushStatus = "Push registration failed — approval pushes won't arrive"
     }
 
+    func authenticateApproval() async -> Bool {
+        let ctx = LAContext()
+        var error: NSError?
+        let reason = "Approve the login request"
+        if ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+            do { return try await ctx.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) }
+            catch { return false }
+        }
+        do { return try await ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) }
+        catch { return false }
+    }
+
     func respond(requestId: String, approve: Bool) async {
         for base in receiverBases {
             guard let url = URL(string: "\(base)/sidestore-api/sigil/respond") else { continue }
@@ -405,6 +430,7 @@ struct SigilApproval: Identifiable, Equatable {
 struct SealsView: View {
     @ObservedObject var engine: SigilEngine
     @State private var pollTimer: Timer?
+    @State private var sealStatus = ""
 
     var body: some View {
         ZStack {
@@ -453,11 +479,26 @@ struct SealsView: View {
                                 Text("asked \(Date(timeIntervalSince1970: req.ts), style: .relative) ago")
                                     .font(.system(size: 9, design: .monospaced))
                                     .foregroundColor(ashDim)
+                                if !sealStatus.isEmpty {
+                                    Text(sealStatus)
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundColor(.orange)
+                                }
                                 HStack(spacing: 10) {
                                     Button {
-                                        Task { await engine.respond(requestId: req.id, approve: true) }
+                                        Task {
+                                            if engine.biometricApproveEnabled {
+                                                let ok = await engine.authenticateApproval()
+                                                guard ok else {
+                                                    sealStatus = "Face ID failed — approval NOT sent."
+                                                    return
+                                                }
+                                                sealStatus = ""
+                                            }
+                                            await engine.respond(requestId: req.id, approve: true)
+                                        }
                                     } label: {
-                                        Text("✓ APPROVE")
+                                        Text(engine.biometricApproveEnabled ? "✓ APPROVE (FACE ID)" : "✓ APPROVE")
                                             .font(.system(size: 12, weight: .heavy, design: .monospaced))
                                             .frame(maxWidth: .infinity)
                                             .padding(10)
@@ -499,6 +540,19 @@ struct SealsView: View {
             pollTimer?.invalidate()
             pollTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { _ in
                 Task { @MainActor in await engine.loadPending() }
+            }
+        }
+        .onChange(of: engine.awaitingApprovalRequestId) { rid in
+            guard let rid = rid else { return }
+            Task {
+                let ok = await engine.authenticateApproval()
+                if ok {
+                    await engine.respond(requestId: rid, approve: true)
+                } else {
+                    sealStatus = "Face ID failed — the request is still waiting below."
+                }
+                engine.awaitingApprovalRequestId = nil
+                await engine.loadPending()
             }
         }
         .onDisappear {
@@ -899,7 +953,10 @@ struct SettingsView: View {
                         Toggle("Seal behind Face ID / passcode", isOn: $engine.cryptLockEnabled)
                             .font(.system(size: 12, design: .monospaced))
                             .tint(crimson)
-                        Text("When sealed, the sigils require your biometrics each time the app opens.")
+                        Toggle("Require Face ID to approve logins", isOn: $engine.biometricApproveEnabled)
+                            .font(.system(size: 12, design: .monospaced))
+                            .tint(crimson)
+                        Text("When sealed, the sigils require your biometrics each time the app opens. With Face ID approval on, every APPROVE tap asks for your face first.")
                             .font(.system(size: 11))
                             .foregroundColor(ashDim)
                     }

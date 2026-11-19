@@ -163,58 +163,49 @@ enum KnellForge {
     static func renderToM4R(name: String, params: Params, toDirectory: URL) async throws -> URL {
         let samples = renderBuffer(params)
         try FileManager.default.createDirectory(at: toDirectory, withIntermediateDirectories: true)
-        let wavURL = toDirectory.appendingPathComponent(name + "_raw.wav")
-        // NOTE: .m4r is an Apple-reserved UTI - initForExportingURLs aborts on it.
-        // We export as .m4a (fully supported); the user renames to .m4r in Files.
         let m4rURL = toDirectory.appendingPathComponent(name.replacingOccurrences(of: " ", with: "_") + ".m4a")
-
-        // 1. write WAV (convert Float to Int16 PCM)
-        var pcm16 = [Int16](repeating: 0, count: samples.count)
-        for i in 0..<samples.count {
-            let v = max(-1.0, min(1.0, samples[i]))
-            pcm16[i] = Int16(v * 32767.0)
-        }
-        var wav = Data()
-        let dataBytes = pcm16.withUnsafeBytes { Data($0) }
-        let byteRate = Int(sampleRate) * 2
-        func append(_ v: UInt32) { withUnsafeBytes(of: v.littleEndian) { wav.append(contentsOf: $0) } }
-        func append16(_ v: UInt16) { withUnsafeBytes(of: v.littleEndian) { wav.append(contentsOf: $0) } }
-        wav.append("RIFF".data(using: .ascii)!)
-        append(UInt32(36 + dataBytes.count))
-        wav.append("WAVE".data(using: .ascii)!)
-        wav.append("fmt ".data(using: .ascii)!)
-        append16(16)                                    // PCM chunk
-        append16(1)                                     // format
-        append16(1)                                     // channels
-        append(UInt32(Int(sampleRate)))                 // sample rate
-        append(UInt32(byteRate))
-        append16(2)                                     // block align
-        append16(16)                                    // bits
-        wav.append("data".data(using: .ascii)!)
-        append(UInt32(dataBytes.count))
-        wav.append(dataBytes)
-        try wav.write(to: wavURL)
-
-        // 2. transcode to AAC .m4r
-        let asset = AVURLAsset(url: wavURL, options: nil)
-        guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
-            throw NSError(domain: "Knell", code: 1)
-        }
-        export.outputURL = m4rURL
-        export.outputFileType = .m4a
         try? FileManager.default.removeItem(at: m4rURL)
-        await export.export()
-        print("[Knell] export status: \(export.status.rawValue), error: \(String(describing: export.error))")
-        // CHECK: if the export didn't complete, THROW so we see the error on screen
-        guard export.status == .completed else {
-            let msg = export.error?.localizedDescription ?? "status \(export.status.rawValue)"
-            throw NSError(domain: "Knell", code: 2, userInfo: [NSLocalizedDescriptionKey: "Export failed: \(msg)"])
+
+        // Write directly to AAC using AVAudioFile - no WAV intermediate, no export session
+        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
+        var settings = format.settings
+        settings[AVFormatIDKey] = kAudioFormatMPEG4AAC
+        settings[AVSampleRateKey] = sampleRate
+        settings[AVNumberOfChannelsKey] = 1
+        settings[AVEncoderBitRateKey] = 128000
+
+        let audioFile = try AVAudioFile(
+            forWriting: m4rURL,
+            settings: settings,
+            commonFormat: .pcmFormatFloat32,
+            interleaved: false
+        )
+
+        // Write in chunks (AVAudioFile can handle large buffers but chunking is safer)
+        let chunkSize = 44100 * 5  // 5 seconds
+        var offset = 0
+        while offset < samples.count {
+            let count = min(chunkSize, samples.count - offset)
+            var chunk = [Float](repeating: 0, count: count)
+            for i in 0..<count {
+                chunk[i] = samples[offset + i]
+            }
+            if let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)) {
+                buffer.frameLength = AVAudioFrameCount(count)
+                if let channel = buffer.floatChannelData[0] {
+                    for i in 0..<count {
+                        channel[i] = chunk[i]
+                    }
+                }
+                try audioFile.write(from: buffer)
+            }
+            offset += count
         }
+        try audioFile.close()
+
         guard FileManager.default.fileExists(atPath: m4rURL.path) else {
-            throw NSError(domain: "Knell", code: 3, userInfo: [NSLocalizedDescriptionKey: "Export completed but output file missing"])
+            throw NSError(domain: "Knell", code: 3, userInfo: [NSLocalizedDescriptionKey: "AAC write completed but file missing"])
         }
-        print("[Knell] m4a exists, size: \((try? FileManager.default.attributesOfItem(atPath: m4rURL.path)[.size]) ?? 0)")
-        try? FileManager.default.removeItem(at: wavURL)
         return m4rURL
     }
 }
@@ -453,8 +444,8 @@ struct ForgeView: View {
                         KnellSlider(label: "KEY", value: $forge.baseFreq, range: 80...900, format: "%.0f Hz")
                         KnellSlider(label: "TEMPO", value: $forge.tempo, range: 50...160, format: "%.0f BPM")
                         KnellSlider(label: "LENGTH", value: $forge.duration, range: 5...40, format: "%.0f s")
-                        KnellSlider(label: "DARKNESS", value: $forge.darkness, range: 0...1, format: "%.0%")
-                        KnellSlider(label: "RAZOR", value: $forge.waveMix, range: 0...1, format: "%.0%")
+                        KnellSlider(label: "DARKNESS", value: $forge.darkness, range: 0...1, format: "%.0f%%")
+                        KnellSlider(label: "RAZOR", value: $forge.waveMix, range: 0...1, format: "%.0f%%")
                     }
 
                     HStack(spacing: 10) {

@@ -78,7 +78,7 @@ final class HealthEngine: ObservableObject {
             HKQuantityType(.activeEnergyBurned), HKQuantityType(.appleExerciseTime),
             HKQuantityType(.heartRate), HKQuantityType(.restingHeartRate),
             HKQuantityType(.heartRateVariabilitySDNN), HKQuantityType(.oxygenSaturation),
-            HKQuantityType(.respiratoryRate), HKCategoryType(.sleepAnalysis), HKWorkoutType(.workout)
+            HKQuantityType(.respiratoryRate), HKCategoryType(.sleepAnalysis), HKWorkoutType.workoutType()
         ]
     }
 
@@ -141,7 +141,7 @@ final class HealthEngine: ObservableObject {
             let cal = Calendar.current
             let start = cal.startOfDay(for: cal.date(byAdding: .day, value: -days, to: Date())!)
             let predicate = HKQuery.predicateForSamples(withStart: start, end: Date())
-            let q = HKStatisticsCollectionQuery(quantityType: type, quantitySamplePredicate: predicate, options: options, anchorDate: start, interval: DateComponents(day: 1))
+            let q = HKStatisticsCollectionQuery(quantityType: type, quantitySamplePredicate: predicate, options: options, anchorDate: start, intervalComponents: DateComponents(day: 1))
             q.initialResultsHandler = { _, stats, _ in
                 var out: [DailyStat] = []
                 stats?.enumerateStatistics(from: start, to: Date()) { stat, _ in
@@ -248,12 +248,12 @@ final class HealthEngine: ObservableObject {
     func loadWorkouts() async {
         workouts = await withCheckedContinuation { cont in
             let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
-            let q = HKSampleQuery(sampleType: HKWorkoutType(.workout), predicate: nil, limit: 30, sortDescriptors: [sort]) { _, samples, _ in
-                let typeNames: [Int: String] = [1: "Run", 2: "Cycle", 10: "Walk", 52: "Swim", 37: "Strength", 5: " elliptical", 16: "Rowing", 42: "HIIT", 45: "Other"]
+            let q = HKSampleQuery(sampleType: HKWorkoutType.workoutType(), predicate: nil, limit: 30, sortDescriptors: [sort]) { _, samples, _ in
+                let typeNames: [Int: String] = [1: "Run", 2: "Cycle", 10: "Walk", 52: "Swim", 37: "Strength", 5: "Elliptical", 16: "Rowing", 42: "HIIT", 45: "Other"]
                 let out: [WorkoutEntry] = ((samples as? [HKWorkout]) ?? []).map { w in
                     WorkoutEntry(
                         id: w.uuid,
-                        type: typeNames[w.workoutActivityType.rawValue] ?? "Workout",
+                        type: typeNames[Int(w.workoutActivityType.rawValue)] ?? "Workout",
                         start: w.startDate,
                         minutes: w.duration / 60.0,
                         calories: w.totalEnergyBurned?.doubleValue(for: .kilocalorie()) ?? 0,
@@ -350,8 +350,7 @@ struct PMetric: View {
 struct gothicChartStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .chartYLabelStyle(.font(.system(size: 9, design: .monospaced)).foregroundColor(ashDim))
-            .chartXAxisStyle(.font(.system(size: 9, design: .monospaced)).foregroundColor(ashDim))
+            .chartLegend(.hidden)
             .frame(height: 150)
     }
 }

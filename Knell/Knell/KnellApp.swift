@@ -601,16 +601,28 @@ final class DocumentExportHost: NSObject, UIDocumentPickerDelegate {
         }
     }
 
+    private static var window: UIWindow?
+
     private static func presentOnMain(url: URL) {
         // UIKit hard-asserts in initForExportingURLs if the file is missing
         guard FileManager.default.fileExists(atPath: url.path) else {
             print("[Knell] export picker aborted: file missing at " + url.path)
             return
         }
-        guard let top = keyTopViewController() else { return }
+
+        // Present via a dedicated UIWindow overlay — completely bypasses the
+        // SwiftUI presentation stack and its sheet/representable conflicts.
         let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
-        shared.picker = picker   // strong ref keeps it alive
-        top.present(picker, animated: true)
+        shared.picker = picker
+
+        let w = UIWindow(windowScene: UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }!)
+        w.windowLevel = .alert + 1
+        w.rootViewController = picker
+        w.makeKeyAndVisible()
+        window = w
+        print("[Knell] document picker presented via window overlay")
     }
 
     private static func keyTopViewController() -> UIViewController? {

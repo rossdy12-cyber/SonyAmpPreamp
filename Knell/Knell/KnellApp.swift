@@ -292,7 +292,7 @@ final class ForgeState: ObservableObject {
         Task.detached(priority: .userInitiated) {
             let samples = KnellForge.renderBuffer(p)
             let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("knell_preview.wav")
-            KnellForge.writeWavFile(samples, to: tmp)
+            ForgeState.writeWavFile(samples, to: tmp)
             await MainActor.run {
                 self.player = try? AVAudioPlayer(contentsOf: tmp)
                 self.player?.play()

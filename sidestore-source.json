@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.45",
+          "date": "2026-11-19",
+          "localizedDescription": "v2.4.45: Knell: convert Float samples to Int16 PCM for correct WAV header (fixes AVAssetExportSession 'operation could not be completed')",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.45/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.44",
           "date": "2026-11-19",
           "localizedDescription": "v2.4.44: Knell: propagate AVAssetExportSession errors to status message",

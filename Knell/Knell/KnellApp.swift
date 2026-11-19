@@ -345,7 +345,6 @@ final class ForgeState: ObservableObject {
             statusMessage = "Forged — \(tones.count) tone(s) in the ARCHIVE. Choose a destination to export."
             rendering = false
             DocumentExportHost.shared.present(url: url)
-            DocumentExportHost.shared.present(url: url)
         } catch {
             statusMessage = "Forge failed: \(error.localizedDescription)"
             rendering = false

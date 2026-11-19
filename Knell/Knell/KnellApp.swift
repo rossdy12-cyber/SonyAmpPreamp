@@ -288,11 +288,30 @@ final class ForgeState: ObservableObject {
     }
 
     func playPreview() {
-        let samples = KnellForge.renderBuffer(params)
-        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("knell_preview.wav")
-        writeWav(samples, to: tmp)
-        player = try? AVAudioPlayer(contentsOf: tmp)
-        player?.play()
+        let p = params
+        Task.detached(priority: .userInitiated) {
+            let samples = KnellForge.renderBuffer(p)
+            let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("knell_preview.wav")
+            writeWavFile(samples, to: tmp)
+            await MainActor.run {
+                player = try? AVAudioPlayer(contentsOf: tmp)
+                player?.play()
+            }
+        }
+    }
+
+    private nonisolated func writeWavFile(_ samples: [Float], to url: URL) {
+        var wav = Data()
+        let dataBytes = samples.withUnsafeBytes { Data($0) }
+        let byteRate = Int(KnellForge.sampleRate) * 2
+        func append32(_ v: UInt32) { withUnsafeBytes(of: v.littleEndian) { wav.append(contentsOf: $0) } }
+        func append16(_ v: UInt16) { withUnsafeBytes(of: v.littleEndian) { wav.append(contentsOf: $0) } }
+        wav.append("RIFF".data(using: .ascii)!); append32(UInt32(36 + dataBytes.count))
+        wav.append("WAVE".data(using: .ascii)!); wav.append("fmt ".data(using: .ascii)!)
+        append16(16); append16(1); append16(1)
+        append32(UInt32(Int(KnellForge.sampleRate))); append32(UInt32(byteRate)); append16(2); append16(16)
+        wav.append("data".data(using: .ascii)!); append32(UInt32(dataBytes.count)); wav.append(dataBytes)
+        try? wav.write(to: url)
     }
 
     private func writeWav(_ samples: [Float], to url: URL) {
@@ -314,7 +333,12 @@ final class ForgeState: ObservableObject {
         statusMessage = "Forging the tone…"
         do {
             let stamp = Int(Date().timeIntervalSince1970) % 100000
-            let url = try await KnellForge.renderToM4R(name: "Knell_\(stamp)", params: params, toDirectory: docsDir)
+            let p = params
+            let docs = docsDir
+            // heavy synthesis must NOT run on the main thread
+            let url = try await Task.detached(priority: .userInitiated) {
+                try await KnellForge.renderToM4R(name: "Knell_\(stamp)", params: p, toDirectory: docs)
+            }.value
             loadTones()
             statusMessage = ""
             rendering = false

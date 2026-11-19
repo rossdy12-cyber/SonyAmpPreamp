@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.26",
+          "date": "2026-11-19",
+          "localizedDescription": "v2.4.26: Knell: sharingURL on ForgeState (fix out-of-scope reference)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.26/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.25",
           "date": "2026-11-19",
           "localizedDescription": "v2.4.25: Knell v1.0.1: share sheet as stable SwiftUI page-sheet (Files picker no longer dismisses early)",

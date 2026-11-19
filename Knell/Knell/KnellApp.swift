@@ -507,6 +507,48 @@ struct KnellSlider: View {
 
 // MARK: - ARCHIVE tab
 
+struct ToneRowView: View {
+    let tone: KnellTone
+    let onExport: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(tone.name)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundColor(ashText)
+                Text(String(format: "~%.0fs · %@", tone.seconds, tone.created.formatted(date: .abbreviated, time: .shortened)))
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(ashDim)
+            }
+            Spacer()
+            Button {
+                if let player = try? AVAudioPlayer(contentsOf: tone.fileURL) {
+                    objc_setAssociatedObject(self, "player", player, .OBJC_ASSOCIATION_RETAIN)
+                    player.play()
+                }
+            } label: {
+                Image(systemName: "play.circle.fill")
+                    .foregroundColor(crimson)
+            }
+            Button {
+                onExport()
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .foregroundColor(crimson)
+            }
+            .accessibilityLabel("Export to Files")
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundColor(ashDim)
+            }
+        }
+    }
+}
+
 struct ArchiveView: View {
     @ObservedObject var forge: ForgeState
     @State private var sharingURL: URL?
@@ -527,38 +569,10 @@ struct ArchiveView: View {
             } else {
                 List {
                     ForEach(forge.tones) { tone in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(tone.name)
-                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                    .foregroundColor(ashText)
-                                Text(String(format: "~%.0fs · %@", tone.seconds, tone.created.formatted(date: .abbreviated, time: .shortened)))
-                                    .font(.system(size: 9, design: .monospaced))
-                                    .foregroundColor(ashDim)
-                            }
-                            Spacer()
-                            Button {
-                                if let player = try? AVAudioPlayer(contentsOf: tone.fileURL) {
-                                    objc_setAssociatedObject(self, "player", player, .OBJC_ASSOCIATION_RETAIN)
-                                    player.play()
-                                }
-                            } label: {
-                                Image(systemName: "play.circle.fill")
-                                    .foregroundColor(crimson)
-                            }
-                            Button {
-                                sharingURL = tone.fileURL
-                            } label: {
-                                Image(systemName: "square.and.arrow.up")
-                                    .foregroundColor(crimson)
-                            }
-                            .accessibilityLabel("Export to Files")
-                            Button(role: .destructive) {
-                                forge.deleteTone(tone)
-                            } label: {
-                                Image(systemName: "trash")
-                                    .foregroundColor(ashDim)
-                            }
+                        ToneRowView(tone: tone) {
+                            sharingURL = tone.fileURL
+                        } onDelete: {
+                            forge.deleteTone(tone)
                         }
                         .listRowBackground(Color(red: 0.06, green: 0.01, blue: 0.03))
                     }

@@ -345,7 +345,7 @@ final class ForgeState: ObservableObject {
             statusMessage = "Forged — \(tones.count) tone(s) in the ARCHIVE. Choose a destination to export."
             rendering = false
             DocumentExportHost.shared.present(url: url)
-            sharingURL = url
+            DocumentExportHost.shared.present(url: url)
         } catch {
             statusMessage = "Forge failed: \(error.localizedDescription)"
             rendering = false
@@ -469,12 +469,6 @@ struct ForgeView: View {
                 .padding(14)
             }
         }
-        .sheet(item: Binding(
-            get: { forge.sharingURL },
-            set: { if $0 == nil { forge.sharingURL = nil } }
-        )) { url in
-            DocumentExportView(url: url)
-        }
         .navigationTitle("")
         .overlay(alignment: .top) {
             Text("THE FORGE")
@@ -589,8 +583,11 @@ struct ArchiveView: View {
                 .foregroundColor(crimson)
                 .padding(.top, 2)
         }
-        .sheet(item: $sharingURL) { url in
-            DocumentExportView(url: url)
+        .onChange(of: sharingURL) { url in
+            if let u = url {
+                DocumentExportHost.shared.present(url: u)
+                sharingURL = nil
+            }
         }
     }
 }

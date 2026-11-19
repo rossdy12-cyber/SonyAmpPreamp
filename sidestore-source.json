@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.27",
+          "date": "2026-11-19",
+          "localizedDescription": "v2.4.27: Knell v1.0.2: move synthesis off the main thread (UI froze during render)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.27/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.26",
           "date": "2026-11-19",
           "localizedDescription": "v2.4.26: Knell: sharingURL on ForgeState (fix out-of-scope reference)",

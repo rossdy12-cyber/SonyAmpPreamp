@@ -162,6 +162,7 @@ enum KnellForge {
     /// Writes PCM to a temporary WAV, then transcodes to true .m4r AAC via AVAssetExportSession.
     static func renderToM4R(name: String, params: Params, toDirectory: URL) async throws -> URL {
         let samples = renderBuffer(params)
+        try FileManager.default.createDirectory(at: toDirectory, withIntermediateDirectories: true)
         let wavURL = toDirectory.appendingPathComponent(name + "_raw.wav")
         // NOTE: .m4r is an Apple-reserved UTI - initForExportingURLs aborts on it.
         // We export as .m4a (fully supported); the user renames to .m4r in Files.
@@ -198,6 +199,8 @@ enum KnellForge {
         export.outputFileType = .m4a
         try? FileManager.default.removeItem(at: m4rURL)
         await export.export()
+        print("[Knell] export status: \(export.status.rawValue), error: \(String(describing: export.error))")
+        print("[Knell] m4a exists: \(FileManager.default.fileExists(atPath: m4rURL.path))")
         try? FileManager.default.removeItem(at: wavURL)
         return m4rURL
     }

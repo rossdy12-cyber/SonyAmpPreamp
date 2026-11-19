@@ -342,6 +342,7 @@ final class ForgeState: ObservableObject {
             loadTones()
             statusMessage = "Forged — \(tones.count) tone(s) in the ARCHIVE. Choose a destination to export."
             rendering = false
+            DocumentExportHost.shared.present(url: url)
             sharingURL = url
         } catch {
             statusMessage = "Forge failed: \(error.localizedDescription)"
@@ -574,6 +575,23 @@ struct ArchiveView: View {
         }
         .sheet(item: $sharingURL) { url in
             DocumentExportView(url: url)
+        }
+    }
+}
+
+final class DocumentExportHost: NSObject, UIDocumentPickerDelegate {
+    static var shared = DocumentExportHost()
+    private var picker: UIDocumentPickerViewController?
+
+    func present(url: URL) {
+        DispatchQueue.main.async {
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            guard let root = scenes.first?.windows.first(where: { $0.isKeyWindow })?.rootViewController else { return }
+            var top = root
+            while let presented = top.presentedViewController, !(presented is UIDocumentPickerViewController) { top = presented }
+            let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+            self.picker = picker   // strong ref keeps it alive
+            top.present(picker, animated: true)
         }
     }
 }

@@ -604,14 +604,21 @@ final class DocumentExportHost: NSObject, UIDocumentPickerDelegate {
                 log("export picker aborted: file missing at " + url.path)
                 return
             }
-            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            guard let root = scenes.first?.windows.first(where: { $0.isKeyWindow })?.rootViewController else { return }
-            var top = root
-            while let presented = top.presentedViewController, !(presented is UIDocumentPickerViewController) { top = presented }
+            guard let top = Self.keyTopViewController() else { return }
             let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
             self.picker = picker   // strong ref keeps it alive
             top.present(picker, animated: true)
         }
+    }
+
+    private static func keyTopViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let root = scenes.first?.windows.first(where: { $0.isKeyWindow })?.rootViewController else { return nil }
+        var top = root
+        while let presented = top.presentedViewController, !(presented is UIDocumentPickerViewController) {
+            top = presented
+        }
+        return top
     }
 }
 

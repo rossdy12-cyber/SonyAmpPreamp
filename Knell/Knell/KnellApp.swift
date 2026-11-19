@@ -308,30 +308,21 @@ final class ForgeState: ObservableObject {
         try? wav.write(to: url)
     }
 
-    func forgeAndShare() {
+    func forgeAndShare() async {
         rendering = true
         statusMessage = "Forging the tone…"
-        Task {
-            do {
-                let stamp = Int(Date().timeIntervalSince1970) % 100000
-                let url = try await KnellForge.renderToM4R(name: "Knell_\(stamp)", params: params, toDirectory: docsDir)
-                loadTones()
-                statusMessage = ""
-                rendering = false
-                await MainActor.run {
-                    let vc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-                    // find the top view controller
-                    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-                    if let root = scenes.first?.windows.first(where: { $0.isKeyWindow })?.rootViewController {
-                        var top = root
-                        while let presented = top.presentedViewController { top = presented }
-                        top.present(vc, animated: true)
-                    }
-                }
-            } catch {
-                statusMessage = "Forge failed: \(error.localizedDescription)"
-                rendering = false
+        do {
+            let stamp = Int(Date().timeIntervalSince1970) % 100000
+            let url = try await KnellForge.renderToM4R(name: "Knell_\(stamp)", params: params, toDirectory: docsDir)
+            loadTones()
+            statusMessage = ""
+            rendering = false
+            await MainActor.run {
+                sharingURL = url   // stable page-sheet presentation
             }
+        } catch {
+            statusMessage = "Forge failed: \(error.localizedDescription)"
+            rendering = false
         }
     }
 
@@ -363,6 +354,7 @@ struct ContentView: View {
 
 struct ForgeView: View {
     @ObservedObject var forge: ForgeState
+    @State private var sharingURL: URL?
 
     var body: some View {
         ZStack {
@@ -427,7 +419,7 @@ struct ForgeView: View {
                                 .cornerRadius(8)
                         }
                         Button {
-                            forge.forgeAndShare()
+                            Task { await forge.forgeAndShare() }
                         } label: {
                             HStack {
                                 if forge.rendering { ProgressView().tint(.white) }
@@ -451,6 +443,9 @@ struct ForgeView: View {
                 }
                 .padding(14)
             }
+        }
+        .sheet(item: $sharingURL) { url in
+            ShareSheet(items: [url])
         }
         .navigationTitle("")
         .overlay(alignment: .top) {

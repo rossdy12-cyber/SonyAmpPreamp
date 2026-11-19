@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.30",
+          "date": "2026-11-19",
+          "localizedDescription": "v2.4.30: Knell v1.0.4: retained document-picker host (force-close on export fix)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.30/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.29",
           "date": "2026-11-19",
           "localizedDescription": "v2.4.29: Knell v1.0.3: native UIDocumentPicker export (bypasses flaky share-sheet Files extension)",

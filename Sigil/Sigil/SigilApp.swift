@@ -235,10 +235,13 @@ struct ContentView: View {
         TabView(selection: $tab) {
             CodesView(engine: engine)
                 .tabItem { Label("SIGILS", systemImage: "key.horizontal.fill") }
+                .tag(0)
             SealsView(engine: engine)
                 .tabItem { Label("SEALS", systemImage: "checkmark.shield.fill") }
+                .tag(1)
             SettingsView(engine: engine)
                 .tabItem { Label("CRYPT", systemImage: "lock.shield") }
+                .tag(2)
         }
         .accentColor(crimson)
         .onChange(of: engine.awaitingApprovalRequestId) { rid in

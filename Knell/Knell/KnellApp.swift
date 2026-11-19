@@ -163,7 +163,9 @@ enum KnellForge {
     static func renderToM4R(name: String, params: Params, toDirectory: URL) async throws -> URL {
         let samples = renderBuffer(params)
         let wavURL = toDirectory.appendingPathComponent(name + "_raw.wav")
-        let m4rURL = toDirectory.appendingPathComponent(name.replacingOccurrences(of: " ", with: "_") + ".m4r")
+        // NOTE: .m4r is an Apple-reserved UTI - initForExportingURLs aborts on it.
+        // We export as .m4a (fully supported); the user renames to .m4r in Files.
+        let m4rURL = toDirectory.appendingPathComponent(name.replacingOccurrences(of: " ", with: "_") + ".m4a")
 
         // 1. write WAV
         var wav = Data()
@@ -277,7 +279,7 @@ final class ForgeState: ObservableObject {
 
     func loadTones() {
         let files = (try? FileManager.default.contentsOfDirectory(at: docsDir, includingPropertiesForKeys: [.creationDateKey])) ?? []
-        let urls = files.filter { $0.pathExtension == "m4r" }
+        let urls = files.filter { $0.pathExtension == "m4r" || $0.pathExtension == "m4a" }
         let list: [KnellTone] = urls.compactMap { url in
             let name = url.deletingPathExtension().lastPathComponent
             guard let attrs = try? url.resourceValues(forKeys: [.creationDateKey, .fileSizeKey]) else { return nil }

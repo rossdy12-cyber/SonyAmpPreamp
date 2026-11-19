@@ -201,6 +201,23 @@ enum KnellForge {
     }
 }
 
+struct PCard<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                .foregroundColor(crimson)
+            content()
+        }
+        .padding(13)
+        .background(Color(red: 0.06, green: 0.01, blue: 0.03))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(crimson.opacity(0.35), lineWidth: 1))
+    }
+}
+
 // MARK: - Root
 
 @main
@@ -540,6 +557,10 @@ struct ArchiveView: View {
     }
 }
 
+extension URL: Identifiable {
+    public var id: String { absoluteString }
+}
+
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
 
@@ -553,19 +574,24 @@ struct ShareSheet: UIViewControllerRepresentable {
 // MARK: - CRYPT tab
 
 struct CryptView: View {
+    private func installSteps() -> [String] {
+        [
+            "Forge your tone and tap FORGE .M4R — the share sheet appears.",
+            "Choose Save to Files (or AirDrop it to yourself).",
+            "Open the Files app, find the .m4r file, and tap it.",
+            "iOS offers to set it as your ringtone — confirm.",
+            "Settings → Sounds & Haptics → Ringtone → pick your tone."
+        ]
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 13) {
                 PCard(title: "01 // HOW TO INSTALL A RINGTONE") {
-                    ForEach(Array([
-                        "Forge your tone and tap FORGE .M4R — the share sheet appears.",
-                        "Choose Save to Files (or AirDrop it to yourself).",
-                        "Open the Files app, find the .m4r file, and tap it.",
-                        "iOS offers to set it as your ringtone — confirm.",
-                        "Settings → Sounds & Haptics → Ringtone → pick your tone."
-                    ].enumerated().map { "\($0.offset + 1). \($0.element)" }, id: \.self)) { line in
-                        HStack(alignment: .top, spacing: 8) {
-                            Text(line)
+                    let steps = installSteps()
+                    VStack(alignment: .leading, spacing: 7) {
+                        ForEach(Array(steps.enumerated()), id: \.offset) { pair in
+                            Text("\(pair.offset + 1). \(pair.element)")
                                 .font(.system(size: 12))
                                 .foregroundColor(ashText)
                         }

@@ -352,12 +352,13 @@ final class ForgeState: ObservableObject {
                 return u
             }.value
             loadTones()
-            print("[Knell] loadTones found: \(tones.count) tones")
-            for t in tones { print("[Knell] tone: \(t.name) at \(t.fileURL.path)") }
-            statusMessage = "Forged — \(tones.count) tone(s) in the ARCHIVE. Choose a destination to export."
+            let exists = FileManager.default.fileExists(atPath: url.path)
+            let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? Int ?? 0
+            statusMessage = "Rendered: \(url.lastPathComponent) | exists: \(exists) | size: \(size)B | archive: \(tones.count) tones"
             rendering = false
-            print("[Knell] presenting picker for: \(url.path)")
-            DocumentExportHost.shared.present(url: url)
+            if exists {
+                DocumentExportHost.shared.present(url: url)
+            }
         } catch {
             statusMessage = "Forge failed: \(error.localizedDescription)"
             rendering = false

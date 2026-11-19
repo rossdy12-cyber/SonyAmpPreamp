@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.36",
+          "date": "2026-11-19",
+          "localizedDescription": "v2.4.36: Knell: install steps updated for m4a + rename flow",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.36/SonyAmpPreamp.ipa",
+          "size": 668149,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.35",
           "date": "2026-11-19",
           "localizedDescription": "v2.4.35: Knell: print instead of undefined log()",

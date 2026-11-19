@@ -340,9 +340,9 @@ final class ForgeState: ObservableObject {
                 try await KnellForge.renderToM4R(name: "Knell_\(stamp)", params: p, toDirectory: docs)
             }.value
             loadTones()
-            statusMessage = ""
+            statusMessage = "Forged — \(tones.count) tone(s) in the ARCHIVE. Choose a destination to export."
             rendering = false
-            sharingURL = url   // stable page-sheet presentation
+            sharingURL = url
         } catch {
             statusMessage = "Forge failed: \(error.localizedDescription)"
             rendering = false
@@ -470,7 +470,7 @@ struct ForgeView: View {
             get: { forge.sharingURL },
             set: { if $0 == nil { forge.sharingURL = nil } }
         )) { url in
-            ShareSheet(items: [url])
+            DocumentExportView(url: url)
         }
         .navigationTitle("")
         .overlay(alignment: .top) {
@@ -551,6 +551,7 @@ struct ArchiveView: View {
                                 Image(systemName: "square.and.arrow.up")
                                     .foregroundColor(crimson)
                             }
+                            .accessibilityLabel("Export to Files")
                             Button(role: .destructive) {
                                 forge.deleteTone(tone)
                             } label: {
@@ -572,9 +573,20 @@ struct ArchiveView: View {
                 .padding(.top, 2)
         }
         .sheet(item: $sharingURL) { url in
-            ShareSheet(items: [url])
+            DocumentExportView(url: url)
         }
     }
+}
+
+struct DocumentExportView: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+        return picker
+    }
+
+    func updateUIViewController(_ vc: UIDocumentPickerViewController, context: Context) {}
 }
 
 extension URL: Identifiable {

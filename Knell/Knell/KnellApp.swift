@@ -606,7 +606,7 @@ final class DocumentExportHost: NSObject, UIDocumentPickerDelegate {
     private static func presentOnMain(url: URL) {
         // UIKit hard-asserts in initForExportingURLs if the file is missing
         guard FileManager.default.fileExists(atPath: url.path) else {
-            log("export picker aborted: file missing at " + url.path)
+            print("[Knell] export picker aborted: file missing at " + url.path)
             return
         }
         guard let top = keyTopViewController() else { return }

@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.48",
+          "date": "2026-11-19",
+          "localizedDescription": "v2.4.48: Knell: fix floatChannelData unwrapping and remove iOS 18 close()",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.48/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.47",
           "date": "2026-11-19",
           "localizedDescription": "v2.4.47: Knell v1.0.15: direct AVAudioFile AAC write (replaces broken AVAssetExportSession), fix slider % format",

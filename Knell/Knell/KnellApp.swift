@@ -245,6 +245,7 @@ final class ForgeState: ObservableObject {
     @Published var tones: [KnellTone] = []
     @Published var statusMessage = ""
     @Published var rendering = false
+    @Published var sharingURL: URL? = nil
 
     private var player: AVAudioPlayer?
     private var docsDir: URL {
@@ -317,9 +318,7 @@ final class ForgeState: ObservableObject {
             loadTones()
             statusMessage = ""
             rendering = false
-            await MainActor.run {
-                sharingURL = url   // stable page-sheet presentation
-            }
+            sharingURL = url   // stable page-sheet presentation
         } catch {
             statusMessage = "Forge failed: \(error.localizedDescription)"
             rendering = false
@@ -354,7 +353,6 @@ struct ContentView: View {
 
 struct ForgeView: View {
     @ObservedObject var forge: ForgeState
-    @State private var sharingURL: URL?
 
     var body: some View {
         ZStack {
@@ -444,7 +442,10 @@ struct ForgeView: View {
                 .padding(14)
             }
         }
-        .sheet(item: $sharingURL) { url in
+        .sheet(item: Binding(
+            get: { forge.sharingURL },
+            set: { if $0 == nil { forge.sharingURL = nil } }
+        )) { url in
             ShareSheet(items: [url])
         }
         .navigationTitle("")

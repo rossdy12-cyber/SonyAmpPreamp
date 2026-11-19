@@ -168,9 +168,13 @@ enum KnellForge {
         // We export as .m4a (fully supported); the user renames to .m4r in Files.
         let m4rURL = toDirectory.appendingPathComponent(name.replacingOccurrences(of: " ", with: "_") + ".m4a")
 
-        // 1. write WAV
-        var wav = Data()
-        let dataBytes = samples.withUnsafeBytes { Data($0) }
+        // 1. write WAV (convert Float to Int16 PCM)
+        var pcm16 = [Int16](repeating: 0, count: samples.count)
+        for i in 0..<samples.count {
+            let v = max(-1.0, min(1.0, samples[i]))
+            pcm16[i] = Int16(v * 32767.0)
+        }
+        let dataBytes = pcm16.withUnsafeBytes { Data($0) }
         let byteRate = Int(sampleRate) * 2
         func append(_ v: UInt32) { withUnsafeBytes(of: v.littleEndian) { wav.append(contentsOf: $0) } }
         func append16(_ v: UInt16) { withUnsafeBytes(of: v.littleEndian) { wav.append(contentsOf: $0) } }

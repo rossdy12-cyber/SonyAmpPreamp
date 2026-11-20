@@ -22,6 +22,8 @@ targets:
       path: Oracle/Info.plist
       properties:
         CFBundleDisplayName: Oracle
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true

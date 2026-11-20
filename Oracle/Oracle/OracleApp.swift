@@ -149,6 +149,21 @@ final class OracleState: ObservableObject {
         statusMessage = "Fresh page. The oracle awaits your question."
     }
 
+    func verifySecret() {
+        guard let url = URL(string: "\(base)/v1/sessions") else { return }
+        var req = URLRequest(url: url)
+        req.setValue(trimmedSecret, forHTTPHeaderField: "X-Oracle-Secret")
+        req.timeoutInterval = 15
+        URLSession.shared.dataTask(with: req) { [weak self] data, resp, _ in
+            DispatchQueue.main.async {
+                let ok = (resp as? HTTPURLResponse)?.statusCode == 200
+                self?.statusMessage = ok
+                    ? "Secret verified ✓ (\(self?.trimmedSecret.count ?? 0) characters). Now tap BEGIN SIGN-IN."
+                    : "Secret REJECTED (\(resp != nil ? "wrong key" : "unreachable")). \(self?.trimmedSecret.count ?? 0) characters stored — re-copy it exactly."
+            }
+        }.resume()
+    }
+
     func loadSessions() {
         guard let url = URL(string: "\(base)/v1/sessions") else { return }
         var req = URLRequest(url: url)
@@ -419,6 +434,7 @@ struct KeysView: View {
     @State private var paste = ""
     @State private var draftURL = ""
     @State private var draftSecret = ""
+    @State private var showSecret = false
 
     var body: some View {
         ZStack {
@@ -438,17 +454,28 @@ struct KeysView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(crimson.opacity(0.4), lineWidth: 1))
                             Text("Shared secret (from the bridge log)")
                                 .font(.system(size: 10, weight: .heavy, design: .monospaced)).foregroundColor(ashDim)
-                            SecureField("paste secret", text: $draftSecret)
-                                .textFieldStyle(.plain)
-                                .foregroundColor(ashText)
-                                .font(.system(size: 12, design: .monospaced))
-                                .padding(9)
-                                .background(Color(red: 0.1, green: 0.02, blue: 0.05))
-                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(crimson.opacity(0.4), lineWidth: 1))
+                            HStack {
+                                TextField("paste secret", text: $draftSecret)
+                                    .textFieldStyle(.plain)
+                                    .foregroundColor(ashText)
+                                    .font(.system(size: 12, design: .monospaced))
+                                    .autocorrectionDisabled()
+                                    .textInputAutocapitalization(.never)
+                                Button { showSecret.toggle() } label: {
+                                    Image(systemName: showSecret ? "eye.slash" : "eye")
+                                        .foregroundColor(ashDim).font(.system(size: 13))
+                                }
+                            }
+                            .padding(9)
+                            .background(Color(red: 0.1, green: 0.02, blue: 0.05))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(crimson.opacity(0.4), lineWidth: 1))
+                            Text("\(draftSecret.trimmingCharacters(in: .whitespacesAndNewlines).count) characters")
+                                .font(.system(size: 10, design: .monospaced)).foregroundColor(ashDim)
                             OButton(title: "SEAL THE LINK") {
                                 oracle.serverURL = draftURL.isEmpty ? oracle.serverURL : draftURL
                                 oracle.secret = draftSecret.isEmpty ? oracle.secret : draftSecret
                                 oracle.save()
+                                oracle.verifySecret()
                             }
                             HStack(spacing: 6) {
                                 Circle().fill(oracle.signedIn ? Color(red: 0, green: 0.9, blue: 0.45) : Color(red: 1, green: 0.67, blue: 0))

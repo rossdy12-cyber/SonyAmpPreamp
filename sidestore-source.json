@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.51",
+          "date": "2026-11-20",
+          "localizedDescription": "v2.4.51: Sync bot release",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.51/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.50",
           "date": "2026-11-20",
           "localizedDescription": "v2.4.50: Re-apply Knell v1.2.0 after bot release force-push clobber",

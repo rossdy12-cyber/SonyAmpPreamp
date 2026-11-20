@@ -1,0 +1,42 @@
+name: Build Oracle IPA (DeepAI Code anywhere)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'Oracle/**'
+      - '.github/workflows/build-oracle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-oracle:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project & Build Oracle (Unsigned)
+        working-directory: Oracle
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          xcodebuild -project Oracle.xcodeproj -scheme Oracle -configuration Release -destination 'generic/platform=iOS' -archivePath build/Oracle.xcarchive archive CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" | tail -30
+
+      - name: Package Unsigned IPA
+        working-directory: Oracle
+        run: |
+          APP_PATH=$(find build/Oracle.xcarchive/Products/Applications -maxdepth 1 -name "*.app" | head -1)
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -qry Oracle-unsigned.ipa Payload
+          ls -la Oracle-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Oracle-ipa
+          path: Oracle/Oracle-unsigned.ipa

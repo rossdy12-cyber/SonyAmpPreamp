@@ -31,6 +31,44 @@ final class OracleState: ObservableObject {
     @Published var sessions: [SessionRow] = []
     @Published var signInURL: String = ""
     @Published var showSignInPaste = false
+    @Published var models: [ModelRow] = []
+    @Published var currentModel: String = ""
+
+    struct ModelRow: Identifiable, Codable {
+        let id: String
+        let name: String
+    }
+
+    func loadModels() {
+        guard let url = URL(string: "\(base)/v1/models") else { return }
+        var req = URLRequest(url: url)
+        req.setValue(trimmedSecret, forHTTPHeaderField: "X-Oracle-Secret")
+        req.timeoutInterval = 15
+        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
+            struct Resp: Codable { let ok: Bool; let current: String?; let models: [ModelRow]? }
+            let resp = try? JSONDecoder().decode(Resp.self, from: data ?? Data())
+            DispatchQueue.main.async {
+                self?.models = resp?.models ?? []
+                self?.currentModel = resp?.current ?? ""
+            }
+        }.resume()
+    }
+
+    func selectModel(_ id: String) {
+        guard let url = URL(string: "\(base)/v1/model") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue(trimmedSecret, forHTTPHeaderField: "X-Oracle-Secret")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONEncoder().encode(["model": id])
+        req.timeoutInterval = 15
+        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
+            DispatchQueue.main.async {
+                self?.currentModel = id.hasPrefix("deepai/") ? id : "deepai/\(id)"
+                self?.statusMessage = "Model switched to \(id)."
+            }
+        }.resume()
+    }
 
     struct SessionRow: Identifiable, Codable {
         let id: String
@@ -531,7 +569,33 @@ struct KeysView: View {
                         }
                     }
 
-                    OCard(title: "STATUS") {
+                    OCard(title: "03 // CHOOSE THE VOICE (MODEL)") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if oracle.models.isEmpty {
+                                Text("Loading available models…")
+                                    .font(.system(size: 12)).foregroundColor(ashDim)
+                            } else {
+                                ForEach(oracle.models) { m in
+                                    Button { oracle.selectModel(m.id) } label: {
+                                        HStack {
+                                            Image(systemName: oracle.currentModel == m.id || oracle.currentModel == "deepai/\(m.id)" ? "checkmark.circle.fill" : "circle")
+                                                .foregroundColor(crimson)
+                                            Text(m.name)
+                                                .font(.system(size: 12))
+                                                .foregroundColor(ashText)
+                                            Spacer()
+                                        }
+                                        .padding(9)
+                                        .background(Color(red: 0.12, green: 0.02, blue: 0.05))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(crimson.opacity(0.3), lineWidth: 1))
+                                        .cornerRadius(8)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    OCard(title: "04 // STATUS") {
                         Text(oracle.statusMessage.isEmpty ? (oracle.signedIn ? "Ready." : "Configure the link above, then wake the oracle.") : oracle.statusMessage)
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundColor(oracle.statusMessage.contains("failed") || oracle.statusMessage.contains("error") ? crimson : ashText)
@@ -550,6 +614,7 @@ struct KeysView: View {
         .onAppear {
             draftURL = oracle.serverURL
             draftSecret = oracle.secret
+            oracle.loadModels()
         }
     }
 }

@@ -41,21 +41,14 @@ jobs:
           name: Oracle-ipa
           path: Oracle/Oracle-unsigned.ipa
 
-      - name: Sign and Publish to Stark Store
+      - name: Publish to Stark Store (GitHub release relay)
         if: github.ref == 'refs/heads/main'
-        working-directory: Oracle
         env:
-          UPL_TOKEN: ${{ secrets.SIDESTORE_UPLOAD_TOKEN }}
-          ORIGIN_IP: ${{ secrets.ORIGIN_IP }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          VER=$(python3 -c "import zipfile,plistlib; z=zipfile.ZipFile('Oracle-unsigned.ipa'); info=[n for n in z.namelist() if n.endswith('.app/Info.plist')][0]; print(plistlib.loads(z.read(info))['CFBundleShortVersionString'])")
-          UPLOAD_URL="https://navidrome.nas-server.co.uk/sidestore-api/upload-ipa?name=Oracle&bundleId=app.ross.oracle&version=$VER&token=$UPL_TOKEN"
-          echo "Uploading Oracle v$VER to the store..."
-          RESP=$(curl -s --max-time 120 -X POST -H "User-Agent: stark-actions/1.0" --data-binary @Oracle-unsigned.ipa "$UPLOAD_URL")
-          if ! echo "$RESP" | grep -q '"ok":true'; then
-            echo "Cloudflare challenged (datacenter IP) - retrying direct to origin..."
-            RESP=$(curl -sk --max-time 120 -X POST -H "User-Agent: stark-actions/1.0" --data-binary @Oracle-unsigned.ipa --resolve "navidrome.nas-server.co.uk:443:$ORIGIN_IP" "$UPLOAD_URL")
-          fi
-          echo "$RESP"
-          echo "$RESP" | grep -q '"ok":true' && echo "PUBLISHED: Oracle v$VER is signed and live in the store"
-
+          VER=$(python3 -c "import zipfile,plistlib; z=zipfile.ZipFile('Oracle/Oracle-unsigned.ipa'); info=[n for n in z.namelist() if n.endswith('.app/Info.plist')][0]; print(plistlib.loads(z.read(info))['CFBundleShortVersionString'])")
+          ASSET="Oracle__app.ross.oracle__${VER}.ipa"
+          cp Oracle/Oracle-unsigned.ipa "$ASSET"
+          gh release view store-upload --repo rossdy12-cyber/SonyAmpPreamp >/dev/null 2>&1 ||             gh release create store-upload --repo rossdy12-cyber/SonyAmpPreamp --title "Stark Store upload relay" --notes "Unsigned IPAs for the NAS relay to sign and publish"
+          gh release upload store-upload "$ASSET" --repo rossdy12-cyber/SonyAmpPreamp --clobber
+          echo "RELEASED: $ASSET - the NAS relay will sign and publish it within ~2 minutes"

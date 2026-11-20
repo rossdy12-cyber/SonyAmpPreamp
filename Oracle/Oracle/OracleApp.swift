@@ -494,6 +494,26 @@ struct KeysView: View {
                                 oracle.startSignIn()
                             }
                             if oracle.showSignInPaste {
+                                if !oracle.signInURL.isEmpty {
+                                    Text(oracle.signInURL)
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundColor(ashText)
+                                        .lineLimit(3)
+                                        .padding(9)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(Color(red: 0.1, green: 0.02, blue: 0.05))
+                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(crimson.opacity(0.4), lineWidth: 1))
+                                        .cornerRadius(8)
+                                    HStack {
+                                        OButton(title: "COPY URL") {
+                                            UIPasteboard.general.string = oracle.signInURL
+                                            oracle.statusMessage = "URL copied — open it in Safari, sign in, then copy the failed localhost address back here."
+                                        }
+                                        OButton(title: "OPEN IN BROWSER") {
+                                            if let u = URL(string: oracle.signInURL) { UIApplication.shared.open(u) }
+                                        }
+                                    }
+                                }
                                 Text(oracle.statusMessage)
                                     .font(.system(size: 11)).foregroundColor(ashDim)
                                 TextField("paste the failed localhost URL (contains ?code=…)", text: $paste)

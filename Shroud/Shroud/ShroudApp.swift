@@ -6,7 +6,8 @@ import UserNotifications
 //  SHROUD — gothic wallpaper forge for the iPhone 16
 //  Procedurally renders full-resolution gothic wallpapers
 //  (cathedrals, blood moons, damask, graveyards, rose windows,
-//  ashen forests) at exact device resolution, saves them to
+//  ashen forests, gargoyle storms, widow's webs, midnight hearses,
+//  memento mori) at exact device resolution, saves them to
 //  Photos, keeps a vault of favorites, and can deliver a fresh
 //  shroud nightly via local notification. Nothing leaves the device.
 // ============================================================
@@ -51,7 +52,11 @@ enum ShroudForge {
         "VICTORIAN DAMASK",
         "REAPER'S GATE",
         "ROSE WINDOW",
-        "ASHEN FOREST"
+        "ASHEN FOREST",
+        "GARGOYLE'S VIGIL",
+        "WIDOW'S WEB",
+        "MIDNIGHT HEARSE",
+        "MEMENTO MORI"
     ]
 
     // Exact native resolutions (portrait, pixels)
@@ -82,7 +87,11 @@ enum ShroudForge {
             case 2: drawDamask(c, size, rng)
             case 3: drawReapersGate(c, size, rng)
             case 4: drawRoseWindow(c, size, rng)
-            default: drawAshenForest(c, size, rng)
+            case 5: drawAshenForest(c, size, rng)
+            case 6: drawGargoyle(c, size, rng)
+            case 7: drawWidowsWeb(c, size, rng)
+            case 8: drawMidnightHearse(c, size, rng)
+            default: drawMementoMori(c, size, rng)
             }
             drawVignette(c, size)
             drawGrain(c, size, rng)
@@ -597,6 +606,424 @@ enum ShroudForge {
         c.setFillColor(cg(0.02, 0.008, 0.014, 1))
         c.fill(CGRect(x: 0, y: h * 0.96, width: w, height: h * 0.04))
         fogBand(c, size, y: h * 0.93, thickness: h * 0.08, alpha: 0.2)
+    }
+
+    // MARK: THEME 6 — Gargoyle's Vigil
+
+    static func drawGargoyle(_ c: CGContext, _ size: CGSize, _ rng: () -> Double) {
+        let w = size.width, h = size.height
+        sky(c, size, (0.012, 0.006, 0.022), (0.07, 0.03, 0.07))
+        glow(c, size, center: CGPoint(x: w * 0.5, y: h * 0.28), radius: w * 0.75, color: (0.4, 0.08, 0.3), strength: 0.25)
+
+        // lightning
+        let bolts = 1 + Int(rng() * 2)
+        for _ in 0..<bolts {
+            var bx = w * (0.15 + rng() * 0.7)
+            var by = h * 0.02
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: bx, y: by))
+            let endY = h * (0.42 + rng() * 0.2)
+            while by < endY {
+                bx += w * (rng() - 0.5) * 0.055
+                by += h * (0.03 + rng() * 0.04)
+                path.addLine(to: CGPoint(x: bx, y: by))
+            }
+            c.addPath(path)
+            c.setStrokeColor(cg(1.0, 0.82, 0.85, 0.85))
+            c.setLineWidth(w * 0.007)
+            c.setLineCap(.round)
+            c.strokePath()
+            glow(c, size, center: CGPoint(x: bx, y: by), radius: w * 0.3, color: (0.85, 0.35, 0.5), strength: 0.4)
+        }
+
+        // rain
+        c.setStrokeColor(cg(0.65, 0.55, 0.65, 0.09))
+        c.setLineWidth(1.2)
+        for _ in 0..<170 {
+            let rx = rng() * w, ry = rng() * h
+            let rl = h * (0.008 + rng() * 0.018)
+            c.move(to: CGPoint(x: rx, y: ry))
+            c.addLine(to: CGPoint(x: rx - rl * 0.16, y: ry + rl))
+            c.strokePath()
+        }
+
+        // distant skyline
+        var x: CGFloat = -w * 0.02
+        while x < w {
+            let tw = w * (0.06 + rng() * 0.08)
+            let th = h * (0.07 + rng() * 0.15)
+            let topY = h - th
+            c.setFillColor(cg(0.018, 0.007, 0.018, 1))
+            c.fill(CGRect(x: x, y: topY, width: tw, height: th + h * 0.02))
+            if rng() < 0.45 {
+                let spire = CGMutablePath()
+                spire.move(to: CGPoint(x: x, y: topY))
+                spire.addLine(to: CGPoint(x: x + tw * 0.5, y: topY - h * 0.045))
+                spire.addLine(to: CGPoint(x: x + tw, y: topY))
+                spire.closeSubpath()
+                c.addPath(spire)
+                c.fillPath()
+            }
+            if rng() < 0.5 {
+                c.setFillColor(cg(1.0, 0.3, 0.22, 0.25 + rng() * 0.3))
+                pointedArch(c, cx: x + tw * 0.5, yBase: topY + th * (0.3 + rng() * 0.4), w: tw * 0.22, h: h * 0.025)
+            }
+            x += tw * (0.9 + rng() * 0.3)
+        }
+
+        // stone ledge + gargoyle in the foreground
+        let left = rng() < 0.5
+        let m: CGFloat = left ? 1 : -1
+        let ledgeY = h * 0.78
+        c.setFillColor(cg(0.012, 0.004, 0.012, 1))
+        c.fill(CGRect(x: left ? 0 : w * 0.6, y: ledgeY, width: w * 0.4, height: h * 0.22))
+        let gx = left ? w * 0.2 : w * 0.8
+        let gy = ledgeY - h * 0.004
+        let gs = w * 0.15
+        let gcol = cg(0.008, 0.002, 0.008, 1)
+        // folded wing on the outer side
+        let wing = CGMutablePath()
+        wing.move(to: CGPoint(x: gx - m * gs * 0.42, y: gy))
+        wing.addQuadCurve(to: CGPoint(x: gx - m * gs * 0.5, y: gy - gs * 0.5), control: CGPoint(x: gx - m * gs * 0.62, y: gy - gs * 0.25))
+        wing.addQuadCurve(to: CGPoint(x: gx - m * gs * 0.05, y: gy - gs * 0.42), control: CGPoint(x: gx - m * gs * 0.3, y: gy - gs * 0.55))
+        wing.addLine(to: CGPoint(x: gx - m * gs * 0.1, y: gy))
+        wing.closeSubpath()
+        c.addPath(wing)
+        c.fillPath()
+        // crouched body
+        let body = CGMutablePath()
+        body.move(to: CGPoint(x: gx - m * gs * 0.35, y: gy))
+        body.addQuadCurve(to: CGPoint(x: gx + m * gs * 0.05, y: gy - gs * 0.5), control: CGPoint(x: gx - m * gs * 0.4, y: gy - gs * 0.32))
+        body.addQuadCurve(to: CGPoint(x: gx + m * gs * 0.42, y: gy - gs * 0.18), control: CGPoint(x: gx + m * gs * 0.3, y: gy - gs * 0.5))
+        body.addQuadCurve(to: CGPoint(x: gx + m * gs * 0.52, y: gy), control: CGPoint(x: gx + m * gs * 0.52, y: gy - gs * 0.06))
+        body.closeSubpath()
+        c.addPath(body)
+        c.fillPath()
+        // head + horns
+        c.setFillColor(gcol)
+        c.fillEllipse(in: CGRect(x: gx + m * gs * 0.14, y: gy - gs * 0.74, width: gs * 0.32, height: gs * 0.3))
+        for dx in [CGFloat(-0.02), 0.2] {
+            let horn = CGMutablePath()
+            horn.move(to: CGPoint(x: gx + m * gs * (0.16 + dx), y: gy - gs * 0.7))
+            horn.addLine(to: CGPoint(x: gx + m * gs * (0.1 + dx), y: gy - gs * 0.95))
+            horn.addLine(to: CGPoint(x: gx + m * gs * (0.26 + dx), y: gy - gs * 0.76))
+            horn.closeSubpath()
+            c.addPath(horn)
+            c.fillPath()
+        }
+        // glowing eyes
+        c.setFillColor(cg(1.0, 0.22, 0.18, 0.95))
+        c.fillEllipse(in: CGRect(x: gx + m * gs * 0.2, y: gy - gs * 0.64, width: gs * 0.055, height: gs * 0.05))
+        c.fillEllipse(in: CGRect(x: gx + m * gs * 0.32, y: gy - gs * 0.64, width: gs * 0.055, height: gs * 0.05))
+        // forepaw over the ledge edge
+        c.setFillColor(gcol)
+        c.fill(CGRect(x: gx + m * gs * 0.3, y: gy - gs * 0.06, width: gs * 0.3, height: gs * 0.07))
+
+        fogBand(c, size, y: h * 0.62, thickness: h * 0.06, alpha: 0.12)
+        fogBand(c, size, y: h * 0.88, thickness: h * 0.07, alpha: 0.15)
+    }
+
+    // MARK: THEME 7 — Widow's Web
+
+    static func drawWidowsWeb(_ c: CGContext, _ size: CGSize, _ rng: () -> Double) {
+        let w = size.width, h = size.height
+        sky(c, size, (0.018, 0.005, 0.018), (0.075, 0.02, 0.04))
+        glow(c, size, center: CGPoint(x: w * 0.45, y: h * 0.32), radius: w * 0.55, color: (0.55, 0.07, 0.14), strength: 0.32)
+
+        // web anchored at the top-left, fanning down-right
+        let anchor = CGPoint(x: -w * 0.04, y: -h * 0.01)
+        let R = w * 1.25
+        let spokes = 13 + Int(rng() * 5)
+        let span = 0.72 * .pi
+        c.setStrokeColor(cg(0.9, 0.78, 0.84, 0.3))
+        c.setLineWidth(w * 0.0022)
+        for i in 0..<spokes {
+            let a = CGFloat(i) / CGFloat(spokes - 1) * span
+            let ex = anchor.x + cos(a) * R
+            let ey = anchor.y + sin(a) * R
+            let path = CGMutablePath()
+            path.move(to: anchor)
+            path.addQuadCurve(to: CGPoint(x: ex, y: ey),
+                              control: CGPoint(x: anchor.x + cos(a) * R * 0.55 + w * 0.012,
+                                               y: anchor.y + sin(a) * R * 0.55 + w * 0.012))
+            c.addPath(path)
+            c.strokePath()
+        }
+        // concentric rings with a sagging spiral feel
+        var ringR = R * 0.05
+        while ringR < R {
+            let path = CGMutablePath()
+            for i in 0...(spokes - 1) {
+                let a0 = CGFloat(i) / CGFloat(spokes - 1) * span
+                let a1 = CGFloat(i + 1) / CGFloat(spokes - 1) * span
+                let p0 = CGPoint(x: anchor.x + cos(a0) * ringR, y: anchor.y + sin(a0) * ringR)
+                let p1 = CGPoint(x: anchor.x + cos(a1) * ringR, y: anchor.y + sin(a1) * ringR)
+                let mid = CGPoint(x: (p0.x + p1.x) / 2 + w * 0.004, y: (p0.y + p1.y) / 2 + w * 0.004)
+                if i == 0 { path.move(to: p0) }
+                path.addQuadCurve(to: p1, control: mid)
+            }
+            c.addPath(path)
+            c.setStrokeColor(cg(0.88, 0.75, 0.82, CGFloat(0.34 - ringR / R * 0.22)))
+            c.setLineWidth(w * 0.0022)
+            c.strokePath()
+            ringR *= 1.3
+        }
+        // dew drops
+        for _ in 0..<90 {
+            let i = Int(rng() * Double(spokes - 1))
+            let a = CGFloat(i) / CGFloat(spokes - 1) * span
+            let rr = R * (0.07 + rng() * rng() * 0.9)
+            let dx = anchor.x + cos(a) * rr
+            let dy = anchor.y + sin(a) * rr
+            guard dx > 0, dx < w, dy > 0, dy < h else { continue }
+            let dr = w * (0.0022 + rng() * 0.004)
+            c.setFillColor(cg(1.0, 0.85, 0.9, 0.2 + rng() * 0.6))
+            c.fillEllipse(in: CGRect(x: dx - dr, y: dy - dr, width: dr * 2, height: dr * 2))
+        }
+        // the widow hanging on her thread
+        let sx = w * (0.34 + rng() * 0.24)
+        let sy = h * (0.3 + rng() * 0.18)
+        c.setStrokeColor(cg(0.9, 0.8, 0.85, 0.4))
+        c.setLineWidth(w * 0.0018)
+        c.move(to: CGPoint(x: sx, y: 0))
+        c.addLine(to: CGPoint(x: sx, y: sy - h * 0.05))
+        c.strokePath()
+        let ss = w * 0.05
+        let scol = cg(0.008, 0.002, 0.008, 0.96)
+        c.setStrokeColor(scol)
+        c.setLineWidth(ss * 0.09)
+        c.setLineCap(.round)
+        for side in [-1, 1] as [CGFloat] {
+            for i in 0..<4 {
+                let ly = sy - ss * 0.35 + CGFloat(i) * ss * 0.28
+                let lx = sx + side * ss * 0.18
+                let kx = sx + side * ss * (0.75 + rng() * 0.25)
+                let ky = ly - ss * 0.28
+                let path = CGMutablePath()
+                path.move(to: CGPoint(x: lx, y: ly))
+                path.addQuadCurve(to: CGPoint(x: kx, y: ky), control: CGPoint(x: sx + side * ss * 0.45, y: ly - ss * 0.05))
+                path.addQuadCurve(to: CGPoint(x: sx + side * ss * 0.95, y: ky + ss * 0.55), control: CGPoint(x: kx + side * ss * 0.2, y: ky + ss * 0.1))
+                c.addPath(path)
+                c.strokePath()
+            }
+        }
+        // body
+        c.setFillColor(scol)
+        c.fillEllipse(in: CGRect(x: sx - ss * 0.3, y: sy - ss * 0.42, width: ss * 0.6, height: ss * 0.52))
+        c.fillEllipse(in: CGRect(x: sx - ss * 0.22, y: sy + ss * 0.02, width: ss * 0.44, height: ss * 0.5))
+        // crimson marking on the abdomen
+        c.setFillColor(cg(0.75, 0.08, 0.16, 0.8))
+        c.fillEllipse(in: CGRect(x: sx - ss * 0.06, y: sy + ss * 0.16, width: ss * 0.12, height: ss * 0.2))
+
+        fogBand(c, size, y: h * 0.9, thickness: h * 0.1, alpha: 0.1)
+    }
+
+    // MARK: THEME 8 — Midnight Hearse
+
+    static func drawMidnightHearse(_ c: CGContext, _ size: CGSize, _ rng: () -> Double) {
+        let w = size.width, h = size.height
+        sky(c, size, (0.012, 0.004, 0.014), (0.065, 0.018, 0.03))
+        let moonC = CGPoint(x: w * (0.2 + rng() * 0.6), y: h * 0.15)
+        let moonR = w * 0.085
+        glow(c, size, center: moonC, radius: moonR * 3.2, color: (0.7, 0.6, 0.65), strength: 0.35)
+        c.setFillColor(cg(0.8, 0.74, 0.72, 0.9))
+        c.fillEllipse(in: CGRect(x: moonC.x - moonR, y: moonC.y - moonR, width: moonR * 2, height: moonR * 2))
+
+        // bare trees flanking the road
+        let treeAnchors: [CGFloat] = [-0.08, 1.02]
+        for side in treeAnchors {
+            for _ in 0..<3 {
+                let tx = w * side + w * (rng() - 0.5) * 0.12
+                branch(c, CGPoint(x: tx, y: h * (0.6 + rng() * 0.1)), (rng() - 0.5) * 0.2, h * (0.05 + rng() * 0.06), w * 0.01, 6, cg(0.01, 0.003, 0.01, 0.95), rng)
+            }
+        }
+
+        // ground + road
+        let horizon = h * 0.62
+        c.setFillColor(cg(0.01, 0.003, 0.01, 1))
+        c.fill(CGRect(x: 0, y: horizon, width: w, height: h - horizon))
+        glow(c, size, center: CGPoint(x: w * 0.5, y: horizon), radius: w * 0.5, color: (0.55, 0.08, 0.13), strength: 0.28)
+        let vx = w * 0.5
+        c.setStrokeColor(cg(0.85, 0.7, 0.75, 0.25))
+        c.setLineWidth(w * 0.004)
+        c.move(to: CGPoint(x: 0, y: h)); c.addLine(to: CGPoint(x: vx, y: horizon)); c.strokePath()
+        c.move(to: CGPoint(x: w, y: h)); c.addLine(to: CGPoint(x: vx, y: horizon)); c.strokePath()
+        // center dashes, widening toward the viewer
+        var yy = horizon + (h - horizon) * 0.1
+        while yy < h {
+            let t = (yy - horizon) / (h - horizon)
+            let dash = h * 0.01 * (0.4 + t * 1.6)
+            c.setStrokeColor(cg(0.9, 0.75, 0.8, 0.35))
+            c.setLineWidth(w * 0.0025 * (0.4 + t * 2.2))
+            c.move(to: CGPoint(x: vx, y: yy))
+            c.addLine(to: CGPoint(x: vx, y: yy + dash))
+            c.strokePath()
+            yy += dash * 2.6
+        }
+
+        // the hearse
+        let hs = w * 0.34
+        let hx = w * (0.42 + rng() * 0.16)
+        let hy = h * 0.8
+        let hcol = cg(0.008, 0.002, 0.008, 1)
+        // carriage body with an arched roof
+        let coach = CGMutablePath()
+        coach.move(to: CGPoint(x: hx - hs * 0.5, y: hy))
+        coach.addLine(to: CGPoint(x: hx - hs * 0.5, y: hy - hs * 0.28))
+        coach.addQuadCurve(to: CGPoint(x: hx - hs * 0.18, y: hy - hs * 0.62), control: CGPoint(x: hx - hs * 0.5, y: hy - hs * 0.55))
+        coach.addLine(to: CGPoint(x: hx + hs * 0.3, y: hy - hs * 0.62))
+        coach.addQuadCurve(to: CGPoint(x: hx + hs * 0.46, y: hy - hs * 0.3), control: CGPoint(x: hx + hs * 0.46, y: hy - hs * 0.5))
+        coach.addLine(to: CGPoint(x: hx + hs * 0.46, y: hy))
+        coach.closeSubpath()
+        c.addPath(coach); c.fillPath()
+        // plume ornament
+        let plume = CGMutablePath()
+        plume.move(to: CGPoint(x: hx + hs * 0.02, y: hy - hs * 0.62))
+        plume.addQuadCurve(to: CGPoint(x: hx + hs * 0.1, y: hy - hs * 0.95), control: CGPoint(x: hx + hs * 0.12, y: hy - hs * 0.75))
+        plume.addQuadCurve(to: CGPoint(x: hx + hs * 0.02, y: hy - hs * 0.66), control: CGPoint(x: hx - hs * 0.02, y: hy - hs * 0.8))
+        plume.closeSubpath()
+        c.addPath(plume); c.fillPath()
+        // faintly glowing window
+        c.setFillColor(cg(1.0, 0.25, 0.2, 0.3))
+        pointedArch(c, cx: hx + hs * 0.05, yBase: hy - hs * 0.12, w: hs * 0.22, h: hs * 0.22)
+        // shafts
+        c.setStrokeColor(hcol); c.setLineWidth(hs * 0.05)
+        c.move(to: CGPoint(x: hx - hs * 0.5, y: hy - hs * 0.08))
+        c.addLine(to: CGPoint(x: hx - hs * 0.85, y: hy - hs * 0.02))
+        c.strokePath()
+        // wheels
+        let wheelXs: [CGFloat] = [hx - hs * 0.28, hx + hs * 0.28]
+        for wx in wheelXs {
+            let wr = hs * 0.16
+            c.setStrokeColor(hcol)
+            c.setLineWidth(hs * 0.05)
+            c.strokeEllipse(in: CGRect(x: wx - wr, y: hy - wr, width: wr * 2, height: wr * 2))
+            c.setLineWidth(hs * 0.02)
+            for i in 0..<4 {
+                let a = CGFloat(i) * .pi / 4
+                c.move(to: CGPoint(x: wx - cos(a) * wr, y: hy - sin(a) * wr))
+                c.addLine(to: CGPoint(x: wx + cos(a) * wr, y: hy + sin(a) * wr))
+                c.strokePath()
+            }
+        }
+        // lanterns
+        let lanternXs: [CGFloat] = [hx - hs * 0.52, hx + hs * 0.5]
+        for lx in lanternXs {
+            glow(c, size, center: CGPoint(x: lx, y: hy - hs * 0.3), radius: hs * 0.3, color: (1.0, 0.5, 0.25), strength: 0.75)
+            c.setFillColor(cg(1.0, 0.55, 0.3, 0.95))
+            c.fillEllipse(in: CGRect(x: lx - hs * 0.035, y: hy - hs * 0.34, width: hs * 0.07, height: hs * 0.08))
+        }
+
+        fogBand(c, size, y: horizon + h * 0.05, thickness: h * 0.08, alpha: 0.18)
+        fogBand(c, size, y: h * 0.95, thickness: h * 0.06, alpha: 0.14)
+    }
+
+    // MARK: THEME 9 — Memento Mori
+
+    static func drawMementoMori(_ c: CGContext, _ size: CGSize, _ rng: () -> Double) {
+        let w = size.width, h = size.height
+        sky(c, size, (0.015, 0.004, 0.012), (0.05, 0.012, 0.02))
+        glow(c, size, center: CGPoint(x: w * 0.5, y: h * 0.82), radius: w * 0.75, color: (0.75, 0.3, 0.2), strength: 0.3)
+        glow(c, size, center: CGPoint(x: w * 0.5, y: h * 0.4), radius: w * 0.55, color: (0.55, 0.06, 0.13), strength: 0.22)
+
+        let bone = cg(0.78, 0.7, 0.63, 1)
+        let skx = w * 0.5
+        let sky2 = h * 0.42
+        let ss = w * 0.34
+
+        // crossed bones behind the skull
+        c.setStrokeColor(cg(0.62, 0.54, 0.48, 0.9))
+        c.setFillColor(cg(0.62, 0.54, 0.48, 0.9))
+        c.setLineCap(.round)
+        c.setLineWidth(ss * 0.09)
+        for ang in [CGFloat(-0.5), 0.5] {
+            let dx = sin(ang) * ss * 0.75, dy = cos(ang) * ss * 0.75
+            c.move(to: CGPoint(x: skx - dx, y: sky2 + ss * 0.35 + dy))
+            c.addLine(to: CGPoint(x: skx + dx, y: sky2 + ss * 0.35 - dy))
+            c.strokePath()
+            for s in [-1, 1] as [CGFloat] {
+                let ex = skx + s * dx, ey = sky2 + ss * 0.35 - s * dy
+                c.fillEllipse(in: CGRect(x: ex - ss * 0.08, y: ey - ss * 0.08, width: ss * 0.16, height: ss * 0.16))
+            }
+        }
+
+        // cranium + jaw
+        c.setFillColor(bone)
+        c.fillEllipse(in: CGRect(x: skx - ss * 0.5, y: sky2 - ss * 0.55, width: ss, height: ss * 0.95))
+        let jaw = CGMutablePath()
+        jaw.move(to: CGPoint(x: skx - ss * 0.36, y: sky2 + ss * 0.1))
+        jaw.addLine(to: CGPoint(x: skx - ss * 0.3, y: sky2 + ss * 0.42))
+        jaw.addLine(to: CGPoint(x: skx + ss * 0.3, y: sky2 + ss * 0.42))
+        jaw.addLine(to: CGPoint(x: skx + ss * 0.36, y: sky2 + ss * 0.1))
+        jaw.closeSubpath()
+        c.addPath(jaw); c.fillPath()
+        // ember eye sockets
+        for s in [-1, 1] as [CGFloat] {
+            let ex = skx + s * ss * 0.22
+            glow(c, size, center: CGPoint(x: ex, y: sky2 + ss * 0.02), radius: ss * 0.3, color: (0.9, 0.15, 0.15), strength: 0.5)
+            c.setFillColor(cg(0.03, 0.005, 0.015, 1))
+            c.fillEllipse(in: CGRect(x: ex - ss * 0.15, y: sky2 - ss * 0.08, width: ss * 0.3, height: ss * 0.3))
+            c.setFillColor(cg(1.0, 0.25, 0.18, 0.9))
+            c.fillEllipse(in: CGRect(x: ex - ss * 0.045, y: sky2 + ss * 0.02, width: ss * 0.09, height: ss * 0.09))
+        }
+        // nasal cavity
+        c.setFillColor(cg(0.03, 0.005, 0.015, 1))
+        let nose = CGMutablePath()
+        nose.move(to: CGPoint(x: skx, y: sky2 + ss * 0.14))
+        nose.addLine(to: CGPoint(x: skx - ss * 0.06, y: sky2 + ss * 0.34))
+        nose.addLine(to: CGPoint(x: skx + ss * 0.06, y: sky2 + ss * 0.34))
+        nose.closeSubpath()
+        c.addPath(nose); c.fillPath()
+        // teeth
+        c.setStrokeColor(cg(0.03, 0.005, 0.015, 1))
+        c.setLineWidth(ss * 0.018)
+        for i in 0..<6 {
+            let tx = skx - ss * 0.24 + CGFloat(i) * ss * 0.096
+            c.move(to: CGPoint(x: tx, y: sky2 + ss * 0.2))
+            c.addLine(to: CGPoint(x: tx, y: sky2 + ss * 0.42))
+            c.strokePath()
+        }
+        c.move(to: CGPoint(x: skx - ss * 0.3, y: sky2 + ss * 0.3))
+        c.addLine(to: CGPoint(x: skx + ss * 0.3, y: sky2 + ss * 0.3))
+        c.strokePath()
+        // hairline cracks
+        c.setLineWidth(ss * 0.012)
+        for _ in 0..<3 {
+            var cx = skx + (rng() - 0.5) * ss * 0.6, cy = sky2 - ss * 0.5
+            let path = CGMutablePath(); path.move(to: CGPoint(x: cx, y: cy))
+            for _ in 0..<4 {
+                cx += (rng() - 0.5) * ss * 0.12; cy += ss * 0.09
+                path.addLine(to: CGPoint(x: cx, y: cy))
+            }
+            c.addPath(path); c.strokePath()
+        }
+
+        // crown of crimson roses
+        for i in 0..<7 {
+            let a = -0.5 + CGFloat(i) / 6 * 1.0
+            let rx2 = skx + sin(a) * ss * 0.52
+            let ry2 = sky2 - cos(a) * ss * 0.56
+            let rs = ss * (0.07 + rng() * 0.05)
+            c.setFillColor(cg(0.62, 0.05, 0.14, 1))
+            c.fillEllipse(in: CGRect(x: rx2 - rs, y: ry2 - rs, width: rs * 2, height: rs * 2))
+            c.setFillColor(cg(0.85, 0.1, 0.2, 1))
+            c.fillEllipse(in: CGRect(x: rx2 - rs * 0.6, y: ry2 - rs * 0.6, width: rs * 1.2, height: rs * 1.2))
+            c.setFillColor(cg(0.03, 0.004, 0.01, 1))
+            c.fillEllipse(in: CGRect(x: rx2 - rs * 0.2, y: ry2 - rs * 0.2, width: rs * 0.4, height: rs * 0.4))
+        }
+
+        // candle at the base
+        let cxx = w * 0.5
+        let cyy = h * 0.86
+        c.setFillColor(cg(0.7, 0.62, 0.55, 1))
+        c.fill(CGRect(x: cxx - w * 0.03, y: cyy - h * 0.02, width: w * 0.06, height: h * 0.09))
+        glow(c, size, center: CGPoint(x: cxx, y: cyy - h * 0.035), radius: w * 0.3, color: (1.0, 0.6, 0.3), strength: 0.8)
+        c.setFillColor(cg(1.0, 0.7, 0.35, 0.95))
+        c.fillEllipse(in: CGRect(x: cxx - w * 0.008, y: cyy - h * 0.05, width: w * 0.016, height: h * 0.024))
+        c.setFillColor(cg(0.02, 0.005, 0.012, 1))
+        c.fillEllipse(in: CGRect(x: cxx - w * 0.14, y: cyy + h * 0.06, width: w * 0.28, height: h * 0.03))
+
+        fogBand(c, size, y: h * 0.95, thickness: h * 0.06, alpha: 0.12)
     }
 }
 

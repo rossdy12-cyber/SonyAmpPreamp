@@ -362,7 +362,7 @@ enum KnellForge {
             guard let dataBuffer = CMSampleBufferGetDataBuffer(sb) else { continue }
             var totalLength = 0
             var dataPointer: UnsafeMutablePointer<Int8>? = nil
-            CMBlockBufferGetDataPointer(dataBuffer, atOffset: 0, lengthAtOffset: nil, totalLength: &totalLength, dataPointer: &dataPointer)
+            CMBlockBufferGetDataPointer(dataBuffer, atOffset: 0, lengthAtOffsetOut: nil, totalLengthOut: &totalLength, dataPointerOut: &dataPointer)
             guard let p = dataPointer, totalLength > 0 else { continue }
             let floatCount = totalLength / MemoryLayout<Float>.size
             p.withMemoryRebound(to: Float.self, capacity: floatCount) { floats in

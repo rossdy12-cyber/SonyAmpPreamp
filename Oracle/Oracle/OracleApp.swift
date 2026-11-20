@@ -53,6 +53,7 @@ final class OracleState: ObservableObject {
     }
 
     private var base: String { serverURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/")) }
+    private var trimmedSecret: String { secret.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     func checkHealth() {
         guard !base.isEmpty, !secret.isEmpty else { signedIn = false; return }
@@ -69,7 +70,7 @@ final class OracleState: ObservableObject {
         guard let url = URL(string: "\(base)/v1/signin/start") else { return }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
-        req.setValue(secret, forHTTPHeaderField: "X-Oracle-Secret")
+        req.setValue(trimmedSecret, forHTTPHeaderField: "X-Oracle-Secret")
         req.timeoutInterval = 20
         URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
             struct StartResp: Codable { let ok: Bool; let url: String?; let instructions: String? }
@@ -80,7 +81,7 @@ final class OracleState: ObservableObject {
                     self?.statusMessage = resp?.instructions ?? ""
                     self?.showSignInPaste = true
                 } else {
-                    self?.statusMessage = "Could not start sign-in — check the KEYS settings."
+                    self?.statusMessage = "Sign-in could not start: \(resp?.instructions ?? "check the KEYS settings — wrong secret?")"
                 }
             }
         }.resume()
@@ -90,7 +91,7 @@ final class OracleState: ObservableObject {
         guard let url = URL(string: "\(base)/v1/signin/finish") else { return }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
-        req.setValue(secret, forHTTPHeaderField: "X-Oracle-Secret")
+        req.setValue(trimmedSecret, forHTTPHeaderField: "X-Oracle-Secret")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONEncoder().encode(["paste": paste])
         req.timeoutInterval = 30
@@ -121,7 +122,7 @@ final class OracleState: ObservableObject {
         guard let url = URL(string: "\(base)/v1/chat") else { return }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
-        req.setValue(secret, forHTTPHeaderField: "X-Oracle-Secret")
+        req.setValue(trimmedSecret, forHTTPHeaderField: "X-Oracle-Secret")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.timeoutInterval = 420
         struct ChatBody: Codable { let message: String; let session_id: String? }
@@ -151,7 +152,7 @@ final class OracleState: ObservableObject {
     func loadSessions() {
         guard let url = URL(string: "\(base)/v1/sessions") else { return }
         var req = URLRequest(url: url)
-        req.setValue(secret, forHTTPHeaderField: "X-Oracle-Secret")
+        req.setValue(trimmedSecret, forHTTPHeaderField: "X-Oracle-Secret")
         req.timeoutInterval = 15
         URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
             struct Resp: Codable { let ok: Bool; let sessions: [SessionRow]? }
@@ -163,7 +164,7 @@ final class OracleState: ObservableObject {
     func loadHistory(_ sid: String) {
         guard let url = URL(string: "\(base)/v1/history/\(sid)") else { return }
         var req = URLRequest(url: url)
-        req.setValue(secret, forHTTPHeaderField: "X-Oracle-Secret")
+        req.setValue(trimmedSecret, forHTTPHeaderField: "X-Oracle-Secret")
         req.timeoutInterval = 15
         URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
             struct Resp: Codable { let ok: Bool; let messages: [OracleMessage]? }
@@ -311,6 +312,7 @@ struct ChatView: View {
                 HStack(alignment: .bottom, spacing: 8) {
                     TextField("Question the oracle…", text: $draft, axis: .vertical)
                         .textFieldStyle(.plain)
+                        .foregroundColor(ashText)
                         .font(.system(size: 14))
                         .lineLimit(1...4)
                         .padding(10)
@@ -429,6 +431,7 @@ struct KeysView: View {
                                 .font(.system(size: 10, weight: .heavy, design: .monospaced)).foregroundColor(ashDim)
                             TextField("http://100.85.127.42:9395", text: $draftURL)
                                 .textFieldStyle(.plain)
+                                .foregroundColor(ashText)
                                 .font(.system(size: 12, design: .monospaced))
                                 .padding(9)
                                 .background(Color(red: 0.1, green: 0.02, blue: 0.05))
@@ -437,6 +440,7 @@ struct KeysView: View {
                                 .font(.system(size: 10, weight: .heavy, design: .monospaced)).foregroundColor(ashDim)
                             SecureField("paste secret", text: $draftSecret)
                                 .textFieldStyle(.plain)
+                                .foregroundColor(ashText)
                                 .font(.system(size: 12, design: .monospaced))
                                 .padding(9)
                                 .background(Color(red: 0.1, green: 0.02, blue: 0.05))
@@ -467,6 +471,7 @@ struct KeysView: View {
                                     .font(.system(size: 11)).foregroundColor(ashDim)
                                 TextField("paste the failed localhost URL (contains ?code=…)", text: $paste)
                                     .textFieldStyle(.plain)
+                                    .foregroundColor(ashText)
                                     .font(.system(size: 11, design: .monospaced))
                                     .padding(9)
                                     .background(Color(red: 0.1, green: 0.02, blue: 0.05))

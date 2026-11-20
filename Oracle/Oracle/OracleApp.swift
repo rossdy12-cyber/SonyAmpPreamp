@@ -162,7 +162,7 @@ final class OracleState: ObservableObject {
         req.httpMethod = "POST"
         req.setValue(trimmedSecret, forHTTPHeaderField: "X-Oracle-Secret")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.timeoutInterval = 420
+        req.timeoutInterval = 900
         struct ChatBody: Codable { let message: String; let session_id: String? }
         req.httpBody = try? JSONEncoder().encode(ChatBody(message: trimmed, session_id: sessionId.isEmpty ? nil : sessionId))
         URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
@@ -171,11 +171,11 @@ final class OracleState: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.working = false
+                self.sessionId = resp?.session_id ?? self.sessionId
                 if let r = resp?.reply {
-                    self.sessionId = resp?.session_id ?? self.sessionId
                     self.messages.append(OracleMessage(id: UUID(), role: "assistant", text: r, ts: Date().timeIntervalSince1970))
                 } else {
-                    self.statusMessage = resp?.error ?? "The oracle went silent — check the KEYS tab."
+                    self.statusMessage = (resp?.error ?? "The oracle went silent.") + " — the turn continues server-side; ask again or say \"continue\"."
                 }
             }
         }.resume()

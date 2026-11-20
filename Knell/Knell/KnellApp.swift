@@ -644,6 +644,58 @@ final class ForgeState: ObservableObject {
         }
     }
 
+    func importFromUrl(_ urlString: String) async {
+        guard let url = URL(string: urlString.trimmingCharacters(in: .whitespaces)) else {
+            importStatus = "That is not a valid URL."
+            return
+        }
+        importing = true
+        importStatus = "Downloading from the web…"
+        do {
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 300
+            req.setValue("Mozilla/5.0 Knell", forHTTPHeaderField: "User-Agent")
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
+                throw NSError(domain: "Knell", code: 1, userInfo: [NSLocalizedDescriptionKey: "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"])
+            }
+            guard data.count > 10000 else {
+                throw NSError(domain: "Knell", code: 2, userInfo: [NSLocalizedDescriptionKey: "File too small to be audio"])
+            }
+            let stamp = Int(Date().timeIntervalSince1970) % 100000
+            var ext = url.pathExtension.lowercased()
+            if ext.isEmpty || !["mp3", "m4a", "m4r", "wav", "aac", "m4b", "ogg", "flac"].contains(ext) {
+                ext = "mp3"
+            }
+            let tmp = docsDir.appendingPathComponent("Imported_\(stamp).\(ext)")
+            try data.write(to: tmp)
+            if ext == "m4a" || ext == "m4r" {
+                let final = docsDir.appendingPathComponent("Knell_\(stamp).m4a")
+                try FileManager.default.moveItem(at: tmp, to: final)
+            } else {
+                let asset = AVURLAsset(url: tmp, options: nil)
+                let m4aOut = docsDir.appendingPathComponent("Knell_\(stamp).m4a")
+                guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+                    throw NSError(domain: "Knell", code: 3)
+                }
+                export.outputURL = m4aOut
+                export.outputFileType = .m4a
+                try? FileManager.default.removeItem(at: m4aOut)
+                await export.export()
+                guard export.status == .completed else {
+                    throw NSError(domain: "Knell", code: 4, userInfo: [NSLocalizedDescriptionKey: "Transcode failed: \(export.error?.localizedDescription ?? "?")"])
+                }
+                try? FileManager.default.removeItem(at: tmp)
+            }
+            loadTones()
+            importStatus = "Imported to ARCHIVE."
+            importing = false
+        } catch {
+            importStatus = "Import failed: \(error.localizedDescription)"
+            importing = false
+        }
+    }
+
     func deleteTone(_ tone: KnellTone) {
         try? FileManager.default.removeItem(at: tone.fileURL)
         loadTones()
@@ -656,6 +708,8 @@ final class ForgeState: ObservableObject {
     @Published var importDuration: Double = 30
     @Published var importStart: Double = 0
     @Published var importing = false
+    @Published var importStatus: String = ""
+    @Published var importUrlText: String = ""
     @Published var showPhotoPicker = false
 
     func beginImportFromFiles() {
@@ -786,6 +840,39 @@ struct ImportView: View {
             cryptBg.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    PCard(title: "00 // IMPORT FROM URL") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Paste a direct audio link (mp3, m4a, wav) from any generator or cloud share.")
+                                .font(.system(size: 12))
+                                .foregroundColor(ashDim)
+                            TextField("https://…/audio.mp3", text: $forge.importUrlText)
+                                .font(.system(size: 12, design: .monospaced))
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                            Button {
+                                Task { await forge.importFromUrl(forge.importUrlText) }
+                            } label: {
+                                HStack {
+                                    if forge.importing { ProgressView().tint(.white) }
+                                    Text(forge.importing ? "DOWNLOADING…" : "DOWNLOAD & CONVERT")
+                                }
+                                .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                                .frame(maxWidth: .infinity)
+                                .padding(11)
+                                .background(crimson)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                            }
+                            .disabled(forge.importing || forge.importUrlText.trimmingCharacters(in: .whitespaces).isEmpty)
+                            if !forge.importStatus.isEmpty {
+                                Text(forge.importStatus)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                    }
+
                     PCard(title: "00 // IMPORT FROM URL") {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Paste a direct audio link (mp3, m4a, wav) from any generator or cloud share.")

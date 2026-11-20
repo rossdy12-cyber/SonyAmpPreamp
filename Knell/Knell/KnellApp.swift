@@ -591,7 +591,6 @@ final class ForgeState: ObservableObject {
         }
     }
 
-    
     func importFromUrl(_ urlString: String) async {
         guard let url = URL(string: urlString.trimmingCharacters(in: .whitespaces)) else {
             importStatus = "That is not a valid URL."
@@ -617,6 +616,7 @@ final class ForgeState: ObservableObject {
             }
             let tmp = docsDir.appendingPathComponent("Imported_\(stamp).\(ext)")
             try data.write(to: tmp)
+            // transcode to m4a if not already
             if ext == "m4a" || ext == "m4r" {
                 let final = docsDir.appendingPathComponent("Knell_\(stamp).m4a")
                 try FileManager.default.moveItem(at: tmp, to: final)
@@ -650,12 +650,12 @@ final class ForgeState: ObservableObject {
     }
 
     // MARK: Import / conversion state
+    @Published var importStatus: String = ""
+    @Published var importUrlText: String = ""
     @Published var importSource: URL? = nil
     @Published var importDuration: Double = 30
     @Published var importStart: Double = 0
     @Published var importing = false
-    @Published var importStatus: String = ""
-    @Published var importUrlText: String = ""
     @Published var showPhotoPicker = false
 
     func beginImportFromFiles() {
@@ -844,39 +844,6 @@ struct ImportView: View {
                                 .cornerRadius(8)
                             }
                             .disabled(forge.importing || forge.importUrlText.trimmingCharacters(in: .whitespaces).isEmpty)
-                            if !forge.importStatus.isEmpty {
-                                Text(forge.importStatus)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundColor(.orange)
-                            }
-                        }
-                    }
-
-                    PCard(title: "00 // IMPORT FROM URL") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Paste a direct audio link (mp3, m4a, wav) from any generator or cloud share.")
-                                .font(.system(size: 12))
-                                .foregroundColor(ashDim)
-                            TextField("https://…/audio.mp3", text: $forge.importUrlText)
-                                .font(.system(size: 12, design: .monospaced))
-                                .textFieldStyle(.roundedBorder)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                            Button {
-                                Task { await forge.importFromUrl(forge.importUrlText) }
-                            } label: {
-                                HStack {
-                                    if forge.importing { ProgressView().tint(.white) }
-                                    Text(forge.importing ? "DOWNLOADING…" : "DOWNLOAD & CONVERT")
-                                }
-                                .font(.system(size: 12, weight: .heavy, design: .monospaced))
-                                .frame(maxWidth: .infinity)
-                                .padding(11)
-                                .background(crimson)
-                                .foregroundColor(.white)
-                                .cornerRadius(8)
-                            }
-                            .disabled(forge.importing)
                             if !forge.importStatus.isEmpty {
                                 Text(forge.importStatus)
                                     .font(.system(size: 11, design: .monospaced))

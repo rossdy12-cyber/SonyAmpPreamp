@@ -1,0 +1,63 @@
+name: Build Shroud IPA (Gothic Wallpaper Forge)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'Shroud/**'
+      - '.github/workflows/build-shroud.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-shroud:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project & Build Shroud (Unsigned)
+        working-directory: Shroud
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          xcodebuild clean build \
+            -project Shroud.xcodeproj \
+            -target Shroud \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package Payload into Shroud.ipa
+        working-directory: Shroud
+        run: |
+          mkdir -p out/Payload
+          cp -R "build/Release-iphoneos/Shroud.app" out/Payload/
+          cd out && zip -r9 Shroud.ipa Payload
+
+      - name: Upload Shroud IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shroud-ipa
+          path: Shroud/out/Shroud.ipa
+          if-no-files-found: error
+
+      - name: Publish to Stark Store (GitHub release relay)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(python3 -c "import zipfile,plistlib; z=zipfile.ZipFile('Shroud/out/Shroud.ipa'); info=[n for n in z.namelist() if n.endswith('.app/Info.plist')][0]; print(plistlib.loads(z.read(info))['CFBundleShortVersionString'])")
+          ASSET="Shroud__com.ross.shroud__${VER}.ipa"
+          cp Shroud/out/Shroud.ipa "$ASSET"
+          gh release view store-upload --repo rossdy12-cyber/SonyAmpPreamp >/dev/null 2>&1 || \
+            gh release create store-upload --repo rossdy12-cyber/SonyAmpPreamp --title "Stark Store upload relay" --notes "Unsigned IPAs for the NAS relay to sign and publish"
+          gh release upload store-upload "$ASSET" --repo rossdy12-cyber/SonyAmpPreamp --clobber
+          echo "RELEASED: $ASSET - the NAS relay will sign and publish it within ~2 minutes"

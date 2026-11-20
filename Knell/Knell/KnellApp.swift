@@ -718,7 +718,7 @@ final class DocumentExportHost: NSObject, UIDocumentPickerDelegate {
                 // restore the app's main window as key
                 let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
                 for scene in scenes {
-                    if let main = scene.windows.first(where: { $0 !== w && $0.canBecomeKeyWindow && !$0.isHidden }) {
+                    if let main = scene.windows.first(where: { $0 !== w && $0.canBecomeKey && !$0.isHidden }) {
                         main.makeKey()
                     }
                 }

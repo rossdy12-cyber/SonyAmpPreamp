@@ -339,15 +339,10 @@ enum KnellForge {
         guard let track = try? await asset.loadTracks(withMediaType: .audio).first else {
             throw NSError(domain: "Knell", code: 11, userInfo: [NSLocalizedDescriptionKey: "That file has no audio track"])
         }
-        guard let nativeFormat = try? await track.load(.format(.audio(options: nil))) as? AVAudioFormat else {
-            throw NSError(domain: "Knell", code: 12, userInfo: [NSLocalizedDescriptionKey: "Could not read the audio format"])
-        }
-        let srcRate = nativeFormat.sampleRate
-        let channels = max(1, nativeFormat.channelCount)
         let readSettings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: srcRate,
-            AVNumberOfChannelsKey: channels,
+            AVSampleRateKey: 44100,
+            AVNumberOfChannelsKey: 1,
             AVLinearPCMBitDepthKey: 32,
             AVLinearPCMIsFloatKey: true,
             AVLinearPCMIsNonInterleaved: false,
@@ -363,19 +358,15 @@ enum KnellForge {
         reader.startReading()
 
         var pcm: [Float] = []
-        while let sb = output.nextSampleBuffer() {
-            let frames = AVAudioFrameCount(sb.frameLength)
-            if frames == 0 { continue }
-            var bytes = [UInt8](repeating: 0, count: sb.dataLength)
-            sb.dataWithBytes(bytes)
-            bytes.withUnsafeBufferPointer { bp in
-                let floats = bp.baseAddress!.withMemoryRebound(to: Float.self, capacity: sb.dataLength / 4)
-                let framesPerPacket = frames
-                for f in 0..<framesPerPacket {
-                    var acc = 0.0
-                    for c in 0..<Int(channels) { acc += Double(floats[Int(f) * Int(channels) + c]) }
-                    pcm.append(Float(acc / Double(channels)))
-                }
+        while let sb = output.copyNextSampleBuffer() {
+            guard let dataBuffer = CMSampleBufferGetDataBuffer(sb) else { continue }
+            var totalLength = 0
+            var dataPointer: UnsafeMutablePointer<Int8>? = nil
+            CMBlockBufferGetDataPointer(dataBuffer, atOffset: 0, lengthAtOffset: nil, totalLength: &totalLength, dataPointer: &dataPointer)
+            guard let p = dataPointer, totalLength > 0 else { continue }
+            let floatCount = totalLength / MemoryLayout<Float>.size
+            p.withMemoryRebound(to: Float.self, capacity: floatCount) { floats in
+                for f in 0..<floatCount { pcm.append(floats[f]) }
             }
         }
         reader.cancelReading()
@@ -383,15 +374,15 @@ enum KnellForge {
             throw NSError(domain: "Knell", code: 13, userInfo: [NSLocalizedDescriptionKey: "Audio extraction came back empty"])
         }
 
-        let format = AVAudioFormat(standardFormatWithSampleRate: srcRate, channels: 1)!
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVSampleRateKey: srcRate,
+            AVSampleRateKey: 44100,
             AVNumberOfChannelsKey: 1,
             AVEncoderBitRateKey: 128000
         ]
         let audioFile = try AVAudioFile(forWriting: out, settings: settings, commonFormat: .pcmFormatFloat32, interleaved: false)
-        let chunk = Int(srcRate) * 5
+        let chunk = 44100 * 5
         var offset = 0
         while offset < pcm.count {
             let count = min(chunk, pcm.count - offset)

@@ -182,6 +182,7 @@ final class OracleState: ObservableObject {
 
 // MARK: - Root
 
+@main
 struct OracleApp: App {
     var body: some Scene {
         WindowGroup {

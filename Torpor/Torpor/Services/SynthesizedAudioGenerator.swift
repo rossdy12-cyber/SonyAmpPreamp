@@ -106,66 +106,106 @@ enum SynthesizedAudioGenerator {
         return url
     }
 
-    /// Generates a loopable ambient wind-down soundscape WAV file.
+    /// Generates a seamlessly looping, circularly crossfaded ambient wind-down soundscape WAV file.
     static func ensureWindDownWAV(for sound: WindDownSound) -> URL? {
         guard sound != .off else { return nil }
         let safeName = sound.rawValue.replacingOccurrences(of: " ", with: "_").lowercased()
-        let url = soundsDirectory.appendingPathComponent("winddown_\(safeName).wav")
+        // Remove legacy 8s fade-to-zero file if present
+        let legacyURL = soundsDirectory.appendingPathComponent("winddown_\(safeName).wav")
+        if FileManager.default.fileExists(atPath: legacyURL.path) {
+            try? FileManager.default.removeItem(at: legacyURL)
+        }
+
+        let url = soundsDirectory.appendingPathComponent("winddown_seamless_v3_\(safeName).wav")
         if FileManager.default.fileExists(atPath: url.path) {
             return url
         }
 
         let sampleRate = 22050
-        let duration = 8.0
-        let totalSamples = Int(Double(sampleRate) * duration)
-        var samples = [Int16](repeating: 0, count: totalSamples)
+        let loopDuration = 16.0
+        let crossfadeDuration = 4.0
+        let loopSamples = Int(Double(sampleRate) * loopDuration)
+        let overlapSamples = Int(Double(sampleRate) * crossfadeDuration)
+        let totalGenSamples = loopSamples + overlapSamples
+
+        var raw = [Double](repeating: 0.0, count: totalGenSamples)
         var brown: Double = 0.0
-        var rng: UInt64 = 0xC0FFEE1234567890
+        var pinkB0: Double = 0.0
+        var pinkB1: Double = 0.0
+        var pinkB2: Double = 0.0
+        var rng: UInt64 = 0xC0FFEE1234567890 ^ UInt64(abs(safeName.hashValue))
 
         func nextWhite() -> Double {
             rng = rng &* 6364136223846793005 &+ 1442695040888963407
             return (Double((rng >> 33) & 0x7FFFFFFF) / Double(0x7FFFFFFF)) * 2.0 - 1.0
         }
 
-        for i in 0..<totalSamples {
+        // Pre-warm noise filters so t=0 starts in steady state
+        for _ in 0..<4096 {
+            let w = nextWhite()
+            brown = (brown + 0.022 * w) / 1.022
+            pinkB0 = 0.99765 * pinkB0 + w * 0.0990460
+            pinkB1 = 0.96300 * pinkB1 + w * 0.2965164
+            pinkB2 = 0.57000 * pinkB2 + w * 1.0526913
+        }
+
+        for i in 0..<totalGenSamples {
             let t = Double(i) / Double(sampleRate)
-            // Seamless loop crossfade envelope near edges
-            let edgeFade: Double
-            if t < 0.25 {
-                edgeFade = t / 0.25
-            } else if t > duration - 0.25 {
-                edgeFade = (duration - t) / 0.25
-            } else {
-                edgeFade = 1.0
-            }
-
             let white = nextWhite()
-            brown = (brown + 0.025 * white) / 1.025
-            var sig: Double = 0.0
+            brown = (brown + 0.022 * white) / 1.022
+            pinkB0 = 0.99765 * pinkB0 + white * 0.0990460
+            pinkB1 = 0.96300 * pinkB1 + white * 0.2965164
+            pinkB2 = 0.57000 * pinkB2 + white * 1.0526913
+            let pink = (pinkB0 + pinkB1 + pinkB2 + white * 0.1848) * 0.12
 
+            var sig: Double = 0.0
             switch sound {
             case .off:
                 sig = 0.0
             case .cryptRain:
-                let dropMod = 0.65 + 0.25 * sin(2.0 * .pi * 0.25 * t)
-                sig = (brown * 1.8 + white * 0.14) * dropMod * 0.45
+                // Steady nocturnal rainfall with gentle 12% organic swell (never drops to silence)
+                let swell = 0.88 + 0.12 * sin(2.0 * .pi * (1.0 / 16.0) * t)
+                sig = (brown * 1.55 + pink * 0.65 + white * 0.07) * swell * 0.46
             case .velvetBrown:
-                sig = brown * 2.6 * 0.45
+                // Continuous deep velvet brown noise blanket
+                let warmth = 0.94 + 0.06 * sin(2.0 * .pi * (1.0 / 16.0) * t)
+                sig = (brown * 2.45 + pink * 0.25) * warmth * 0.45
             case .cathedralDrone:
-                let d1 = sin(2.0 * .pi * 64.0 * t) * 0.38
-                let d2 = sin(2.0 * .pi * 96.0 * t) * 0.26
-                let d3 = sin(2.0 * .pi * 128.0 * t + sin(2.0 * .pi * 0.125 * t)) * 0.18
-                sig = (d1 + d2 + d3 + brown * 0.35) * 0.48
+                // Phase-locked harmonic drone (integer cycles in 16.0s)
+                let d1 = sin(2.0 * .pi * 64.0 * t) * 0.36
+                let d2 = sin(2.0 * .pi * 96.0 * t) * 0.25
+                let d3 = sin(2.0 * .pi * 128.0 * t + 0.35 * sin(2.0 * .pi * 0.125 * t)) * 0.18
+                sig = (d1 + d2 + d3 + brown * 0.38) * 0.46
             case .midnightWind:
-                let sweep = 0.55 + 0.45 * sin(2.0 * .pi * 0.125 * t)
-                sig = (brown * 2.2 + sin(2.0 * .pi * 110.0 * t) * 0.08) * sweep * 0.46
+                // Smooth overlapping dual-breeze swells in quadrature (constant floor, zero dead spots)
+                let gustA = 0.82 + 0.18 * sin(2.0 * .pi * 0.125 * t)
+                let gustB = 0.82 + 0.18 * cos(2.0 * .pi * 0.0625 * t)
+                let sub = sin(2.0 * .pi * 110.0 * t) * 0.05
+                sig = ((brown * 1.95 * gustA) + (pink * 0.55 * gustB) + sub) * 0.44
             case .deltaPulse:
-                let c1 = sin(2.0 * .pi * 216.0 * t) * 0.32
-                let c2 = sin(2.0 * .pi * 218.5 * t) * 0.32
-                sig = (c1 + c2 + brown * 0.25) * 0.42
+                // Continuous 2.5 Hz binaural-style delta beat (216 Hz + 218.5 Hz, both exact integer cycles in 16s)
+                let c1 = sin(2.0 * .pi * 216.0 * t) * 0.30
+                let c2 = sin(2.0 * .pi * 218.5 * t) * 0.30
+                sig = (c1 + c2 + brown * 0.30) * 0.42
             }
+            raw[i] = sig
+        }
 
-            let clamped = max(-0.95, min(0.95, sig * edgeFade))
+        // Circular equal-power crossfade: blend tail [loopSamples ..< loopSamples + overlapSamples]
+        // into head [0 ..< overlapSamples] using sin/cos so loop wrap has zero seam and constant power
+        var samples = [Int16](repeating: 0, count: loopSamples)
+        for i in 0..<loopSamples {
+            let finalSample: Double
+            if i < overlapSamples {
+                let phase = Double(i) / Double(overlapSamples)
+                let angle = phase * (.pi * 0.5)
+                let headGain = sin(angle)
+                let tailGain = cos(angle)
+                finalSample = raw[i] * headGain + raw[loopSamples + i] * tailGain
+            } else {
+                finalSample = raw[i]
+            }
+            let clamped = max(-0.95, min(0.95, finalSample))
             samples[i] = Int16(clamped * 32767.0)
         }
 

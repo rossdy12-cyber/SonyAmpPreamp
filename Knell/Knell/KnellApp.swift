@@ -106,51 +106,98 @@ enum KnellForge {
         let notes = composeSequence(p)
         let random = rng(p.seed &+ 999)
 
+        // --- struck-bell partial model: each partial has its own decay rate ---
+        // Real bell partial ratios (inharmonic, like a church bell)
+        let partials: [(ratio: Double, amp: Double, tau: Double)] = [
+            (1.0,   1.00, 1.00),   // fundamental hum, rings longest
+            (2.0,   0.55, 0.55),   // prime
+            (2.756, 0.42, 0.40),   // tierce (minor third — the gothic soul of the bell)
+            (5.404, 0.22, 0.22),   // quint / nominal, decays fast
+            (0.56,  0.35, 0.80),   // sub-hum, deep dark body
+            (1.19,  0.30, 0.45)    // sombre
+        ]
+
+        // --- doom chord stab at t=0: minor triad, instantly recognizable ---
+        let chordDur = min(0.55, p.duration * 0.2)
+        for ratio in [1.0, 1.19, 1.5] {
+            let cf = p.baseFreq * ratio
+            let idx0 = 0
+            let n = Int(chordDur * sampleRate)
+            for i in 0..<n {
+                let t = Double(i) / sampleRate
+                let env = exp(-t / 0.28) * min(1.0, t / 0.003)
+                let s = sin(2.0 * .pi * cf * t) * 0.5 + sin(2.0 * .pi * cf * 2.756 * t) * 0.15
+                buffer[idx0 + i] += Float(s * env * 0.35)
+            }
+        }
+
         for (freq, start, dur, gain) in notes {
             let startIdx = Int(start * sampleRate)
             let noteSamples = Int(dur * sampleRate)
             guard startIdx < totalSamples else { continue }
             // detuned dual oscillator for gothic width
             let detune = 1.0 + (random() - 0.5) * 0.01 * p.darkness
+            // strike transient: filtered noise burst at note attack
+            let strikeSamples = min(160, noteSamples)
+            var strikeSeed = UInt64(truncatingIfNeeded: freq.bitPattern) &+ p.seed
+            for i in 0..<strikeSamples {
+                strikeSeed = strikeSeed &* 6364136223846793005 &+ 1442695040888963407
+                let noise = Double((strikeSeed >> 33) & 0xFFFFFFFF) / Double(0xFFFFFFFF) * 2.0 - 1.0
+                let env = exp(-Double(i) / sampleRate / 0.004)
+                buffer[startIdx + i] += Float(noise * env * 0.30 * gain)
+            }
+
+            let tremPhase = 2.0 * .pi * 5.5 * start   // phase-locked tremolo per note
             for i in 0..<noteSamples where startIdx + i < totalSamples {
                 let t = Double(i) / sampleRate
-                let phase = 2.0 * .pi * freq * t
-                // ADSR: fast attack, decay to sustain, release
-                let attack = min(1.0, t / 0.008)
-                let decayEnd = min(dur, 0.35)
-                let decay = t < decayEnd ? 1.0 - 0.55 * (t / decayEnd) : 0.45
-                let release = min(1.0, (dur - t) / min(0.25, dur * 0.25))
-                let env = attack * max(0.0, decay) * max(0.0, release)
-
-                // waveform blend: sine (bell) + saw (dark)
-                let sine = sin(phase)
-                let sawRaw = 2.0 * (freq * t - floor(freq * t + 0.5))
-                let saw = sawRaw * 0.6
-                let detuned = sin(phase * detune) * 0.5
-                var sample = sine * (1.0 - p.waveMix) + (saw + detuned) * p.waveMix
-
-                // bell overtones (inharmonic, like a real bell)
-                sample += sin(phase * 2.756) * 0.12 * (1.0 - p.waveMix)
-                sample += sin(phase * 5.404) * 0.05 * (1.0 - p.waveMix)
-
-                // sub-boss: gentle low pulse every bar for the crypt feel
-                if p.waveMix > 0.4 {
-                    let pulsePeriod = 60.0 / p.tempoBPM * 4
-                    let pulseT = t.truncatingRemainder(dividingBy: pulsePeriod)
-                    if pulseT < 0.08 {
-                        sample += sin(2.0 * .pi * (p.baseFreq / 2) * pulseT) * 0.25
-                    }
+                var sample = 0.0
+                // struck-bell partial stack: exponential decay per partial,
+                // higher partials die faster (that "real bell" shimmer)
+                for pt in partials {
+                    let pf = freq * pt.ratio * detune
+                    if pf > sampleRate / 2 { continue }
+                    let tau = max(0.08, dur * pt.tau)
+                    let env = exp(-t / tau) * min(1.0, t / 0.002)
+                    sample += sin(2.0 * .pi * pf * t) * pt.amp * env
                 }
+                // waveform blend: add darkened saw body on harsher presets
+                if p.waveMix > 0.05 {
+                    let sawRaw = 2.0 * (freq * t - floor(freq * t + 0.5))
+                    let body = exp(-t / max(0.1, dur * 0.35))
+                    sample += sawRaw * p.waveMix * 0.35 * body
+                    sample += sin(2.0 * .pi * freq * detune * t) * p.waveMix * 0.25 * body
+                }
+                // vibrato/tremolo shimmer for drama
+                let trem = 1.0 + 0.10 * sin(tremPhase + 2.0 * .pi * 5.5 * t)
+                sample *= trem
 
-                buffer[startIdx + i] += Float(sample * env * gain * 0.28)
+                buffer[startIdx + i] += Float(sample * gain * 0.55)
             }
         }
 
-        // soft clip + fade out the last second
+        // --- sub-bass crypt pulse every 2 beats (weight + urgency) ---
+        let pulsePeriod = 60.0 / p.tempoBPM * 2
+        var pt0 = 0.0
+        while pt0 < p.duration - 0.2 {
+            let idx0 = Int(pt0 * sampleRate)
+            let n = min(Int(0.45 * sampleRate), totalSamples - idx0)
+            for i in 0..<max(0, n) {
+                let t = Double(i) / sampleRate
+                let env = exp(-t / 0.12) * min(1.0, t / 0.004)
+                buffer[idx0 + i] += Float(sin(2.0 * .pi * (p.baseFreq / 2) * t) * env * 0.5)
+            }
+            pt0 += pulsePeriod
+        }
+
+        // --- normalize to loud, ringtone-punchy level, then soft-knee limit ---
+        var peak: Float = 0.0001
+        for v in buffer { peak = max(peak, abs(v)) }
+        let norm = 0.92 / peak
         let fadeSamples = Int(min(1.0, p.duration) * sampleRate)
         for i in 0..<totalSamples {
-            var v = buffer[i]
-            v = v / (1.0 + abs(v) * 0.6)   // soft saturation
+            var v = buffer[i] * norm
+            // soft knee limiter: keeps punch, kills digital clipping
+            if abs(v) > 0.75 { v = v > 0 ? 0.75 + (abs(v) - 0.75) * 0.2 : -(0.75 + (abs(v) - 0.75) * 0.2) }
             if i > totalSamples - fadeSamples {
                 v *= Float(totalSamples - i) / Float(fadeSamples)
             }
@@ -361,7 +408,17 @@ final class ForgeState: ObservableObject {
             statusMessage = "Rendered: \(url.lastPathComponent) | exists: \(exists) | size: \(size)B | archive: \(tones.count) tones"
             rendering = false
             if exists {
-                DocumentExportHost.shared.present(url: url)
+                let stamp2 = "\(url.lastPathComponent)"
+                DocumentExportHost.shared.present(url: url) { outcome in
+                    DispatchQueue.main.async {
+                        self.loadTones()
+                        self.statusMessage = outcome + " — rename .m4a to .m4r in Files to set as ringtone."
+                        self.rendering = false
+                    }
+                }
+                _ = stamp2
+            } else {
+                self.rendering = false
             }
         } catch {
             statusMessage = "Forge failed: \(error.localizedDescription)"
@@ -602,7 +659,11 @@ struct ArchiveView: View {
         }
         .onChange(of: sharingURL) { url in
             if let u = url {
-                DocumentExportHost.shared.present(url: u)
+                DocumentExportHost.shared.present(url: u) { outcome in
+                    DispatchQueue.main.async {
+                        forge.statusMessage = outcome
+                    }
+                }
                 sharingURL = nil
             }
         }
@@ -612,26 +673,31 @@ struct ArchiveView: View {
 final class DocumentExportHost: NSObject, UIDocumentPickerDelegate {
     static var shared = DocumentExportHost()
     private var picker: UIDocumentPickerViewController?
+    private var onFinish: ((String) -> Void)?
+    private var overlayWindow: UIWindow?
 
-    func present(url: URL) {
+    func present(url: URL, completion: @escaping (String) -> Void) {
+        onFinish = completion
         DispatchQueue.main.async {
-            Self.presentOnMain(url: url)
+            Self.presentOnMain(url: url, host: self)
         }
     }
 
     private static var window: UIWindow?
 
-    private static func presentOnMain(url: URL) {
+    private static func presentOnMain(url: URL, host: DocumentExportHost) {
         // UIKit hard-asserts in initForExportingURLs if the file is missing
         guard FileManager.default.fileExists(atPath: url.path) else {
             print("[Knell] export picker aborted: file missing at " + url.path)
+            host.finish("Export skipped — file missing")
             return
         }
 
         // Present via a dedicated UIWindow overlay — completely bypasses the
         // SwiftUI presentation stack and its sheet/representable conflicts.
         let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
-        shared.picker = picker
+        picker.delegate = host
+        host.picker = picker
 
         let w = UIWindow(windowScene: UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
@@ -640,7 +706,43 @@ final class DocumentExportHost: NSObject, UIDocumentPickerDelegate {
         w.rootViewController = picker
         w.makeKeyAndVisible()
         window = w
+        host.overlayWindow = w
         print("[Knell] document picker presented via window overlay")
+    }
+
+    private func dismissOverlay() {
+        DispatchQueue.main.async {
+            if let w = self.overlayWindow ?? Self.window {
+                w.isHidden = true
+                w.rootViewController = nil
+                // restore the app's main window as key
+                let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                for scene in scenes {
+                    if let main = scene.windows.first(where: { $0 !== w && $0.canBecomeKeyWindow && !$0.isHidden }) {
+                        main.makeKey()
+                    }
+                }
+            }
+            Self.window = nil
+            self.overlayWindow = nil
+        }
+    }
+
+    private func finish(_ message: String) {
+        dismissOverlay()
+        onFinish?(message)
+        onFinish = nil
+    }
+
+    // UIDocumentPickerDelegate
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        print("[Knell] saved to: \(urls.first?.path ?? "?")")
+        finish("Saved to Files ✓")
+    }
+
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        print("[Knell] export picker cancelled")
+        finish("Export cancelled — tone kept in the ARCHIVE")
     }
 
     private static func keyTopViewController() -> UIViewController? {

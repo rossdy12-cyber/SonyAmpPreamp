@@ -41,6 +41,9 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
     private var meterRecorder: AVAudioRecorder?
     private var clipRecorder: AVAudioRecorder?
     private var windDownPlayer: AVAudioPlayer?
+    private var windDownSecondaryPlayer: AVAudioPlayer?
+    private var windDownCrossfadeTimer: Timer?
+    private var windDownActiveDeckIsPrimary: Bool = true
     private var alarmPlayer: AVAudioPlayer?
     private var clipPlayer: AVAudioPlayer?
 
@@ -255,30 +258,78 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
         guard sound != .off, let url = SynthesizedAudioGenerator.ensureWindDownWAV(for: sound) else { return }
         configureBackgroundAudioSession()
         do {
-            let player = try AVAudioPlayer(contentsOf: url)
-            player.numberOfLoops = -1
-            player.isMeteringEnabled = true
-            player.volume = Float(SleepStore.shared.windDownVolume)
-            player.prepareToPlay()
-            player.play()
-            windDownPlayer = player
+            let targetVol = Float(max(0.05, min(0.85, SleepStore.shared.windDownVolume)))
+            let playerA = try AVAudioPlayer(contentsOf: url)
+            let playerB = try AVAudioPlayer(contentsOf: url)
+            for p in [playerA, playerB] {
+                p.numberOfLoops = -1
+                p.isMeteringEnabled = true
+                p.volume = 0.0
+                p.prepareToPlay()
+            }
+
+            playerA.play()
+            playerA.setVolume(targetVol, fadeDuration: 2.2)
+
+            windDownPlayer = playerA
+            windDownSecondaryPlayer = playerB
+            windDownActiveDeckIsPrimary = true
             isPlayingWindDown = true
             windDownRemainingSeconds = max(60, durationMinutes * 60)
             recalibrateAmbientFloor()
+
+            // Every 12.5s (3.5s before the 16s loop boundary), smoothly crossfade between Deck A and Deck B
+            windDownCrossfadeTimer?.invalidate()
+            windDownCrossfadeTimer = Timer.scheduledTimer(withTimeInterval: 12.5, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    self?.crossfadeWindDownDecks()
+                }
+            }
         } catch {
             isPlayingWindDown = false
         }
     }
 
+    private func crossfadeWindDownDecks() {
+        guard isPlayingWindDown,
+              let pA = windDownPlayer,
+              let pB = windDownSecondaryPlayer else { return }
+
+        let baseVol = Float(max(0.05, min(0.85, SleepStore.shared.windDownVolume)))
+        let fadeScale: Float = windDownRemainingSeconds <= 30 ? (Float(windDownRemainingSeconds) / 30.0) : 1.0
+        let targetVol = baseVol * fadeScale
+
+        let outgoing = windDownActiveDeckIsPrimary ? pA : pB
+        let incoming = windDownActiveDeckIsPrimary ? pB : pA
+
+        incoming.currentTime = 0.0
+        incoming.volume = 0.0
+        if !incoming.isPlaying {
+            incoming.play()
+        }
+        incoming.setVolume(targetVol, fadeDuration: 3.5)
+        outgoing.setVolume(0.0, fadeDuration: 3.5)
+        windDownActiveDeckIsPrimary.toggle()
+    }
+
     func updateWindDownVolume(_ newVol: Double) {
-        windDownPlayer?.volume = Float(max(0.05, min(0.85, newVol)))
+        let v = Float(max(0.05, min(0.85, newVol)))
+        if windDownActiveDeckIsPrimary {
+            windDownPlayer?.setVolume(v, fadeDuration: 0.25)
+        } else {
+            windDownSecondaryPlayer?.setVolume(v, fadeDuration: 0.25)
+        }
         recalibrateAmbientFloor()
     }
 
     func stopWindDown() {
         let wasPlaying = isPlayingWindDown
+        windDownCrossfadeTimer?.invalidate()
+        windDownCrossfadeTimer = nil
         windDownPlayer?.stop()
+        windDownSecondaryPlayer?.stop()
         windDownPlayer = nil
+        windDownSecondaryPlayer = nil
         isPlayingWindDown = false
         windDownRemainingSeconds = 0
         soundscapeCancellationDb = 0.0
@@ -441,11 +492,14 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
 
         // 1. Wind-down countdown & gentle fade
         var windDownBleedDb: Double = 0.0
-        if isPlayingWindDown, let wp = windDownPlayer, wp.isPlaying {
+        let activeWp = windDownActiveDeckIsPrimary ? windDownPlayer : windDownSecondaryPlayer
+        if isPlayingWindDown, let wp = activeWp, wp.isPlaying {
             if Int(elapsedSeconds * 8) % 8 == 0 && windDownRemainingSeconds > 0 {
                 windDownRemainingSeconds -= 1
                 if windDownRemainingSeconds <= 30 {
-                    wp.volume = Float(windDownRemainingSeconds) / 30.0 * Float(store.windDownVolume)
+                    let v = Float(windDownRemainingSeconds) / 30.0 * Float(store.windDownVolume)
+                    windDownPlayer?.volume = min(windDownPlayer?.volume ?? v, v)
+                    windDownSecondaryPlayer?.volume = min(windDownSecondaryPlayer?.volume ?? v, v)
                 }
                 if windDownRemainingSeconds <= 0 {
                     stopWindDown()
@@ -454,7 +508,7 @@ final class SleepAudioEngine: NSObject, ObservableObject, AVAudioPlayerDelegate 
             // Measure instantaneous soundscape output power so we can cancel speaker-to-mic bleed
             wp.updateMeters()
             let wpPower = Double(wp.averagePower(forChannel: 0)) // -160..0 dB
-            let volScale = Double(wp.volume)
+            let volScale = Double(max(windDownPlayer?.volume ?? 0, windDownSecondaryPlayer?.volume ?? 0))
             if isUsingBuiltInSpeaker() && volScale > 0.01 {
                 // Estimate acoustic bleed into adjacent iPhone mic (typically 14..26 dB above quiet room floor)
                 let normalizedWp = max(0.0, min(1.0, (wpPower + 55.0) / 55.0))

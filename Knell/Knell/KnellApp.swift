@@ -1,5 +1,7 @@
 import SwiftUI
 import AVFoundation
+import PhotosUI
+import UniformTypeIdentifiers
 import UIKit
 
 // ============================================================
@@ -60,43 +62,71 @@ enum KnellForge {
         }
     }
 
-    /// Procedurally composes a note sequence: arpeggios, tolling bells, rests.
+    /// Gothic melodic motifs as semitone offsets from the base note.
+    /// A memorable phrase beats a random walk — the ear hooks onto repetition.
+    static let motifs: [[Double]] = [
+        // Dies Irae — the gothic phrase of phrases
+        [0, 2, 3, 0, 2, -1, 0],
+        // Toccata-style: chromatic descent with octave stabs
+        [0, -1, -2, 0, 7, -1, -2, -4],
+        // Lament bass, slow descending thirds
+        [0, -3, -5, -7, -5, -3],
+        // Triadic summons (minor arpeggio up + fall)
+        [0, 3, 7, 12, 7, 3, 0, -5],
+        // Tolling: sparse fifths and octaves
+        [0, 7, 0, 12, 0]
+    ]
+
+    /// Procedurally composes a note sequence from a gothic motif: repeated
+    /// phrase, octave lifts on repeats, accents on phrase heads, breath rests.
     static func composeSequence(_ p: Params) -> [(freq: Double, start: Double, dur: Double, gain: Double)] {
         let random = rng(p.seed)
         var notes: [(Double, Double, Double, Double)] = []
         let beat = 60.0 / p.tempoBPM
+        let motif = motifs[presetIndexFor(p) % motifs.count]
         var t = 0.0
-        var lastIdx = Int(random() * 4)
+        var phraseRound = 0
         while t < p.duration - beat * 0.5 {
-            let roll = random()
-            if roll < 0.18 {
-                // rest / silence breath
+            // breath between phrase rounds (varies: 1-2 beats)
+            if phraseRound > 0 {
                 t += beat * (random() < 0.5 ? 1 : 2)
-                continue
             }
-            // walk the scale, occasionally leap (gothic interval jumps)
-            var idx = lastIdx
-            if random() < 0.45 {
-                idx = max(0, min(dMinorPentatonic.count - 1, idx + (random() < 0.5 ? 1 : -1)))
-            } else if random() < 0.2 {
-                idx = max(0, min(dMinorPentatonic.count - 1, idx + Int(random() * 5) - 2))
+            let octaveLift = phraseRound % 2 == 1 ? 12.0 : 0.0   // eerie second-round lift
+            var intra = 0.0
+            let roundStart = t
+            for (i, semi) in motif.enumerated() {
+                let f = p.baseFreq * pow(2.0, (semi + octaveLift) / 12.0)
+                // rhythm: mostly eighth-notes, some dotted or held
+                var dur = beat * 0.75
+                let r = random()
+                if r < 0.18 { dur = beat * 1.4 }          // held, ominous
+                else if r < 0.35 { intra += beat * 0.25 } // rest, syncopation
+                // velocity: phrase-head accent, cadence swell, human variation
+                var gain = 0.85
+                if i == 0 { gain = 1.0 }
+                else if i == motif.count - 1 { gain = 0.95 }
+                else { gain = 0.62 + random() * 0.2 }
+                let start = t + intra
+                if start < p.duration - 0.05 {
+                    notes.append((f, start, min(dur * 2.2, p.duration - start), gain))
+                }
+                intra += dur
             }
-            lastIdx = idx
-            var freq = dMinorPentatonic[idx]
-            // scale toward the base note register
-            if freq < p.baseFreq * 0.7 || freq > p.baseFreq * 3.0 {
-                freq = p.baseFreq * (random() < 0.5 ? 1 : 2)
-            }
-            let dur = beat * (random() < 0.3 ? 2 : 1) * (1.0 + random() * 0.4)
-            let gain = 0.55 + random() * 0.35
-            notes.append((freq, t, min(dur, p.duration - t), gain))
-            // occasional bell overtone layer
-            if random() < 0.3 {
-                notes.append((freq * 2.01, t, min(dur * 0.6, p.duration - t), gain * 0.35))
-            }
-            t += dur * (random() < 0.5 ? 1.0 : 1.5)
+            t = roundStart + intra
+            phraseRound += 1
+            if t > p.duration - beat * 1.5 { break }
+        }
+        // final toll: two low bells to land the ring
+        let tail = min(1.8, p.duration * 0.25)
+        if p.duration > 6 {
+            notes.append((p.baseFreq * 0.5, max(0, p.duration - tail), tail, 1.0))
+            notes.append((p.baseFreq * 0.75, max(0, p.duration - tail * 0.55), tail * 0.55, 0.8))
         }
         return notes
+    }
+
+    private static func presetIndexFor(_ p: Params) -> Int {
+        Int(p.seed % 5)
     }
 
     /// Renders the composition into a mono PCM buffer with ADSR envelopes + overtone shimmer.
@@ -189,6 +219,24 @@ enum KnellForge {
             pt0 += pulsePeriod
         }
 
+        // --- cathedral space: dual feedback delay (dotted-eighth + half-note) ---
+        let beatSamples = Int(sampleRate * 60.0 / p.tempoBPM)
+        let d1 = max(1, Int(Double(beatSamples) * 0.75))   // dotted eighth
+        let d2 = max(1, beatSamples * 2)                    // half note
+        var line1 = [Float](repeating: 0, count: d1)
+        var line2 = [Float](repeating: 0, count: min(d2, totalSamples))
+        var i1 = 0, i2 = 0
+        for i in 0..<totalSamples {
+            let e1 = line1[i1] * 0.42
+            let e2 = line2[i2] * 0.30
+            let wet = buffer[i] + e1 + e2
+            line1[i1] = wet * 0.38
+            line2[i2] = wet * 0.30
+            buffer[i] = wet
+            i1 = (i1 + 1) % d1
+            i2 = (i2 + 1) % line2.count
+        }
+
         // --- normalize to loud, ringtone-punchy level, then soft-knee limit ---
         var peak: Float = 0.0001
         for v in buffer { peak = max(peak, abs(v)) }
@@ -254,6 +302,132 @@ enum KnellForge {
             throw NSError(domain: "Knell", code: 3, userInfo: [NSLocalizedDescriptionKey: "AAC write completed but file missing"])
         }
         return m4rURL
+    }
+
+    /// Converts any audio or video file into a trimmed ringtone-ready .m4a.
+    /// Primary path: AVAssetExportSession (Apple M4A preset) with a timeRange.
+    /// Fallback path: AVAssetReader PCM extraction + direct AVAudioFile AAC write.
+    static func convertToM4A(source: URL, start: Double, length: Double, name: String, toDirectory: URL) async throws -> URL {
+        try FileManager.default.createDirectory(at: toDirectory, withIntermediateDirectories: true)
+        let out = toDirectory.appendingPathComponent(name.replacingOccurrences(of: " ", with: "_") + ".m4a")
+        try? FileManager.default.removeItem(at: out)
+
+        let asset = AVURLAsset(url: source)
+        let assetDuration = try await asset.load(.duration).seconds
+        guard assetDuration.isFinite, assetDuration > 0 else {
+            throw NSError(domain: "Knell", code: 10, userInfo: [NSLocalizedDescriptionKey: "No readable audio in that file"])
+        }
+        let trimStart = max(0, min(start, max(0, assetDuration - 1)))
+        let trimLen = max(1, min(length, 40, assetDuration - trimStart))
+
+        // --- primary: export session ---
+        if let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) {
+            session.outputURL = out
+            session.outputFileType = .m4a
+            session.timeRange = CMTimeRange(
+                start: CMTime(seconds: trimStart, preferredTimescale: 600),
+                duration: CMTime(seconds: trimLen, preferredTimescale: 600))
+            await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+                session.exportAsynchronously { cont.resume() }
+            }
+            if session.status == .completed && FileManager.default.fileExists(atPath: out.path) {
+                return out
+            }
+        }
+
+        // --- fallback: PCM read + AAC write (handles exotic codecs/multichannel) ---
+        guard let track = try? await asset.loadTracks(withMediaType: .audio).first else {
+            throw NSError(domain: "Knell", code: 11, userInfo: [NSLocalizedDescriptionKey: "That file has no audio track"])
+        }
+        guard let nativeFormat = try? await track.load(.format(.audio(options: nil))) as? AVAudioFormat else {
+            throw NSError(domain: "Knell", code: 12, userInfo: [NSLocalizedDescriptionKey: "Could not read the audio format"])
+        }
+        let srcRate = nativeFormat.sampleRate
+        let channels = max(1, nativeFormat.channelCount)
+        let readSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: srcRate,
+            AVNumberOfChannelsKey: channels,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsNonInterleaved: false,
+            AVLinearPCMIsBigEndianKey: false
+        ]
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderAudioMixOutput(audioTracks: [track], audioSettings: readSettings)
+        output.alwaysCopiesSampleData = false
+        reader.add(output)
+        reader.timeRange = CMTimeRange(
+            start: CMTime(seconds: trimStart, preferredTimescale: 600),
+            duration: CMTime(seconds: trimLen, preferredTimescale: 600))
+        reader.startReading()
+
+        var pcm: [Float] = []
+        while let sb = output.nextSampleBuffer() {
+            let frames = AVAudioFrameCount(sb.frameLength)
+            if frames == 0 { continue }
+            var bytes = [UInt8](repeating: 0, count: sb.dataLength)
+            sb.dataWithBytes(bytes)
+            bytes.withUnsafeBufferPointer { bp in
+                let floats = bp.baseAddress!.withMemoryRebound(to: Float.self, capacity: sb.dataLength / 4)
+                let framesPerPacket = frames
+                for f in 0..<framesPerPacket {
+                    var acc = 0.0
+                    for c in 0..<Int(channels) { acc += Double(floats[Int(f) * Int(channels) + c]) }
+                    pcm.append(Float(acc / Double(channels)))
+                }
+            }
+        }
+        reader.cancelReading()
+        guard !pcm.isEmpty else {
+            throw NSError(domain: "Knell", code: 13, userInfo: [NSLocalizedDescriptionKey: "Audio extraction came back empty"])
+        }
+
+        let format = AVAudioFormat(standardFormatWithSampleRate: srcRate, channels: 1)!
+        let settings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: srcRate,
+            AVNumberOfChannelsKey: 1,
+            AVEncoderBitRateKey: 128000
+        ]
+        let audioFile = try AVAudioFile(forWriting: out, settings: settings, commonFormat: .pcmFormatFloat32, interleaved: false)
+        let chunk = Int(srcRate) * 5
+        var offset = 0
+        while offset < pcm.count {
+            let count = min(chunk, pcm.count - offset)
+            if let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count)) {
+                buf.frameLength = AVAudioFrameCount(count)
+                if let ch = buf.floatChannelData {
+                    for i in 0..<count { ch.pointee[i] = pcm[offset + i] }
+                }
+                try audioFile.write(from: buf)
+            }
+            offset += count
+        }
+        guard FileManager.default.fileExists(atPath: out.path) else {
+            throw NSError(domain: "Knell", code: 14, userInfo: [NSLocalizedDescriptionKey: "Conversion wrote no file"])
+        }
+        return out
+    }
+}
+
+struct PButton: View {
+    let title: String
+    var enabled: Bool = true
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                .padding(.vertical, 9)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity)
+                .background(enabled ? bloodDim : Color(red: 0.2, green: 0.03, blue: 0.07))
+                .foregroundColor(enabled ? .white : ashDim)
+                .cornerRadius(7)
+        }
+        .disabled(!enabled)
     }
 }
 
@@ -430,6 +604,57 @@ final class ForgeState: ObservableObject {
         try? FileManager.default.removeItem(at: tone.fileURL)
         loadTones()
     }
+
+    // MARK: Import / conversion state
+    @Published var importSource: URL? = nil
+    @Published var importDuration: Double = 30
+    @Published var importStart: Double = 0
+    @Published var importing = false
+    @Published var showPhotoPicker = false
+
+    func beginImportFromFiles() {
+        FileImportHost.shared.present { [weak self] url in
+            DispatchQueue.main.async {
+                guard let self = self, let u = url else { return }
+                self.importSource = u
+                self.importStart = 0
+                Task {
+                    let asset = AVURLAsset(url: u)
+                    let d = (try? await asset.load(.duration).seconds) ?? 30
+                    await MainActor.run {
+                        self.importDuration = min(d, 40)
+                        self.statusMessage = "Loaded \(u.lastPathComponent) — \(String(format: "%.1f", d))s available. Set the START and LENGTH, then CONVERT."
+                    }
+                }
+            }
+        }
+    }
+
+    func convertImport() async {
+        guard let src = importSource else { return }
+        importing = true
+        statusMessage = "Converting…"
+        do {
+            var scopeOK = src.startAccessingSecurityScopedResource()
+            let stamp = Int(Date().timeIntervalSince1970) % 100000
+            let out = try await KnellForge.convertToM4A(
+                source: src, start: importStart, length: importDuration,
+                name: "Knell_Import_\(stamp)", toDirectory: docsDir)
+            if scopeOK { src.stopAccessingSecurityScopedResource(); scopeOK = false }
+            loadTones()
+            importing = false
+            DocumentExportHost.shared.present(url: out) { outcome in
+                DispatchQueue.main.async {
+                    self.loadTones()
+                    self.statusMessage = outcome + " — rename .m4a to .m4r in Files to set as ringtone."
+                }
+            }
+        } catch {
+            if src.startAccessingSecurityScopedResource() { src.stopAccessingSecurityScopedResource() }
+            importing = false
+            statusMessage = "Conversion failed: \(error.localizedDescription)"
+        }
+    }
 }
 
 // MARK: - Root view
@@ -441,12 +666,202 @@ struct ContentView: View {
         TabView {
             ForgeView(forge: forge)
                 .tabItem { Label("FORGE", systemImage: "hammer.fill") }
+            ImportView(forge: forge)
+                .tabItem { Label("IMPORT", systemImage: "arrow.down.doc.fill") }
             ArchiveView(forge: forge)
                 .tabItem { Label("ARCHIVE", systemImage: "music-note.list") }
             CryptView()
                 .tabItem { Label("CRYPT", systemImage: "lock.shield") }
         }
         .accentColor(crimson)
+    }
+}
+
+// MARK: - IMPORT tab (convert audio/video into a ringtone)
+
+final class FileImportHost: NSObject, UIDocumentPickerDelegate {
+    static var shared = FileImportHost()
+    private var onFinish: ((URL?) -> Void)?
+    private var overlayWindow: UIWindow?
+
+    func present(completion: @escaping (URL?) -> Void) {
+        onFinish = completion
+        DispatchQueue.main.async {
+            var types: [UTType] = [.audio, .movie, .video, .mpeg4Audio, .mp3, .wav, .aiff]
+            if let m4r = UTType("com.apple.ringtone") { types.append(m4r) }
+            let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
+            picker.delegate = self
+            let w = UIWindow(windowScene: UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }!)
+            w.windowLevel = .alert + 1
+            w.rootViewController = picker
+            w.makeKeyAndVisible()
+            self.overlayWindow = w
+        }
+    }
+
+    private func dismissOverlay() {
+        DispatchQueue.main.async {
+            if let w = self.overlayWindow {
+                w.isHidden = true
+                w.rootViewController = nil
+                let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                for scene in scenes {
+                    if let main = scene.windows.first(where: { $0 !== w && $0.canBecomeKey && !$0.isHidden }) {
+                        main.makeKey()
+                    }
+                }
+            }
+            self.overlayWindow = nil
+        }
+    }
+
+    private func finish(_ url: URL?) {
+        dismissOverlay()
+        onFinish?(url)
+        onFinish = nil
+    }
+
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        finish(urls.first)
+    }
+
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        finish(nil)
+    }
+}
+
+struct ImportView: View {
+    @ObservedObject var forge: ForgeState
+
+    var body: some View {
+        ZStack {
+            cryptBg.ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    PCard(title: "01 // RAISE THE SOUND") {
+                        VStack(spacing: 10) {
+                            PButton(title: "PICK AUDIO / VIDEO FROM FILES", enabled: !forge.importing) {
+                                forge.beginImportFromFiles()
+                            }
+                            PButton(title: "PICK VIDEO FROM PHOTOS", enabled: !forge.importing) {
+                                forge.showPhotoPicker = true
+                            }
+                        }
+                    }
+
+                    if forge.importSource != nil {
+                        PCard(title: "02 // CARVE THE SEGMENT") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("START")
+                                        .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                                        .foregroundColor(crimson)
+                                    Spacer()
+                                    Text(String(format: "%.1fs", forge.importStart))
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundColor(ashText)
+                                }
+                                Slider(value: $forge.importStart, in: 0...max(1, forge.importDuration * 3), step: 0.5)
+                                    .tint(crimson)
+                                HStack {
+                                    Text("LENGTH")
+                                        .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                                        .foregroundColor(crimson)
+                                    Spacer()
+                                    Text(String(format: "%.1fs (max 40)", forge.importDuration))
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundColor(ashText)
+                                }
+                                Slider(value: $forge.importDuration, in: 1...40, step: 0.5)
+                                    .tint(crimson)
+                            }
+                        }
+                        PCard(title: "03 // CONVERT TO RINGTONE") {
+                            VStack(spacing: 10) {
+                                PButton(title: forge.importing ? "CONVERTING…" : "CONVERT TO .M4A", enabled: !forge.importing) {
+                                    Task { await forge.convertImport() }
+                                }
+                                Text("The converted file opens the Files browser — save it, rename .m4a → .m4r, tap to set as your ringtone.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(ashDim)
+                            }
+                        }
+                    }
+
+                    PCard(title: "STATUS") {
+                        Text(forge.statusMessage.isEmpty ? "Choose a sound — any song, video voiceover or recording becomes a ringtone." : forge.statusMessage)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(forge.statusMessage.contains("failed") ? crimson : ashText)
+                    }
+                }
+                .padding(14)
+            }
+            .sheet(isPresented: $forge.showPhotoPicker) {
+                PhotoVideoPicker { url in
+                    DispatchQueue.main.async {
+                        if let u = url {
+                            forge.importSource = u
+                            forge.importStart = 0
+                            Task {
+                                let asset = AVURLAsset(url: u)
+                                let d = (try? await asset.load(.duration).seconds) ?? 30
+                                await MainActor.run {
+                                    forge.importDuration = min(d, 40)
+                                    forge.statusMessage = "Loaded \(u.lastPathComponent) — \(String(format: "%.1f", d))s available. Set START and LENGTH, then CONVERT."
+                                }
+                            }
+                        }
+                        forge.showPhotoPicker = false
+                    }
+                }
+            }
+        }
+        .navigationTitle("")
+        .overlay(alignment: .top) {
+            Text("THE RELIQUARY")
+                .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                .foregroundColor(crimson)
+                .padding(.top, 2)
+        }
+    }
+}
+
+struct PhotoVideoPicker: UIViewControllerRepresentable {
+    let onPick: (URL?) -> Void
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration(photoLibrary: .shared())
+        config.filter = .videos
+        config.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ vc: PHPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+
+    class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let onPick: (URL?) -> Void
+        init(onPick: @escaping (URL?) -> Void) { self.onPick = onPick }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            guard let provider = results.first?.itemProvider,
+                  provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) else {
+                onPick(nil)
+                return
+            }
+            provider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { url, _ in
+                guard let u = url else { self.onPick(nil); return }
+                let tmp = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("knell_import_\(UUID().uuidString).mov")
+                try? FileManager.default.copyItem(at: u, to: tmp)
+                self.onPick(tmp)
+            }
+        }
     }
 }
 

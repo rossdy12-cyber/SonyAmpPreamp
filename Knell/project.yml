@@ -32,7 +32,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.ross.knell
         PRODUCT_NAME: Knell
         INFOPLIST_KEY_CFBundleDisplayName: "Knell"
-        MARKETING_VERSION: "1.2.2"
+        MARKETING_VERSION: "1.2.3"
         CURRENT_PROJECT_VERSION: "17"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -46,6 +46,8 @@ targets:
       path: Knell/Info.plist
       properties:
         CFBundleDisplayName: "Knell"
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         UILaunchScreen:
           UIColorName: LaunchBackground
         UTExportedTypeDeclarations:

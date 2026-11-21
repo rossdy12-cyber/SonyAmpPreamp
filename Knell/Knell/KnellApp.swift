@@ -551,7 +551,7 @@ final class ForgeState: ObservableObject {
 
     func forgeAndShare() async {
         rendering = true
-        statusMessage = "Forging the tone…"
+        statusMessage = "Forging the tone..."
         do {
             let stamp = Int(Date().timeIntervalSince1970) % 100000
             let p = params
@@ -597,7 +597,7 @@ final class ForgeState: ObservableObject {
             return
         }
         importing = true
-        importStatus = "Downloading from the web…"
+        importStatus = "Downloading from the web..."
         do {
             var req = URLRequest(url: url)
             req.timeoutInterval = 300
@@ -703,7 +703,7 @@ final class ForgeState: ObservableObject {
     func convertImport() async {
         guard let src = importSource else { return }
         importing = true
-        statusMessage = "Converting…"
+        statusMessage = "Converting..."
         do {
             var scopeOK = src.startAccessingSecurityScopedResource()
             let stamp = Int(Date().timeIntervalSince1970) % 100000
@@ -816,7 +816,7 @@ struct ImportView: View {
                             Text("Paste a direct audio link (mp3, m4a, wav) from any generator or cloud share.")
                                 .font(.system(size: 12))
                                 .foregroundColor(ashDim)
-                            TextField("https://\u2026/audio.mp3", text: $forge.importUrlText)
+                            TextField("https://.../audio.mp3", text: $forge.importUrlText)
                                 .font(.system(size: 12, design: .monospaced))
                                 .textFieldStyle(.roundedBorder)
                                 .autocorrectionDisabled()
@@ -1049,7 +1049,7 @@ struct ForgeView: View {
                         } label: {
                             HStack {
                                 if forge.rendering { ProgressView().tint(.white) }
-                                Text(forge.rendering ? "FORGING…" : "FORGE .M4R")
+                                Text(forge.rendering ? "FORGING..." : "FORGE .M4R")
                             }
                             .font(.system(size: 12, weight: .heavy, design: .monospaced))
                             .frame(maxWidth: .infinity)

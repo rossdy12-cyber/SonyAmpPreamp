@@ -616,15 +616,15 @@ final class ForgeState: ObservableObject {
             if ext.isEmpty || !["mp3", "m4a", "m4r", "wav", "aac", "m4b", "ogg", "flac"].contains(ext) {
                 ext = "mp3"
             }
-            let tmp = docsDir.appendingPathComponent("Imported_\(stamp).\(ext)")
+            let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("Knell_Import_\(stamp).\(ext)")
             try data.write(to: tmp)
             // transcode to m4a if not already
             if ext == "m4a" || ext == "m4r" {
-                let final = docsDir.appendingPathComponent("Knell_\(stamp).m4a")
+                let final = FileManager.default.temporaryDirectory.appendingPathComponent("Knell_\(stamp).m4a")
                 try FileManager.default.moveItem(at: tmp, to: final)
             } else {
                 let asset = AVURLAsset(url: tmp, options: nil)
-                let m4aOut = docsDir.appendingPathComponent("Knell_\(stamp).m4a")
+                let m4aOut = FileManager.default.temporaryDirectory.appendingPathComponent("Knell_\(stamp).m4a")
                 guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
                     throw NSError(domain: "Knell", code: 3)
                 }
@@ -637,13 +637,31 @@ final class ForgeState: ObservableObject {
                 }
                 try? FileManager.default.removeItem(at: tmp)
             }
-            loadTones()
-            importStatus = "Imported to ARCHIVE."
+            let finalUrl = FileManager.default.temporaryDirectory.appendingPathComponent("Knell_\(stamp).m4a")
+            downloadedUrl = finalUrl
+            downloadedName = "Imported_\(stamp)"
+            importStatus = "Download complete — preview it, then save."
             importing = false
         } catch {
             importStatus = "Import failed: \(error.localizedDescription)"
             importing = false
         }
+    }
+
+    func confirmSave() {
+        guard let src = downloadedUrl else { return }
+        let dest = docsDir.appendingPathComponent("Knell_\(Int(Date().timeIntervalSince1970) % 100000).m4a")
+        try? FileManager.default.moveItem(at: src, to: dest)
+        downloadedUrl = nil
+        loadTones()
+        statusMessage = "Saved to ARCHIVE."
+    }
+
+    func discardDownload() {
+        guard let src = downloadedUrl else { return }
+        try? FileManager.default.removeItem(at: src)
+        downloadedUrl = nil
+        importStatus = "Discarded."
     }
 
     func deleteTone(_ tone: KnellTone) {
@@ -656,6 +674,8 @@ final class ForgeState: ObservableObject {
     @Published var importUrlText: String = ""
     @Published var clipStart: Double = 0
     @Published var clipDuration: Double = 30
+    @Published var downloadedUrl: URL? = nil
+    @Published var downloadedName: String = ""
     @Published var importSource: URL? = nil
     @Published var importDuration: Double = 30
     @Published var importStart: Double = 0
@@ -784,6 +804,7 @@ final class FileImportHost: NSObject, UIDocumentPickerDelegate {
 
 struct ImportView: View {
     @ObservedObject var forge: ForgeState
+    @State private var previewPlayer: AVPlayer?
 
     var body: some View {
         ZStack {
@@ -795,7 +816,7 @@ struct ImportView: View {
                             Text("Paste a direct audio link (mp3, m4a, wav) from any generator or cloud share.")
                                 .font(.system(size: 12))
                                 .foregroundColor(ashDim)
-                            TextField("https://…/audio.mp3", text: $forge.importUrlText)
+                            TextField("https://\u2026/audio.mp3", text: $forge.importUrlText)
                                 .font(.system(size: 12, design: .monospaced))
                                 .textFieldStyle(.roundedBorder)
                                 .autocorrectionDisabled()
@@ -827,7 +848,7 @@ struct ImportView: View {
                             } label: {
                                 HStack {
                                     if forge.importing { ProgressView().tint(.white) }
-                                    Text(forge.importing ? "DOWNLOADING…" : "DOWNLOAD & CONVERT")
+                                    Text(forge.importing ? "DOWNLOADING..." : "DOWNLOAD & CONVERT")
                                 }
                                 .font(.system(size: 12, weight: .heavy, design: .monospaced))
                                 .frame(maxWidth: .infinity)
@@ -845,35 +866,49 @@ struct ImportView: View {
                         }
                     }
 
-                    PCard(title: "00 // IMPORT FROM URL") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Paste a direct audio link (mp3, m4a, wav) from any generator or cloud share.")
-                                .font(.system(size: 12))
-                                .foregroundColor(ashDim)
-                            TextField("https://…/audio.mp3", text: $forge.importUrlText)
-                                .font(.system(size: 12, design: .monospaced))
-                                .textFieldStyle(.roundedBorder)
-                                .autocorrectionDisabled()
-                                .textInputAutocapitalization(.never)
-                            Button {
-                                Task { await forge.importFromUrl(forge.importUrlText) }
-                            } label: {
-                                HStack {
-                                    if forge.importing { ProgressView().tint(.white) }
-                                    Text(forge.importing ? "DOWNLOADING…" : "DOWNLOAD & CONVERT")
-                                }
-                                .font(.system(size: 12, weight: .heavy, design: .monospaced))
-                                .frame(maxWidth: .infinity)
-                                .padding(11)
-                                .background(crimson)
+                    if forge.downloadedUrl != nil {
+                        PCard(title: "PREVIEW THE CLIP") {
+                            Text("Downloaded: " + forge.downloadedName)
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
                                 .foregroundColor(.white)
-                                .cornerRadius(8)
-                            }
-                            .disabled(forge.importing || forge.importUrlText.trimmingCharacters(in: .whitespaces).isEmpty)
-                            if !forge.importStatus.isEmpty {
-                                Text(forge.importStatus)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundColor(.orange)
+                            HStack(spacing: 10) {
+                                Button {
+                                    if let url = forge.downloadedUrl {
+                                        previewPlayer = AVPlayer(url: url)
+                                        previewPlayer?.play()
+                                    }
+                                } label: {
+                                    Label("PREVIEW", systemImage: "play.fill")
+                                        .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(10)
+                                        .background(Color.green.opacity(0.7))
+                                        .foregroundColor(.white)
+                                        .cornerRadius(8)
+                                }
+                                Button {
+                                    previewPlayer?.pause()
+                                    forge.confirmSave()
+                                } label: {
+                                    Label("SAVE TO ARCHIVE", systemImage: "checkmark.circle.fill")
+                                        .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(10)
+                                        .background(crimson)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(8)
+                                }
+                                Button {
+                                    previewPlayer?.pause()
+                                    forge.discardDownload()
+                                } label: {
+                                    Label("DISCARD", systemImage: "trash")
+                                        .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                                        .padding(10)
+                                        .background(Color.white.opacity(0.1))
+                                        .foregroundColor(ashDim)
+                                        .cornerRadius(8)
+                                }
                             }
                         }
                     }
@@ -888,80 +923,19 @@ struct ImportView: View {
                             }
                         }
                     }
-
-                    if forge.importSource != nil {
-                        PCard(title: "02 // CARVE THE SEGMENT") {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text("START")
-                                        .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                                        .foregroundColor(crimson)
-                                    Spacer()
-                                    Text(String(format: "%.1fs", forge.importStart))
-                                        .font(.system(size: 11, design: .monospaced))
-                                        .foregroundColor(ashText)
-                                }
-                                Slider(value: $forge.importStart, in: 0...max(1, forge.importDuration * 3), step: 0.5)
-                                    .tint(crimson)
-                                HStack {
-                                    Text("LENGTH")
-                                        .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                                        .foregroundColor(crimson)
-                                    Spacer()
-                                    Text(String(format: "%.1fs (max 40)", forge.importDuration))
-                                        .font(.system(size: 11, design: .monospaced))
-                                        .foregroundColor(ashText)
-                                }
-                                Slider(value: $forge.importDuration, in: 1...40, step: 0.5)
-                                    .tint(crimson)
-                            }
-                        }
-                        PCard(title: "03 // CONVERT TO RINGTONE") {
-                            VStack(spacing: 10) {
-                                PButton(title: forge.importing ? "CONVERTING…" : "CONVERT TO .M4A", enabled: !forge.importing) {
-                                    Task { await forge.convertImport() }
-                                }
-                                Text("The converted file opens the Files browser — save it, rename .m4a → .m4r, tap to set as your ringtone.")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(ashDim)
-                            }
-                        }
-                    }
-
-                    PCard(title: "STATUS") {
-                        Text(forge.statusMessage.isEmpty ? "Choose a sound — any song, video voiceover or recording becomes a ringtone." : forge.statusMessage)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundColor(forge.statusMessage.contains("failed") ? crimson : ashText)
-                    }
                 }
                 .padding(14)
-            }
-            .sheet(isPresented: $forge.showPhotoPicker) {
-                PhotoVideoPicker { url in
-                    DispatchQueue.main.async {
-                        if let u = url {
-                            forge.importSource = u
-                            forge.importStart = 0
-                            Task {
-                                let asset = AVURLAsset(url: u)
-                                let d = (try? await asset.load(.duration).seconds) ?? 30
-                                await MainActor.run {
-                                    forge.importDuration = min(d, 40)
-                                    forge.statusMessage = "Loaded \(u.lastPathComponent) — \(String(format: "%.1f", d))s available. Set START and LENGTH, then CONVERT."
-                                }
-                            }
-                        }
-                        forge.showPhotoPicker = false
-                    }
-                }
             }
         }
         .navigationTitle("")
         .overlay(alignment: .top) {
-            Text("THE RELIQUARY")
+            Text("THE IMPORT")
                 .font(.system(size: 13, weight: .heavy, design: .monospaced))
                 .foregroundColor(crimson)
                 .padding(.top, 2)
+        }
+        .onDisappear {
+            previewPlayer?.pause()
         }
     }
 }

@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.69",
+          "date": "2026-11-21",
+          "localizedDescription": "v2.4.69: Knell: remove duplicate importFromUrl/importStatus/importUrlText from rebase merge",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.69/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.68",
           "date": "2026-11-20",
           "localizedDescription": "v2.4.68: Knell v1.2.1: add URL import to IMPORT tab (paste direct audio link, download and convert)",

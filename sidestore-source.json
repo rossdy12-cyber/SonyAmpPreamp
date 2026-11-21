@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.74",
+          "date": "2026-11-21",
+          "localizedDescription": "v2.4.74: Merge branch 'main' of https://github.com/rossdy12-cyber/SonyAmpPreamp",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.74/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.73",
           "date": "2026-11-21",
           "localizedDescription": "v2.4.73: Knell: fix project.yml indentation",

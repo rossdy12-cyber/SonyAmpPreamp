@@ -1,0 +1,63 @@
+name: Build Vaultbook IPA (Vampire Facebook)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'Vaultbook/**'
+      - '.github/workflows/build-vaultbook.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-vaultbook:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project & Build Vaultbook (Unsigned)
+        working-directory: Vaultbook
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          xcodebuild clean build \
+            -project Vaultbook.xcodeproj \
+            -target Vaultbook \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package Payload into Vaultbook.ipa
+        working-directory: Vaultbook
+        run: |
+          mkdir -p out/Payload
+          cp -R "build/Release-iphoneos/Vaultbook.app" out/Payload/
+          cd out && zip -r9 Vaultbook.ipa Payload
+
+      - name: Upload Vaultbook IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vaultbook-ipa
+          path: Vaultbook/out/Vaultbook.ipa
+          if-no-files-found: error
+
+      - name: Publish to Stark Store (GitHub release relay)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(python3 -c "import zipfile,plistlib; z=zipfile.ZipFile('Vaultbook/out/Vaultbook.ipa'); info=[n for n in z.namelist() if n.endswith('.app/Info.plist')][0]; print(plistlib.loads(z.read(info))['CFBundleShortVersionString'])")
+          ASSET="Vaultbook__com.ross.vaultbook__${VER}.ipa"
+          cp Vaultbook/out/Vaultbook.ipa "$ASSET"
+          gh release view store-upload --repo rossdy12-cyber/SonyAmpPreamp >/dev/null 2>&1 || \
+            gh release create store-upload --repo rossdy12-cyber/SonyAmpPreamp --title "Stark Store upload relay" --notes "Unsigned IPAs for the NAS relay to sign and publish"
+          gh release upload store-upload "$ASSET" --repo rossdy12-cyber/SonyAmpPreamp --clobber
+          echo "RELEASED: $ASSET - the NAS relay will sign and publish it within ~2 minutes"

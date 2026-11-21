@@ -602,6 +602,8 @@ final class ForgeState: ObservableObject {
             var req = URLRequest(url: url)
             req.timeoutInterval = 300
             req.setValue("Mozilla/5.0 Knell", forHTTPHeaderField: "User-Agent")
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: ["clip_start": clipStart, "clip_duration": clipDuration])
             let (data, resp) = try await URLSession.shared.data(for: req)
             guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
                 throw NSError(domain: "Knell", code: 1, userInfo: [NSLocalizedDescriptionKey: "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"])
@@ -652,6 +654,8 @@ final class ForgeState: ObservableObject {
     // MARK: Import / conversion state
     @Published var importStatus: String = ""
     @Published var importUrlText: String = ""
+    @Published var clipStart: Double = 0
+    @Published var clipDuration: Double = 30
     @Published var importSource: URL? = nil
     @Published var importDuration: Double = 30
     @Published var importStart: Double = 0
@@ -796,6 +800,28 @@ struct ImportView: View {
                                 .textFieldStyle(.roundedBorder)
                                 .autocorrectionDisabled()
                                 .textInputAutocapitalization(.never)
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("START")
+                                        .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                                        .foregroundColor(ashDim)
+                                    Slider(value: $forge.clipStart, in: 0...600, step: 1)
+                                        .tint(bloodDim)
+                                    Text(String(format: "%.0fs", forge.clipStart))
+                                        .font(.system(size: 9, design: .monospaced))
+                                        .foregroundColor(ashDim)
+                                }
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("LENGTH")
+                                        .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                                        .foregroundColor(ashDim)
+                                    Slider(value: $forge.clipDuration, in: 5...60, step: 1)
+                                        .tint(crimson)
+                                    Text(String(format: "%.0fs", forge.clipDuration))
+                                        .font(.system(size: 9, design: .monospaced))
+                                        .foregroundColor(ashDim)
+                                }
+                            }
                             Button {
                                 Task { await forge.importFromUrl(forge.importUrlText) }
                             } label: {

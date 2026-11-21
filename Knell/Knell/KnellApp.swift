@@ -816,7 +816,7 @@ struct ImportView: View {
                             Text("Paste a direct audio link (mp3, m4a, wav) from any generator or cloud share.")
                                 .font(.system(size: 12))
                                 .foregroundColor(ashDim)
-                            TextField("https://\u2026/audio.mp3", text: $forge.importUrlText)
+                            TextField("https://\.../audio.mp3", text: $forge.importUrlText)
                                 .font(.system(size: 12, design: .monospaced))
                                 .textFieldStyle(.roundedBorder)
                                 .autocorrectionDisabled()

@@ -48,7 +48,7 @@ targets:
         CFBundleDisplayName: "Knell"
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
-                UILaunchScreen:
+        UILaunchScreen:
           UIColorName: LaunchBackground
         UTExportedTypeDeclarations:
           - UTTypeIdentifier: com.ross.knell.ringtone

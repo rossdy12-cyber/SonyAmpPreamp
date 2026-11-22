@@ -1,12 +1,14 @@
 import SwiftUI
 import WebKit
+import LocalAuthentication
+import SafariServices
 
 // ============================================================
-//  VAULTBOOK — Facebook, restyled in vampire crimson
-//  A native sanctuary around Facebook's mobile web. Every page
-//  is re-inked the moment it loads: near-black panels, crimson
-//  accents, blood-red links. Login lives in the system cookie
-//  jar; nothing is proxied and nothing leaves the device.
+//  VAULTBOOK v2 — Facebook as a native-feeling sanctum.
+//  No browser chrome: Facebook's own mobile UI is the app.
+//  Pull-to-refresh, edge-swipe back, autoplay video, external
+//  links escape to Safari, long-press link menus, Face ID seal.
+//  Login persists in the system cookie jar. Nothing is proxied.
 // ============================================================
 
 let crimson = Color(red: 1.0, green: 0.09, blue: 0.27)
@@ -67,37 +69,48 @@ enum VaultRite {
     }
 }
 
-// MARK: - WebPit state
+// MARK: - Domain allowlist (main-frame stays in-app only for Facebook)
+
+enum VaultGates {
+    static func isSanctuary(_ url: URL) -> Bool {
+        let host = url.host?.lowercased() ?? ""
+        if host.isEmpty { return true }
+        for d in ["facebook.com", "fbcdn.net", "fb.watch", "facebook.net",
+                  "fbsbx.com", "messenger.com", "instagram.com", "threads.net"] {
+            if host == d || host.hasSuffix("." + d) { return true }
+        }
+        return false
+    }
+}
+
+// MARK: - State
 
 @MainActor
 final class WebPit: ObservableObject {
-    @Published var canGoBack = false
-    @Published var canGoForward = false
     @Published var riteOn = true
-    @Published var status = "Awakening the tomb…"
+    @Published var loading = true
+    @Published var firstLoaded = false
+    @Published var showTools = false
+    @Published var sealed = true
+    @Published var toast = ""
 
     weak var webView: WKWebView?
 
     static let home = URL(string: "https://www.facebook.com/")!
 
-    func goBack() { webView?.goBack() }
-    func goForward() { webView?.goForward() }
-    func refresh() { webView?.reload() }
-
-    func goHome() {
-        webView?.load(URLRequest(url: Self.home))
-        status = "Home — the tomb reopens."
-    }
-
-    func syncChrome() {
-        canGoBack = webView?.canGoBack ?? false
-        canGoForward = webView?.canGoForward ?? false
+    func sealDefaults() {
+        let d = UserDefaults.standard
+        if d.object(forKey: "vb_rite") == nil { d.set(true, forKey: "vb_rite") }
+        if d.object(forKey: "vb_lock") == nil { d.set(true, forKey: "vb_lock") }
+        riteOn = d.bool(forKey: "vb_rite")
+        sealed = d.bool(forKey: "vb_lock")
     }
 
     func setRite(_ on: Bool) {
         riteOn = on
+        UserDefaults.standard.set(on, forKey: "vb_rite")
         webView?.evaluateJavaScript(on ? VaultRite.installJS : VaultRite.removeJS, completionHandler: nil)
-        status = on ? "The rite is sealed — crimson rules this tomb." : "The rite is lifted — Facebook's own shroud returns."
+        toast = on ? "The rite is sealed." : "The rite is lifted."
     }
 
     func resealIfLifted() {
@@ -105,9 +118,29 @@ final class WebPit: ObservableObject {
             webView?.evaluateJavaScript(VaultRite.installJS, completionHandler: nil)
         }
     }
+
+    func goHome() {
+        webView?.load(URLRequest(url: Self.home))
+    }
+
+    func openInSafari() {
+        guard let u = webView?.url else { return }
+        UIApplication.shared.open(u)
+    }
+
+    func forgetLogin() {
+        let store = WKWebsiteDataStore.default()
+        let types = store.websiteDataTypes
+        store.removeData(ofTypes: types, modifiedSince: Date.distantPast) {
+            Task { @MainActor in
+                self.webView?.load(URLRequest(url: Self.home))
+                self.toast = "The old pact is burned. Sign in anew."
+            }
+        }
+    }
 }
 
-// MARK: - BloodWebView
+// MARK: - The Web View
 
 struct BloodWebView: UIViewRepresentable {
     @ObservedObject var pit: WebPit
@@ -115,15 +148,30 @@ struct BloodWebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let cfg = WKWebViewConfiguration()
         cfg.websiteDataStore = .default()
+        cfg.allowsInlineMediaPlayback = true
+        cfg.mediaTypesRequiringUserActionForPlayback = []
         let ucc = cfg.userContentController
-        ucc.addUserScript(WKUserScript(source: VaultRite.installJS, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        if pit.riteOn {
+            ucc.addUserScript(WKUserScript(source: VaultRite.installJS,
+                                           injectionTime: .atDocumentEnd,
+                                           forMainFrameOnly: true))
+        }
         let wv = WKWebView(frame: .zero, configuration: cfg)
         wv.navigationDelegate = context.coordinator
+        wv.uiDelegate = context.coordinator
         wv.allowsBackForwardNavigationGestures = true
+        wv.allowsLinkPreview = true
         wv.overrideUserInterfaceStyle = .dark
         wv.isOpaque = false
         wv.backgroundColor = UIColor(red: 0.02, green: 0.004, blue: 0.012, alpha: 1)
         wv.scrollView.backgroundColor = wv.backgroundColor
+        wv.scrollView.decelerationRate = .normal
+
+        let rc = UIRefreshControl()
+        rc.tintColor = UIColor(red: 1.0, green: 0.09, blue: 0.27, alpha: 1)
+        rc.addTarget(context.coordinator, action: #selector(Coordinator.pulled), for: .valueChanged)
+        wv.scrollView.refreshControl = rc
+
         pit.webView = wv
         wv.load(URLRequest(url: WebPit.home))
         return wv
@@ -133,30 +181,114 @@ struct BloodWebView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(pit: pit) }
 
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         let pit: WebPit
 
         init(pit: WebPit) { self.pit = pit }
 
+        @objc func pulled() {
+            pit.webView?.reload()
+        }
+
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            Task { @MainActor in
+                self.pit.loading = true
+            }
+        }
+
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             Task { @MainActor in
-                self.pit.syncChrome()
+                self.pit.loading = false
+                self.pit.firstLoaded = true
                 self.pit.resealIfLifted()
-                self.pit.status = "Fresh blood — the page has been re-inked in crimson."
+                webView.scrollView.refreshControl?.endRefreshing()
             }
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
             Task { @MainActor in
-                self.pit.status = "The veil resisted: \(error.localizedDescription)"
+                self.pit.loading = false
+                webView.scrollView.refreshControl?.endRefreshing()
             }
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             Task { @MainActor in
-                self.pit.status = "The veil resisted: \(error.localizedDescription)"
+                self.pit.loading = false
+                webView.scrollView.refreshControl?.endRefreshing()
             }
         }
+
+        // External main-frame links escape to Safari; Facebook stays inside.
+        func webView(_ webView: WKWebView,
+                     decidePolicyFor navigationAction: WKNavigationAction,
+                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            guard let url = navigationAction.request.url else {
+                decisionHandler(.allow)
+                return
+            }
+            let scheme = url.scheme?.lowercased() ?? ""
+            if scheme == "about" || scheme == "blob" || scheme == "data" {
+                decisionHandler(.allow)
+                return
+            }
+            let isMain = navigationAction.targetFrame?.isMainFrame ?? true
+            if isMain && !VaultGates.isSanctuary(url) {
+                decisionHandler(.cancel)
+                UIApplication.shared.open(url)
+                return
+            }
+            decisionHandler(.allow)
+        }
+
+        // Long-press menus on links: copy / Safari.
+        func webView(_ webView: WKWebView,
+                     contextMenuConfigurationFor elementInfo: WKContextMenuElementInfo,
+                     completionHandler: @escaping (UIContextMenuConfiguration?) -> Void) {
+            guard let url = elementInfo.linkURL else {
+                completionHandler(nil)
+                return
+            }
+            let config = UIContextMenuConfiguration(actionProvider: { _ in
+                UIMenu(children: [
+                    UIAction(title: "Copy Link", image: UIImage(systemName: "link")) { _ in
+                        UIPasteboard.general.string = url.absoluteString
+                    },
+                    UIAction(title: "Open in Safari", image: UIImage(systemName: "safari")) { _ in
+                        UIApplication.shared.open(url)
+                    }
+                ])
+            })
+            completionHandler(config)
+        }
+
+        // New-window requests (target=_blank): open inside the same view.
+        func webView(_ webView: WKWebView,
+                     createWebViewWith configuration: WKWebViewConfiguration,
+                     for navigationAction: WKNavigationAction,
+                     windowFeatures: WKWindowFeatures) -> WKWebView? {
+            if let url = navigationAction.request.url {
+                webView.load(URLRequest(url: url))
+            }
+            return nil
+        }
+    }
+}
+
+// MARK: - Face ID seal
+
+func unsealCrypt() async -> Bool {
+    let ctx = LAContext()
+    var err: NSError?
+    guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &err) else {
+        return true
+    }
+    do {
+        return try await ctx.evaluatePolicy(
+            .deviceOwnerAuthentication,
+            localizedReason: "Unseal the vault")
+    } catch {
+        return false
     }
 }
 
@@ -174,65 +306,216 @@ struct VaultbookApp: App {
 
 struct ContentView: View {
     @StateObject private var pit = WebPit()
+    @State private var unsealed = false
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
             BloodWebView(pit: pit)
-                .frame(maxHeight: .infinity)
+                .ignoresSafeArea(edges: .bottom)
 
-            Text(pit.status)
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundColor(ashDim)
-                .lineLimit(1)
-                .padding(.horizontal, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 18)
-                .background(Color(red: 0.06, green: 0.01, blue: 0.03))
+            if !pit.firstLoaded {
+                splashOverlay
+            }
 
-            gothicBar
-        }
-        .background(cryptBg.ignoresSafeArea())
-    }
-
-    var gothicBar: some View {
-        HStack(spacing: 10) {
-            barButton("chevron.left", enabled: pit.canGoBack, action: { pit.goBack() })
-            barButton("chevron.right", enabled: pit.canGoForward, action: { pit.goForward() })
-            barButton("arrow.clockwise", enabled: true, action: { pit.refresh() })
-            barButton("house.fill", enabled: true, action: { pit.goHome() })
-            Spacer()
-            Button {
-                pit.setRite(!pit.riteOn)
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: pit.riteOn ? "drop.fill" : "drop")
-                        .font(.system(size: 12, weight: .heavy))
-                    Text("RITE")
-                        .font(.system(size: 11, weight: .heavy, design: .monospaced))
+            if pit.loading && pit.firstLoaded {
+                VStack {
+                    ProgressView()
+                        .tint(crimson)
+                        .padding(8)
+                        .background(cryptBg.opacity(0.85))
+                        .cornerRadius(10)
+                    Spacer()
                 }
-                .foregroundColor(pit.riteOn ? .white : ashDim)
-                .padding(.vertical, 9)
-                .padding(.horizontal, 12)
-                .background(pit.riteOn ? crimson : Color(red: 0.1, green: 0.015, blue: 0.04))
-                .cornerRadius(8)
+                .padding(.top, 4)
+            }
+
+            toolsButton
+
+            if !pit.toast.isEmpty {
+                VStack {
+                    Spacer()
+                    Text(pit.toast)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(ashText)
+                        .padding(.vertical, 7)
+                        .padding(.horizontal, 14)
+                        .background(bloodDim)
+                        .cornerRadius(8)
+                        .padding(.bottom, 96)
+                }
+                .transition(.opacity)
+            }
+
+            if pit.sealed && !unsealed {
+                lockOverlay
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color(red: 0.06, green: 0.01, blue: 0.03))
-        .overlay(Rectangle().frame(height: 1).foregroundColor(crimson.opacity(0.4)), alignment: .top)
+        .background(cryptBg.ignoresSafeArea())
+        .sheet(isPresented: $pit.showTools) {
+            ToolsSheet(pit: pit)
+        }
+        .onAppear {
+            pit.sealDefaults()
+            if pit.sealed {
+                Task {
+                    unsealed = await unsealCrypt()
+                }
+            }
+        }
+        .onChange(of: pit.toast) { t in
+            guard !t.isEmpty else { return }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 2_200_000_000)
+                if pit.toast == t { pit.toast = "" }
+            }
+        }
     }
 
-    func barButton(_ icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .heavy))
-                .foregroundColor(enabled ? ashText : ashDim.opacity(0.4))
-                .padding(.vertical, 9)
-                .padding(.horizontal, 12)
-                .background(Color(red: 0.1, green: 0.015, blue: 0.04))
-                .cornerRadius(8)
+    var splashOverlay: some View {
+        ZStack {
+            cryptBg.ignoresSafeArea()
+            VStack(spacing: 14) {
+                Image(systemName: "moon.stars.fill")
+                    .font(.system(size: 42))
+                    .foregroundColor(crimson)
+                Text("VAULTBOOK")
+                    .font(.system(size: 20, weight: .heavy, design: .monospaced))
+                    .foregroundColor(ashText)
+                    .kerning(6)
+                Text("opening the tomb…")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(ashDim)
+                ProgressView()
+                    .tint(crimson)
+            }
         }
-        .disabled(!enabled)
+    }
+
+    var lockOverlay: some View {
+        ZStack {
+            cryptBg.ignoresSafeArea()
+            VStack(spacing: 16) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 40))
+                    .foregroundColor(crimson)
+                Text("THE VAULT IS SEALED")
+                    .font(.system(size: 14, weight: .heavy, design: .monospaced))
+                    .foregroundColor(ashText)
+                Button {
+                    Task {
+                        unsealed = await unsealCrypt()
+                    }
+                } label: {
+                    Text("UNSEAL")
+                        .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                        .foregroundColor(.white)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 24)
+                        .background(crimson)
+                        .cornerRadius(9)
+                }
+            }
+        }
+    }
+
+    var toolsButton: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                Button {
+                    pit.showTools = true
+                } label: {
+                    Image(systemName: "drop.fill")
+                        .font(.system(size: 14, weight: .heavy))
+                        .foregroundColor(.white)
+                        .frame(width: 34, height: 34)
+                        .background(crimson.opacity(0.92))
+                        .clipShape(Circle())
+                        .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
+                }
+                .opacity(pit.firstLoaded ? 0.85 : 0)
+                .padding(.trailing, 12)
+                .padding(.bottom, 68)
+            }
+        }
+    }
+}
+
+// MARK: - Tools sheet
+
+struct ToolsSheet: View {
+    @ObservedObject var pit: WebPit
+    @Environment(\.presentationMode) var present
+
+    var body: some View {
+        ZStack {
+            cryptBg.ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("VAULTBOOK")
+                        .font(.system(size: 14, weight: .heavy, design: .monospaced))
+                        .foregroundColor(crimson)
+                        .frame(maxWidth: .infinity)
+
+                    Toggle(isOn: Binding(
+                        get: { pit.riteOn },
+                        set: { pit.setRite($0) })) {
+                        Text("VAMPIRE RITE")
+                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                            .foregroundColor(ashText)
+                    }
+                    .tint(crimson)
+
+                    Toggle(isOn: Binding(
+                        get: { pit.sealed },
+                        set: { on in
+                            pit.sealed = on
+                            UserDefaults.standard.set(on, forKey: "vb_lock")
+                        })) {
+                        Text("FACE ID SEAL")
+                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                            .foregroundColor(ashText)
+                    }
+                    .tint(crimson)
+
+                    sheetButton("HOME", icon: "house.fill") {
+                        pit.goHome()
+                        present.wrappedValue.dismiss()
+                    }
+                    sheetButton("OPEN PAGE IN SAFARI", icon: "safari") {
+                        pit.openInSafari()
+                        present.wrappedValue.dismiss()
+                    }
+                    sheetButton("FORGET LOGIN (LOG OUT)", icon: "person.badge.minus") {
+                        pit.forgetLogin()
+                        present.wrappedValue.dismiss()
+                    }
+
+                    Text("Facebook's own web app is the engine — the rite re-inks every page in crimson, external links escape to Safari, and your login lives in the system cookie jar.")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(ashDim)
+                }
+                .padding(18)
+            }
+        }
+    }
+
+    func sheetButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundColor(crimson)
+                Text(title)
+                    .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                    .foregroundColor(ashText)
+                Spacer()
+            }
+            .padding(.vertical, 11)
+            .padding(.horizontal, 14)
+            .background(Color(red: 0.1, green: 0.015, blue: 0.04))
+            .cornerRadius(9)
+        }
     }
 }

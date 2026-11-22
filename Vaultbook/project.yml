@@ -19,6 +19,7 @@ settings:
     MARKETING_VERSION: "2.0.0"
     CURRENT_PROJECT_VERSION: "1"
 
+targets:
   Vaultbook:
     type: application
     platform: iOS

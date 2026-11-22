@@ -130,7 +130,15 @@ final class WebPit: ObservableObject {
 
     func forgetLogin() {
         let store = WKWebsiteDataStore.default()
-        let types = store.websiteDataTypes
+        let types: Set<String> = [
+            WKWebsiteDataTypeCookies,
+            WKWebsiteDataTypeLocalStorage,
+            WKWebsiteDataTypeSessionStorage,
+            WKWebsiteDataTypeDiskCache,
+            WKWebsiteDataTypeMemoryCache,
+            WKWebsiteDataTypeIndexedDBDatabases,
+            WKWebsiteDataTypeWebSQLDatabases
+        ]
         store.removeData(ofTypes: types, modifiedSince: Date.distantPast) {
             Task { @MainActor in
                 self.webView?.load(URLRequest(url: Self.home))

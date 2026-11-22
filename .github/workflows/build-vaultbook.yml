@@ -25,12 +25,20 @@ jobs:
             brew install xcodegen
           fi
           xcodegen generate
-          xcodebuild -project Vaultbook.xcodeproj -scheme Vaultbook -configuration Release -destination 'generic/platform=iOS' -archivePath build/Vaultbook.xcarchive archive CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" | tail -30
+          xcodebuild clean build \
+            -project Vaultbook.xcodeproj \
+            -target Vaultbook \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Package Unsigned IPA
         working-directory: Vaultbook
         run: |
-          APP_PATH=$(find build/Vaultbook.xcarchive/Products/Applications -maxdepth 1 -name "*.app" | head -1)
+          APP_PATH=$(find build/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/
           zip -qry Vaultbook-unsigned.ipa Payload

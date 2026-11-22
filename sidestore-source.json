@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.78",
+          "date": "2026-11-22",
+          "localizedDescription": "v2.4.78: Vaultbook: explicit website data type set (websiteDataTypes member unavailable)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.78/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.77",
           "date": "2026-11-22",
           "localizedDescription": "v2.4.77: Vaultbook: restore missing targets: key in project.yml (agent commit was mangled \u2014 xcodegen produced an empty project)",

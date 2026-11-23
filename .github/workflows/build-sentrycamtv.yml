@@ -1,0 +1,49 @@
+name: Build SentryCam TV (tvOS Apple TV) IPA
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'SentryCam/**'
+      - '.github/workflows/build-sentrycamtv.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build SentryCam TV (tvOS appletvos)
+        working-directory: SentryCam
+        run: |
+          set -o pipefail
+          xcodegen generate
+          xcodebuild \
+            -project SentryCam.xcodeproj \
+            -target SentryCamTV \
+            -configuration Release \
+            -sdk appletvos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          mkdir -p out/Payload
+          cp -R build/Release-appletvos/SentryCamTV.app out/Payload/
+          cd out
+          zip -qry SentryCamTV.ipa Payload
+          ls -lh SentryCamTV.ipa
+
+      - name: Upload SentryCamTV.ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: SentryCamTV-ipa
+          path: SentryCam/out/SentryCamTV.ipa
+          retention-days: 30

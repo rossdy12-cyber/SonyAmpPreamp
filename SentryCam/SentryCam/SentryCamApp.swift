@@ -4,6 +4,17 @@ import UserNotifications
 import AVKit
 import Combine
 
+#if os(tvOS)
+enum TVNavigationBarTitleDisplayMode {
+    case automatic, inline, large
+}
+extension View {
+    func navigationBarTitleDisplayMode(_ mode: TVNavigationBarTitleDisplayMode) -> some View {
+        self
+    }
+}
+#endif
+
 // MARK: - Models
 
 struct FrigateEvent: Codable, Identifiable {
@@ -97,9 +108,14 @@ final class SentryAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificati
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
+        #if os(tvOS)
+        completionHandler([.banner, .sound, .badge])
+        #else
         completionHandler([.banner, .list, .sound, .badge])
+        #endif
     }
 
+    #if !os(tvOS)
     // Deep-link straight into the camera detection clip when user taps a push notification
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
@@ -122,17 +138,19 @@ final class SentryAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificati
         }
         completionHandler()
     }
+    #endif
 }
 
 // MARK: - ViewModel
 
 @MainActor
 final class SentryViewModel: ObservableObject {
-    @Published var frigateBase: String = "http://100.85.127.42:5000"
-    @Published var truenasAgent: String = "http://100.85.127.42:9092"
-    @Published var cameras: [String] = ["tapo_c200", "bike_camera", "doorbell"]
+    @Published var frigateBase: String = "http://100.64.0.4:5000"
+    @Published var truenasAgent: String = "http://100.64.0.4:9092"
+    @Published var cameras: [String] = ["tapo_c200", "bike_camera"]
     @Published var selectedCamera: String = "tapo_c200"
     @Published var liveFrame: UIImage? = nil
+    @Published var camFrames: [String: UIImage] = [:]
     @Published var isStreamingLive: Bool = true
     @Published var events: [FrigateEvent] = []
     @Published var selectedFilter: String = "All"
@@ -207,15 +225,20 @@ final class SentryViewModel: ObservableObject {
 
     func fetchLatestCameraFrame() async {
         let ts = Int(Date().timeIntervalSince1970 * 1000)
-        guard let url = URL(string: "\(frigateBase)/api/\(selectedCamera)/latest.jpg?h=720&t=\(ts)") else { return }
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 4.0
-        do {
-            let (data, _) = try await URLSession.shared.data(for: req)
-            if let img = UIImage(data: data) {
-                liveFrame = img
-            }
-        } catch {}
+        for cam in ["tapo_c200", "bike_camera"] {
+            guard let url = URL(string: "\(frigateBase)/api/\(cam)/latest.jpg?h=720&t=\(ts)") else { continue }
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 4.0
+            do {
+                let (data, _) = try await URLSession.shared.data(for: req)
+                if let img = UIImage(data: data) {
+                    camFrames[cam] = img
+                    if cam == selectedCamera {
+                        liveFrame = img
+                    }
+                }
+            } catch {}
+        }
     }
 
     func loadEvents() async {
@@ -513,7 +536,50 @@ struct SentryLiveTab: View {
                         Task { await vm.fetchLatestCameraFrame() }
                     }
 
-                    // Live Feed Card
+                    #if os(tvOS)
+                    // Dual-Camera 4K TV Split Wall (Tapo C200 + Ezviz Bike Camera)
+                    HStack(spacing: 18) {
+                        ForEach(["tapo_c200", "bike_camera"], id: \.self) { cam in
+                            ZStack(alignment: .topLeading) {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .fill(Color(red: 0.06, green: 0.08, blue: 0.14))
+                                    .frame(height: 360)
+
+                                if let img = vm.camFrames[cam] {
+                                    Image(uiImage: img)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(maxWidth: .infinity, maxHeight: 360)
+                                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                } else {
+                                    VStack(spacing: 10) {
+                                        ProgressView()
+                                        Text("Streaming \(cam.replacingOccurrences(of: "_", with: " ").capitalized)...")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .frame(maxWidth: .infinity, minHeight: 360)
+                                }
+
+                                HStack(spacing: 6) {
+                                    Circle()
+                                        .fill(Color.red)
+                                        .frame(width: 10, height: 10)
+                                    Text("LIVE • \(cam == "tapo_c200" ? "TAPO C200 (192.168.0.41)" : "EZVIZ BIKE CAM (192.168.0.157)")")
+                                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                        .foregroundStyle(.white)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.black.opacity(0.75))
+                                .clipShape(Capsule())
+                                .padding(14)
+                            }
+                        }
+                    }
+                    #endif
+
+                    // Single Camera Focus Feed Card
                     ZStack(alignment: .topLeading) {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(Color(red: 0.06, green: 0.08, blue: 0.14))

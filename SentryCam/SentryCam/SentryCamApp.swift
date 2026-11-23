@@ -262,6 +262,7 @@ final class SentryViewModel: ObservableObject {
     // MARK: - Rich Snapshot Local Notification (Attaches JPEG Snapshot)
 
     func postRichSnapshotNotification(for event: FrigateEvent) async {
+        #if !os(tvOS)
         let content = UNMutableNotificationContent()
         content.title = "🚨 \(event.formattedLabel) on \(event.formattedCamera)"
         content.subtitle = "\(event.displayScorePercent)% confidence"
@@ -287,6 +288,7 @@ final class SentryViewModel: ObservableObject {
 
         let req = UNNotificationRequest(identifier: "sentry_\(event.id)", content: content, trigger: nil)
         try? await UNUserNotificationCenter.current().add(req)
+        #endif
     }
 
     // MARK: - Native Apple APNs Registration & Test Push

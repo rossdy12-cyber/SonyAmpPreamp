@@ -1,0 +1,29 @@
+name: Wraith
+options:
+  bundleIdPrefix: app.ross
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  Wraith:
+    type: application
+    platform: iOS
+    sources:
+      - Wraith
+    settings:
+      base:
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: 1
+        PRODUCT_BUNDLE_IDENTIFIER: app.ross.wraith
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: G42YL9QS8W
+    info:
+      path: Wraith/Info.plist
+      properties:
+        CFBundleDisplayName: Wraith
+        UILaunchScreen: {}
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true

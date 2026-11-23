@@ -560,24 +560,25 @@ struct TVPlayerContainerView: View {
 
         let interval = CMTime(seconds: 0.4, preferredTimescale: 600)
         timeObserverToken = avPlayer.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
-            guard vm.sponsorBlockEnabled else { return }
             let sec = time.seconds
             guard sec.isFinite && sec >= 0 else { return }
-            for seg in segments {
-                if !shouldSkipCategory(seg.category) { continue }
-                if sec >= seg.start && sec < (seg.end - 0.6) {
-                    let target = CMTime(seconds: seg.end + 0.1, preferredTimescale: 600)
-                    avPlayer.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-                    let saved = max(1, Int(seg.end - seg.start))
-                    vm.skippedCount += 1
-                    vm.skippedSecondsTotal += saved
-                    vm.skippedToast = "BANISHED \(seg.category.uppercased()) (+\(saved)s)"
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) {
+            Task { @MainActor in
+                guard vm.sponsorBlockEnabled else { return }
+                for seg in segments {
+                    if !shouldSkipCategory(seg.category) { continue }
+                    if sec >= seg.start && sec < (seg.end - 0.6) {
+                        let target = CMTime(seconds: seg.end + 0.1, preferredTimescale: 600)
+                        avPlayer.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+                        let saved = max(1, Int(seg.end - seg.start))
+                        vm.skippedCount += 1
+                        vm.skippedSecondsTotal += saved
+                        vm.skippedToast = "BANISHED \(seg.category.uppercased()) (+\(saved)s)"
+                        try? await Task.sleep(nanoseconds: 3_200_000_000)
                         if vm.skippedToast?.contains(seg.category.uppercased()) == true {
                             vm.skippedToast = nil
                         }
+                        break
                     }
-                    break
                 }
             }
         }

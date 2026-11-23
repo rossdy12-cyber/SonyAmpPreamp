@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.82",
+          "date": "2026-11-23",
+          "localizedDescription": "v2.4.82: Add Ross, Mo, and Lauren user owner filters and pickers in BloodMesh v2.1.0",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.82/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.81",
           "date": "2026-11-23",
           "localizedDescription": "v2.4.81: Upgrade BloodMesh to v2.0.0 with standalone native NEPacketTunnelProvider (BloodMeshTunnel.appex)",

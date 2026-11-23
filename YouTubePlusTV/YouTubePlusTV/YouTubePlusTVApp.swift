@@ -266,7 +266,6 @@ final class YouTubePlusTVViewModel: ObservableObject {
 
         async let sbTask = fetchSponsorBlockDirect(videoId: item.id)
         async let hlsTask = resolveDirectInnerTubeHLS(videoId: item.id)
-        async let serverTask = resolveTrueNASStream(videoId: item.id)
 
         let directHLS = await hlsTask
         let sbSegments = await sbTask
@@ -275,12 +274,12 @@ final class YouTubePlusTVViewModel: ObservableObject {
             self.activeSegments = sbSegments
             self.activeStreamURL = url
             self.activeVideo = item
-            // Notify TrueNAS in background to record watch history
-            Task { _ = await serverTask }
+            let vidId = item.id
+            Task { _ = await self.resolveTrueNASStream(videoId: vidId) }
             return
         }
 
-        if let st = await serverTask {
+        if let st = await resolveTrueNASStream(videoId: item.id) {
             let candidates = [st.hls_url, st.proxy_play_url, st.direct_url].compactMap { $0 }.filter { !$0.isEmpty }
             if let first = candidates.first, let url = URL(string: first) {
                 self.activeSegments = st.segments ?? sbSegments
@@ -568,7 +567,7 @@ struct TVPlayerContainerView: View {
                     if !shouldSkipCategory(seg.category) { continue }
                     if sec >= seg.start && sec < (seg.end - 0.6) {
                         let target = CMTime(seconds: seg.end + 0.1, preferredTimescale: 600)
-                        avPlayer.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
+                        await avPlayer.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
                         let saved = max(1, Int(seg.end - seg.start))
                         vm.skippedCount += 1
                         vm.skippedSecondsTotal += saved

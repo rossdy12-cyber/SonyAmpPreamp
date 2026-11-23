@@ -187,8 +187,9 @@ final class BloodMeshViewModel: ObservableObject {
 
     // Registration & Key Forge
     @Published var authReqInput: String = ""
-    @Published var registerUser: String = "ross"
-    @Published var forgeRole: String = "ross"
+    @Published var registerUser: String = "ross" // "ross", "mo", "lauren"
+    @Published var selectedUserFilter: String = "all" // "all", "ross", "mo", "lauren", "infra"
+    @Published var forgeRole: String = "ross" // "ross", "mo", "lauren", "tag:server", "tag:router"
     @Published var forgeExpiration: String = "24h"
     @Published var forgeReusable: Bool = true
     @Published var forgedKey: PreAuthKeyResponse?
@@ -462,10 +463,12 @@ final class BloodMeshViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        let tags: [String] = (forgeRole == "ross") ? [] : [forgeRole]
+        let isTag = forgeRole.hasPrefix("tag:")
+        let userTarget = isTag ? "ross" : forgeRole
+        let tags: [String] = isTag ? [forgeRole] : []
         let payload: [String: Any] = [
             "action": "preauthkey",
-            "user_id": "1",
+            "user": userTarget,
             "reusable": forgeReusable,
             "expiration": forgeExpiration,
             "tags": tags
@@ -1117,15 +1120,53 @@ struct SanctumTunnelTab: View {
 struct CovenNodesTab: View {
     @ObservedObject var vm: BloodMeshViewModel
 
+    private var filteredNodes: [HeadscaleNode] {
+        switch vm.selectedUserFilter {
+        case "ross", "mo", "lauren":
+            return vm.nodes.filter { $0.user.lowercased() == vm.selectedUserFilter }
+        case "infra":
+            return vm.nodes.filter { !$0.tags.isEmpty || $0.user == "tagged-devices" }
+        default:
+            return vm.nodes
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
-                ForEach(vm.nodes) { node in
+                ownerFilterBar
+
+                ForEach(filteredNodes) { node in
                     nodeCard(node)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
+        }
+    }
+
+    private var ownerFilterBar: some View {
+        HStack(spacing: 6) {
+            ForEach([
+                ("all", "ALL"),
+                ("ross", "ROSS"),
+                ("mo", "MO"),
+                ("lauren", "LAUREN"),
+                ("infra", "INFRA")
+            ], id: \.0) { key, title in
+                let active = vm.selectedUserFilter == key
+                Button {
+                    vm.selectedUserFilter = key
+                } label: {
+                    Text(title)
+                        .font(GothicTheme.serif(9, weight: .bold))
+                        .tracking(0.6)
+                        .foregroundStyle(active ? GothicTheme.bone : GothicTheme.ash)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .gothicPanel(active: active, corner: 6)
+                }
+            }
         }
     }
 
@@ -1170,13 +1211,20 @@ struct CovenNodesTab: View {
                             .font(GothicTheme.serif(13, weight: .bold))
                             .tracking(0.8)
                             .foregroundStyle(GothicTheme.bone)
+                        Text(node.user == "tagged-devices" ? "INFRA" : node.user.uppercased())
+                            .font(GothicTheme.serif(8.5, weight: .bold))
+                            .tracking(0.5)
+                            .foregroundStyle(GothicTheme.bone)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .gothicPanel(active: true, corner: 4)
                         ForEach(node.tags, id: \.self) { tag in
                             Text(tag)
                                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                                 .foregroundStyle(GothicTheme.bloodHi)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 1.5)
-                                .gothicPanel(active: true, corner: 4)
+                                .gothicPanel(active: false, corner: 4)
                         }
                     }
                     Text(node.fqdn)
@@ -1359,12 +1407,34 @@ struct ConsecrationRitesTab: View {
         VStack(alignment: .leading, spacing: 10) {
             GothicHeader(
                 title: "CONSECRATE NEW DEVICE (AUTH REGISTER)",
-                rightText: "USER: ROSS"
+                rightText: "OWNER: \(vm.registerUser.uppercased())"
             )
 
-            Text("Paste any hskey-authreq-... token, registration URL, or CLI command from a new device to bind it to your Headscale coven.")
+            Text("Select whose device this is (Ross, Mo, or Lauren), then paste the hskey-authreq-... token or registration URL to bind it to their user.")
                 .font(GothicTheme.serif(11))
                 .foregroundStyle(GothicTheme.ash)
+
+            HStack(spacing: 6) {
+                ForEach(["ross", "mo", "lauren"], id: \.self) { usr in
+                    let active = vm.registerUser == usr
+                    Button {
+                        vm.registerUser = usr
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(active ? GothicTheme.bloodHi : GothicTheme.ash)
+                            Text(usr.uppercased())
+                                .font(GothicTheme.serif(9.5, weight: .bold))
+                                .tracking(0.7)
+                                .foregroundStyle(active ? GothicTheme.bone : GothicTheme.ash)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .gothicPanel(active: active, corner: 6)
+                    }
+                }
+            }
 
             HStack(spacing: 8) {
                 TextField("hskey-authreq-... or registration URL", text: $vm.authReqInput)
@@ -1419,9 +1489,11 @@ struct ConsecrationRitesTab: View {
                 .foregroundStyle(GothicTheme.ash)
 
             HStack(spacing: 6) {
-                roleChoice(title: "PERSONAL (ross)", value: "ross")
-                roleChoice(title: "SERVER (tag:server)", value: "tag:server")
-                roleChoice(title: "ROUTER (tag:router)", value: "tag:router")
+                roleChoice(title: "ROSS", value: "ross")
+                roleChoice(title: "MO", value: "mo")
+                roleChoice(title: "LAUREN", value: "lauren")
+                roleChoice(title: "SERVER", value: "tag:server")
+                roleChoice(title: "ROUTER", value: "tag:router")
             }
 
             HStack(spacing: 6) {

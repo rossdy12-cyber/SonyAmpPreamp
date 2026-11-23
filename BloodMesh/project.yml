@@ -9,8 +9,8 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: minimal
-    MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "2.0.0"
+    CURRENT_PROJECT_VERSION: "2"
 
 targets:
   BloodMesh:
@@ -22,6 +22,7 @@ targets:
       - path: ../WidgetPack/Shared
     dependencies:
       - target: BloodMeshWidget
+      - target: BloodMeshTunnel
     settings:
       base:
         PRODUCT_NAME: BloodMesh
@@ -43,14 +44,11 @@ targets:
         LSRequiresIPhoneOS: true
         ITSAppUsesNonExemptEncryption: false
         UIUserInterfaceStyle: Dark
-        LSApplicationQueriesSchemes:
-          - tailscale
-          - wireguard
         CFBundleURLTypes:
           - CFBundleURLName: com.ross.bloodmesh
             CFBundleURLSchemes:
               - bloodmesh
-        NSLocalNetworkUsageDescription: "BloodMesh inspects your Headscale mesh tunnel (100.64.0.0/10) and home LAN subnet routes (192.168.0.0/24)."
+        NSLocalNetworkUsageDescription: "BloodMesh establishes your native Headscale mesh tunnel (100.64.0.0/10) and routes traffic to your home LAN (192.168.0.0/24)."
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         UILaunchScreen:
@@ -61,6 +59,33 @@ targets:
           - UIInterfaceOrientationPortrait
         UIFileSharingEnabled: false
         LSSupportsOpeningDocumentsInPlace: false
+
+  BloodMeshTunnel:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: BloodMeshTunnel
+    settings:
+      base:
+        PRODUCT_NAME: BloodMeshTunnel
+        PRODUCT_BUNDLE_IDENTIFIER: com.ross.bloodmesh.tunnel
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        DEVELOPMENT_TEAM: ""
+        SKIP_INSTALL: "YES"
+    info:
+      path: BloodMeshTunnel/Info.plist
+      properties:
+        CFBundleDisplayName: BloodMeshTunnel
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).PacketTunnelProvider
 
   BloodMeshWidget:
     type: app-extension

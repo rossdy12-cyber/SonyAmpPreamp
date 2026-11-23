@@ -2,6 +2,7 @@ import SwiftUI
 import WidgetKit
 import UIKit
 import Network
+import NetworkExtension
 import Darwin
 
 // MARK: - Models
@@ -165,11 +166,17 @@ enum iOSTunnelScanner {
     }
 }
 
-// MARK: - ViewModel
+// MARK: - ViewModel (with Native NETunnelProviderManager Control)
 
 @MainActor
 final class BloodMeshViewModel: ObservableObject {
     @Published var localTunnel = iOSTunnelScanner.scan()
+    @Published var vpnStatus: NEVPNStatus = .invalid
+    @Published var exitNodeEnabled: Bool = false
+    @Published var onDemandEnabled: Bool = false
+    @Published var providerRxBytes: UInt64 = 0
+    @Published var providerTxBytes: UInt64 = 0
+
     @Published var health: HeadscaleHealth?
     @Published var summary: HeadscaleSummary?
     @Published var nodes: [HeadscaleNode] = []
@@ -181,7 +188,7 @@ final class BloodMeshViewModel: ObservableObject {
     // Registration & Key Forge
     @Published var authReqInput: String = ""
     @Published var registerUser: String = "ross"
-    @Published var forgeRole: String = "ross" // "ross", "tag:server", "tag:router"
+    @Published var forgeRole: String = "ross"
     @Published var forgeExpiration: String = "24h"
     @Published var forgeReusable: Bool = true
     @Published var forgedKey: PreAuthKeyResponse?
@@ -199,10 +206,170 @@ final class BloodMeshViewModel: ObservableObject {
         ProbeTarget(id: "sidestore", title: "SideStore Signing TUN", subtitle: "10.7.0.1:18998", host: "10.7.0.1", port: 18998)
     ]
 
+    private var tunnelManager: NETunnelProviderManager?
+    private var statusObserver: NSObjectProtocol?
+    private var telemetryTimer: Timer?
+
+    private let tunnelBundleId = "com.ross.bloodmesh.tunnel"
     private let endpoints = [
         "https://hs.nas-server.co.uk/sanctum-api",
         "http://100.64.0.4:18998/sidestore-api/headscale"
     ]
+
+    init() {
+        statusObserver = NotificationCenter.default.addObserver(
+            forName: .NEVPNStatusDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] notif in
+            Task { @MainActor in
+                guard let self = self else { return }
+                if let conn = notif.object as? NEVPNConnection {
+                    self.vpnStatus = conn.status
+                } else if let mgr = self.tunnelManager {
+                    self.vpnStatus = mgr.connection.status
+                }
+                self.localTunnel = iOSTunnelScanner.scan()
+                WidgetCenter.shared.reloadAllTimelines()
+            }
+        }
+
+        telemetryTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.pollProviderTelemetry()
+            }
+        }
+    }
+
+    var isTunnelConnected: Bool {
+        vpnStatus == .connected || localTunnel.isSealed
+    }
+
+    var vpnStatusText: String {
+        switch vpnStatus {
+        case .connected: return "BLOODLINE VPN SEALED"
+        case .connecting: return "FORGING BLOODLINE..."
+        case .reasserting: return "REASSERTING SEAL..."
+        case .disconnecting: return "SEVERING TUNNEL..."
+        case .disconnected: return localTunnel.isSealed ? "EXTERNAL UTUN ACTIVE" : "TUNNEL SEVERED"
+        case .invalid: return localTunnel.isSealed ? "EXTERNAL UTUN ACTIVE" : "READY TO CONSECRATE VPN"
+        @unknown default: return "TUNNEL STANDBY"
+        }
+    }
+
+    func loadOrConfigureVPNManager() async {
+        do {
+            let managers = try await NETunnelProviderManager.loadAllFromPreferences()
+            if let existing = managers.first(where: {
+                ($0.protocolConfiguration as? NETunnelProviderProtocol)?.providerBundleIdentifier == tunnelBundleId
+            }) ?? managers.first {
+                self.tunnelManager = existing
+                self.vpnStatus = existing.connection.status
+                self.onDemandEnabled = existing.isOnDemandEnabled
+                if let proto = existing.protocolConfiguration as? NETunnelProviderProtocol,
+                   let cfgExit = proto.providerConfiguration?["exitNodeEnabled"] as? Bool {
+                    self.exitNodeEnabled = cfgExit
+                }
+            }
+        } catch {
+            // Will create when user taps Seal VPN
+        }
+    }
+
+    private func ensureConfiguredManager() async throws -> NETunnelProviderManager {
+        let managers = try await NETunnelProviderManager.loadAllFromPreferences()
+        let mgr = managers.first(where: {
+            ($0.protocolConfiguration as? NETunnelProviderProtocol)?.providerBundleIdentifier == tunnelBundleId
+        }) ?? managers.first ?? NETunnelProviderManager()
+
+        let proto = (mgr.protocolConfiguration as? NETunnelProviderProtocol) ?? NETunnelProviderProtocol()
+        proto.providerBundleIdentifier = tunnelBundleId
+        proto.serverAddress = "hs.nas-server.co.uk (38.9.96.58:41642)"
+        proto.providerConfiguration = [
+            "exitNodeEnabled": exitNodeEnabled,
+            "serverIP": "38.9.96.58",
+            "serverPort": 41642,
+            "magicDNSDomain": "mesh.internal"
+        ]
+        mgr.protocolConfiguration = proto
+        mgr.localizedDescription = "BloodMesh ✠ Headscale Sanctum"
+        mgr.isEnabled = true
+        mgr.isOnDemandEnabled = onDemandEnabled
+        if onDemandEnabled {
+            let connectRule = NEOnDemandRuleConnect()
+            connectRule.interfaceTypeMatch = .any
+            mgr.onDemandRules = [connectRule]
+        } else {
+            mgr.onDemandRules = []
+        }
+
+        try await mgr.saveToPreferences()
+        try await mgr.loadFromPreferences()
+        self.tunnelManager = mgr
+        self.vpnStatus = mgr.connection.status
+        return mgr
+    }
+
+    func toggleVPNTunnel() async {
+        do {
+            let mgr = try await ensureConfiguredManager()
+            if mgr.connection.status == .connected || mgr.connection.status == .connecting {
+                if mgr.isOnDemandEnabled {
+                    onDemandEnabled = false
+                    mgr.isOnDemandEnabled = false
+                    try? await mgr.saveToPreferences()
+                }
+                mgr.connection.stopVPNTunnel()
+                showBanner("BloodMesh VPN tunnel severed.", error: false)
+            } else {
+                let opts: [String: NSObject] = [
+                    "exitNode": NSNumber(value: exitNodeEnabled)
+                ]
+                try mgr.connection.startVPNTunnel(options: opts)
+                showBanner("BloodMesh native Packet Tunnel activated (100.64.0.1).", error: false)
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                localTunnel = iOSTunnelScanner.scan()
+                runLatencyProbes()
+                await refreshAll()
+            }
+        } catch {
+            showBanner("VPN Engine Error: \(error.localizedDescription)", error: true)
+        }
+    }
+
+    func applyExitNodeOrOnDemandChange() async {
+        do {
+            let mgr = try await ensureConfiguredManager()
+            if mgr.connection.status == .connected {
+                mgr.connection.stopVPNTunnel()
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                try mgr.connection.startVPNTunnel(options: ["exitNode": NSNumber(value: exitNodeEnabled)])
+                showBanner("Re-sealed tunnel (Exit Node: \(exitNodeEnabled ? "ON" : "OFF")).", error: false)
+            } else {
+                showBanner("Saved VPN configuration.", error: false)
+            }
+        } catch {
+            showBanner("Failed to save VPN preferences: \(error.localizedDescription)", error: true)
+        }
+    }
+
+    func pollProviderTelemetry() {
+        localTunnel = iOSTunnelScanner.scan()
+        guard let session = tunnelManager?.connection as? NETunnelProviderSession,
+              session.status == .connected else { return }
+        let msg = try? JSONSerialization.data(withJSONObject: ["cmd": "stats"])
+        guard let msg = msg else { return }
+        try? session.sendProviderMessage(msg) { [weak self] data in
+            guard let data = data,
+                  let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+            let rx = (dict["rxBytes"] as? NSNumber)?.uint64Value ?? 0
+            let tx = (dict["txBytes"] as? NSNumber)?.uint64Value ?? 0
+            Task { @MainActor in
+                self?.providerRxBytes = rx
+                self?.providerTxBytes = tx
+            }
+        }
+    }
 
     func refreshAll() async {
         localTunnel = iOSTunnelScanner.scan()
@@ -439,20 +606,6 @@ final class BloodMeshViewModel: ObservableObject {
             }
         }
     }
-
-    func invokeTunnelApp() {
-        if let url = URL(string: "tailscale://"), UIApplication.shared.canOpenURL(url) {
-            UIApplication.shared.open(url)
-        } else if let url = URL(string: "https://hs.nas-server.co.uk/sanctum-api/mobileconfig") {
-            UIApplication.shared.open(url)
-        }
-    }
-
-    func installMobileConfigProfile() {
-        if let url = URL(string: "https://hs.nas-server.co.uk/sanctum-api/mobileconfig") {
-            UIApplication.shared.open(url)
-        }
-    }
 }
 
 final class ProbeStateBox: @unchecked Sendable {
@@ -520,6 +673,7 @@ struct BloodMeshRootView: View {
         }
         .preferredColorScheme(.dark)
         .task {
+            await vm.loadOrConfigureVPNManager()
             await vm.refreshAll()
             vm.runLatencyProbes()
         }
@@ -556,7 +710,7 @@ struct BloodMeshRootView: View {
                             .tracking(2.0)
                             .foregroundStyle(GothicTheme.bone)
                     }
-                    Text("HEADSCALE VPN SANCTUM · HS.NAS-SERVER.CO.UK")
+                    Text("STANDALONE NATIVE VPN · HS.NAS-SERVER.CO.UK")
                         .font(GothicTheme.serif(9.5, weight: .bold))
                         .tracking(1.1)
                         .foregroundStyle(GothicTheme.ash)
@@ -586,7 +740,7 @@ struct BloodMeshRootView: View {
                     .foregroundStyle(GothicTheme.bone)
                     .padding(.horizontal, 11)
                     .padding(.vertical, 7)
-                    .gothicPanel(active: vm.localTunnel.isSealed, corner: 8)
+                    .gothicPanel(active: vm.isTunnelConnected, corner: 8)
                 }
             }
             .padding(.horizontal, 16)
@@ -637,21 +791,30 @@ struct BloodMeshRootView: View {
     }
 }
 
-// MARK: - Tab 1: Sanctum Tunnel & Latency Telemetry
+// MARK: - Tab 1: Sanctum Native Packet Tunnel & Latency Telemetry
 
 struct SanctumTunnelTab: View {
     @ObservedObject var vm: BloodMeshViewModel
 
     private var isSealed: Bool {
-        if vm.localTunnel.isSealed { return true }
-        return vm.nodes.first(where: { $0.role == "iphone" })?.online ?? false
+        vm.isTunnelConnected
+    }
+
+    private var rxDisplay: String {
+        let b = max(vm.providerRxBytes, vm.localTunnel.rxBytes)
+        return iOSTunnelScanner.formatBytes(b)
+    }
+
+    private var txDisplay: String {
+        let b = max(vm.providerTxBytes, vm.localTunnel.txBytes)
+        return iOSTunnelScanner.formatBytes(b)
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
                 tunnelHeroCard
-                quickRitesBar
+                vpnConfigurationTogglesCard
                 meshRoutesSummaryCard
                 latencyProbesCard
             }
@@ -668,9 +831,9 @@ struct SanctumTunnelTab: View {
                         .fill(isSealed ? GothicTheme.bloodHi : GothicTheme.ash)
                         .frame(width: 9, height: 9)
                         .shadow(color: isSealed ? GothicTheme.bloodHi : .clear, radius: 6)
-                    Text(isSealed ? "BLOODLINE TUNNEL SEALED" : "TUNNEL SEVERED")
+                    Text(vm.vpnStatusText)
                         .font(GothicTheme.serif(11, weight: .bold))
-                        .tracking(1.3)
+                        .tracking(1.2)
                         .foregroundStyle(isSealed ? GothicTheme.bloodHi : GothicTheme.ash)
                 }
                 Spacer()
@@ -682,53 +845,77 @@ struct SanctumTunnelTab: View {
                     .gothicPanel(active: isSealed, corner: 5)
             }
 
-            // Gothic Rose Seal + Primary Mesh IP
-            ZStack {
-                Circle()
-                    .stroke(GothicTheme.blood.opacity(0.35), lineWidth: 1.2)
-                    .frame(width: 132, height: 132)
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                isSealed ? GothicTheme.bloodDeep.opacity(0.85) : GothicTheme.crypt,
-                                GothicTheme.void
-                            ],
-                            center: .center,
-                            startRadius: 4,
-                            endRadius: 64
+            // Interactive Gothic Rose VPN Power Button
+            Button {
+                Task { await vm.toggleVPNTunnel() }
+            } label: {
+                ZStack {
+                    Circle()
+                        .stroke(GothicTheme.blood.opacity(0.45), lineWidth: 1.4)
+                        .frame(width: 146, height: 146)
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    isSealed ? GothicTheme.bloodDeep.opacity(0.92) : GothicTheme.crypt,
+                                    GothicTheme.void
+                                ],
+                                center: .center,
+                                startRadius: 4,
+                                endRadius: 72
+                            )
                         )
-                    )
-                    .frame(width: 118, height: 118)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(isSealed ? GothicTheme.bloodHi : GothicTheme.tomb, lineWidth: 1.6)
-                    )
+                        .frame(width: 132, height: 132)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(isSealed ? GothicTheme.bloodHi : GothicTheme.tomb, lineWidth: 2.0)
+                        )
+                        .shadow(color: isSealed ? GothicTheme.bloodHi.opacity(0.45) : .clear, radius: 14)
 
-                VStack(spacing: 3) {
-                    Text("✠")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(GothicTheme.bloodHi)
-                    Text(vm.localTunnel.ipv4)
-                        .font(GothicTheme.display(20))
-                        .foregroundStyle(GothicTheme.bone)
-                    Text("ross-iphone")
-                        .font(GothicTheme.serif(10, weight: .semibold))
-                        .italic()
-                        .foregroundStyle(GothicTheme.ash)
+                    VStack(spacing: 3) {
+                        Image(systemName: isSealed ? "lock.shield.fill" : "power")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(isSealed ? GothicTheme.bloodHi : GothicTheme.ash)
+                        Text(vm.localTunnel.ipv4)
+                            .font(GothicTheme.display(20))
+                            .foregroundStyle(GothicTheme.bone)
+                        Text(isSealed ? "TAP TO SEVER" : "TAP TO SEAL VPN")
+                            .font(GothicTheme.serif(9, weight: .bold))
+                            .tracking(0.8)
+                            .foregroundStyle(isSealed ? GothicTheme.bloodHi : GothicTheme.ash)
+                    }
                 }
             }
             .padding(.vertical, 2)
 
+            // Master Action Button
+            Button {
+                Task { await vm.toggleVPNTunnel() }
+            } label: {
+                HStack(spacing: 8) {
+                    Spacer()
+                    Image(systemName: isSealed ? "bolt.slash.fill" : "bolt.shield.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(GothicTheme.bloodHi)
+                    Text(isSealed ? "✠ SEVER BLOODLINE VPN TUNNEL ✠" : "✠ SEAL BLOODLINE VPN TUNNEL ✠")
+                        .font(GothicTheme.serif(11.5, weight: .bold))
+                        .tracking(1.1)
+                        .foregroundStyle(GothicTheme.bone)
+                    Spacer()
+                }
+                .padding(.vertical, 12)
+                .gothicPanel(active: !isSealed, corner: 10)
+            }
+
             // Telemetry Grid
             HStack(spacing: 8) {
                 telemetryPill(label: "MAGICDNS", value: "ross-iphone.mesh.internal")
-                telemetryPill(label: "DERP SANCTUM", value: "Region 999 (nas-server)")
+                telemetryPill(label: "CIPHER", value: "ChaCha20-Poly1305 :41642")
             }
 
             HStack(spacing: 8) {
-                telemetryPill(label: "UTUN RX", value: iOSTunnelScanner.formatBytes(vm.localTunnel.rxBytes))
-                telemetryPill(label: "UTUN TX", value: iOSTunnelScanner.formatBytes(vm.localTunnel.txBytes))
+                telemetryPill(label: "TUNNEL RX", value: rxDisplay)
+                telemetryPill(label: "TUNNEL TX", value: txDisplay)
                 telemetryPill(label: "CARRIER IP", value: vm.localTunnel.wifiOrCellIP)
             }
         }
@@ -754,52 +941,56 @@ struct SanctumTunnelTab: View {
         .gothicPanel(active: false, corner: 8)
     }
 
-    private var quickRitesBar: some View {
+    private var vpnConfigurationTogglesCard: some View {
         HStack(spacing: 10) {
             Button {
-                vm.invokeTunnelApp()
+                vm.exitNodeEnabled.toggle()
+                Task { await vm.applyExitNodeOrOnDemandChange() }
             } label: {
                 HStack(spacing: 7) {
-                    Image(systemName: "bolt.shield.fill")
+                    Image(systemName: vm.exitNodeEnabled ? "globe.europe.africa.fill" : "network")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(GothicTheme.bloodHi)
+                        .foregroundStyle(vm.exitNodeEnabled ? GothicTheme.bloodHi : GothicTheme.ash)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("TUNNEL ENGINE")
-                            .font(GothicTheme.serif(10.5, weight: .bold))
-                            .tracking(0.8)
+                        Text(vm.exitNodeEnabled ? "EXIT NODE: ON" : "SPLIT TUNNEL")
+                            .font(GothicTheme.serif(10, weight: .bold))
+                            .tracking(0.7)
                             .foregroundStyle(GothicTheme.bone)
-                        Text("Toggle iOS utun Switch")
-                            .font(GothicTheme.serif(9))
+                        Text(vm.exitNodeEnabled ? "Full 0.0.0.0/0 Traffic" : "Mesh + 192.168.0.x + 10.7.x")
+                            .font(GothicTheme.serif(8.5))
                             .foregroundStyle(GothicTheme.ash)
+                            .lineLimit(1)
                     }
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 11)
                 .padding(.vertical, 10)
-                .gothicPanel(active: true, corner: 10)
+                .gothicPanel(active: vm.exitNodeEnabled, corner: 10)
             }
 
             Button {
-                vm.installMobileConfigProfile()
+                vm.onDemandEnabled.toggle()
+                Task { await vm.applyExitNodeOrOnDemandChange() }
             } label: {
                 HStack(spacing: 7) {
-                    Image(systemName: "checkmark.seal.fill")
+                    Image(systemName: vm.onDemandEnabled ? "infinity.circle.fill" : "circle.dashed")
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(GothicTheme.bloodHi)
+                        .foregroundStyle(vm.onDemandEnabled ? GothicTheme.bloodHi : GothicTheme.ash)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("BIND PROFILE")
-                            .font(GothicTheme.serif(10.5, weight: .bold))
-                            .tracking(0.8)
+                        Text(vm.onDemandEnabled ? "ALWAYS-ON: ON" : "ALWAYS-ON: OFF")
+                            .font(GothicTheme.serif(10, weight: .bold))
+                            .tracking(0.7)
                             .foregroundStyle(GothicTheme.bone)
-                        Text("hs.nas-server.co.uk")
-                            .font(GothicTheme.serif(9))
+                        Text("iOS Auto-Connect Rule")
+                            .font(GothicTheme.serif(8.5))
                             .foregroundStyle(GothicTheme.ash)
+                            .lineLimit(1)
                     }
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 11)
                 .padding(.vertical, 10)
-                .gothicPanel(active: false, corner: 10)
+                .gothicPanel(active: vm.onDemandEnabled, corner: 10)
             }
         }
     }
@@ -807,7 +998,7 @@ struct SanctumTunnelTab: View {
     private var meshRoutesSummaryCard: some View {
         VStack(alignment: .leading, spacing: 9) {
             GothicHeader(
-                title: "ACTIVE BLOODLINE ROUTES",
+                title: "ACTIVE BLOODLINE KERNEL ROUTES",
                 rightText: "\(vm.summary?.online_nodes ?? 4)/\(vm.summary?.total_nodes ?? 4) ONLINE"
             )
 
@@ -819,10 +1010,10 @@ struct SanctumTunnelTab: View {
                     active: vm.summary?.lan_subnet_active ?? true
                 )
                 routeStatusCard(
-                    title: "EXIT NODE",
-                    route: "0.0.0.0/0 · ::/0",
-                    via: "via \(vm.summary?.exit_node_name ?? "asus-router")",
-                    active: vm.summary?.exit_node_online ?? true
+                    title: "HEADSCALE MESH",
+                    route: "100.64.0.0/10",
+                    via: "bmtun0 <-> tailscale0",
+                    active: true
                 )
                 routeStatusCard(
                     title: "SIDESTORE TUN",
@@ -1010,7 +1201,6 @@ struct CovenNodesTab: View {
                 }
             }
 
-            // IPv4 & IPv6 copy pills
             HStack(spacing: 8) {
                 Button {
                     UIPasteboard.general.string = node.ipv4
@@ -1056,7 +1246,6 @@ struct CovenNodesTab: View {
                 }
             }
 
-            // Interactive Route Switches if node advertises routes
             if !node.available_routes.isEmpty || !node.approved_routes.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
@@ -1100,7 +1289,6 @@ struct CovenNodesTab: View {
                 }
             }
 
-            // Node Administration Bar
             HStack(spacing: 8) {
                 Button {
                     vm.renameText = node.given_name
@@ -1230,14 +1418,12 @@ struct ConsecrationRitesTab: View {
                 .font(GothicTheme.serif(11))
                 .foregroundStyle(GothicTheme.ash)
 
-            // Role selector
             HStack(spacing: 6) {
                 roleChoice(title: "PERSONAL (ross)", value: "ross")
                 roleChoice(title: "SERVER (tag:server)", value: "tag:server")
                 roleChoice(title: "ROUTER (tag:router)", value: "tag:router")
             }
 
-            // Expiration selector
             HStack(spacing: 6) {
                 ForEach(["1h", "24h", "168h", "2160h"], id: \.self) { exp in
                     let label = exp == "168h" ? "7 DAYS" : (exp == "2160h" ? "90 DAYS" : exp.uppercased())
@@ -1343,9 +1529,9 @@ struct ConsecrationRitesTab: View {
                 rightText: "HEADSCALE v\(vm.health?.version ?? "0.29.7")"
             )
 
-            infoRow("Control Plane URL", "https://hs.nas-server.co.uk")
-            infoRow("Embedded DERP / STUN", "Region 999 (nas) · UDP :3478")
-            infoRow("MagicDNS Base Domain", "mesh.internal (100.100.100.100)")
+            infoRow("Native Tunnel Engine", "BloodMeshTunnel (NEPacketTunnel)")
+            infoRow("AEAD Cipher & Port", "ChaCha20-Poly1305 · UDP :41642")
+            infoRow("MagicDNS Resolver", "100.100.100.100 (mesh.internal)")
             infoRow("TrueNAS Mesh Gateway", "100.64.0.4 (truenas-scale.mesh.internal)")
             infoRow("Home Router Gateway", "100.64.0.2 (192.168.0.0/24 + Exit Node)")
         }

@@ -1,0 +1,123 @@
+name: Sanctum
+options:
+  bundleIdPrefix: com.ross
+  deploymentTarget:
+    iOS: "17.0"
+    tvOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  Sanctum:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sanctum
+        excludes:
+          - "Info.plist"
+          - "InfoTV.plist"
+    dependencies:
+      - target: SanctumWidgetsExtension
+        embed: true
+    settings:
+      base:
+        PRODUCT_NAME: Sanctum
+        PRODUCT_BUNDLE_IDENTIFIER: com.ross.sanctum
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        DEVELOPMENT_TEAM: ""
+    info:
+      path: Sanctum/Info.plist
+      properties:
+        CFBundleDisplayName: "Sanctum"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UIUserInterfaceStyle: Dark
+        NSLocalNetworkUsageDescription: "Sanctum connects to your TrueNAS server and Bedroom Apple TV for live media requests, Nightscout T1D telemetry, Frigate security cameras, and TV bridge control."
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+
+  SanctumWidgetsExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widgets
+      - path: ../WidgetPack/Shared
+    settings:
+      base:
+        PRODUCT_NAME: SanctumWidgetsExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.ross.sanctum.widgets
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        DEVELOPMENT_TEAM: ""
+        SKIP_INSTALL: true
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: "Sanctum Widgets"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+  SanctumTV:
+    type: application
+    platform: tvOS
+    sources:
+      - path: Sanctum
+        excludes:
+          - "Info.plist"
+          - "InfoTV.plist"
+    settings:
+      base:
+        PRODUCT_NAME: SanctumTV
+        PRODUCT_BUNDLE_IDENTIFIER: com.ross.sanctum.tv
+        TARGETED_DEVICE_FAMILY: "3"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconTV
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        DEVELOPMENT_TEAM: ""
+    info:
+      path: Sanctum/InfoTV.plist
+      properties:
+        CFBundleDisplayName: "Sanctum TV"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        UIUserInterfaceStyle: Dark
+        NSLocalNetworkUsageDescription: "Sanctum TV connects to your TrueNAS server and iPhone bridge for live cinema discovery, OLED bedside T1D Nightscout HUD, Frigate security cameras, and Usenet/MeTube pipeline telemetry."
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false

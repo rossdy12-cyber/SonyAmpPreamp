@@ -1,0 +1,68 @@
+name: Build Sanctum (iOS + tvOS Dual Companion) IPAs
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Sanctum/**'
+      - '.github/workflows/build-sanctum-dual.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build Sanctum (iOS) & SanctumTV (tvOS)
+        working-directory: Sanctum
+        run: |
+          set -e
+          xcodegen generate
+
+          echo "=== Building Sanctum iOS (-sdk iphoneos) ==="
+          xcodebuild \
+            -project Sanctum.xcodeproj \
+            -target Sanctum \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build_ios" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          mkdir -p out_ios/Payload
+          cp -R build_ios/Release-iphoneos/Sanctum.app out_ios/Payload/
+          (cd out_ios && zip -qry ../Sanctum.ipa Payload)
+          ls -lh Sanctum.ipa
+
+          echo "=== Building SanctumTV tvOS (-sdk appletvos) ==="
+          xcodebuild \
+            -project Sanctum.xcodeproj \
+            -target SanctumTV \
+            -configuration Release \
+            -sdk appletvos \
+            SYMROOT="$PWD/build_tv" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          mkdir -p out_tv/Payload
+          cp -R build_tv/Release-appletvos/SanctumTV.app out_tv/Payload/
+          (cd out_tv && zip -qry ../SanctumTV.ipa Payload)
+          ls -lh SanctumTV.ipa
+
+      - name: Upload Sanctum iOS & tvOS IPAs
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sanctum-Dual-IPAs
+          path: |
+            Sanctum/Sanctum.ipa
+            Sanctum/SanctumTV.ipa
+          retention-days: 30

@@ -110,8 +110,17 @@ struct TimelineView: View {
                     Section {
                         LazyVGrid(columns: PhotoGridLayout.columns, spacing: 2) {
                             ForEach(section.assets) { asset in
+                                #if os(tvOS)
+                                Button {
+                                    open(asset)
+                                } label: {
+                                    AssetCell(client: client, asset: asset)
+                                }
+                                .buttonStyle(.plain)
+                                #else
                                 AssetCell(client: client, asset: asset)
                                     .onTapGesture { open(asset) }
+                                #endif
                             }
                         }
                     } header: {
@@ -241,8 +250,17 @@ struct AssetGridView: View {
         ScrollView {
             LazyVGrid(columns: PhotoGridLayout.columns, spacing: 2) {
                 ForEach(Array(assets.enumerated()), id: \.element.id) { index, asset in
+                    #if os(tvOS)
+                    Button {
+                        onSelect(index)
+                    } label: {
+                        AssetCell(client: client, asset: asset)
+                    }
+                    .buttonStyle(.plain)
+                    #else
                     AssetCell(client: client, asset: asset)
                         .onTapGesture { onSelect(index) }
+                    #endif
                 }
             }
         }

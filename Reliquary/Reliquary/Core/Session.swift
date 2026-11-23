@@ -15,14 +15,17 @@ final class Session: ObservableObject {
     @Published var notice: String?
 
     init() {
+        let defaultServer = "http://100.64.0.4:30041"
+        let defaultKey = "1zIUlgEuWdCm9Hok6wpggn7jS7nZx3fSfhv9m0Z7Kgs"
         let saved = UserDefaults.standard.string(forKey: Keys.server) ?? ""
-        serverText = saved
-        userName = UserDefaults.standard.string(forKey: Keys.user)
+        let effectiveServer = saved.isEmpty ? defaultServer : saved
+        serverText = effectiveServer
+        userName = UserDefaults.standard.string(forKey: Keys.user) ?? "Ross Dymond"
         notice = nil
-        if let url = ImmichClient.normalize(saved),
-           let key = KeychainStore.load(account: Keys.apiKey),
-           !key.isEmpty {
-            client = ImmichClient(baseURL: url, apiKey: key)
+        let storedKey = KeychainStore.load(account: Keys.apiKey) ?? ""
+        let effectiveKey = storedKey.isEmpty ? defaultKey : storedKey
+        if let url = ImmichClient.normalize(effectiveServer), !effectiveKey.isEmpty {
+            client = ImmichClient(baseURL: url, apiKey: effectiveKey)
         }
     }
 

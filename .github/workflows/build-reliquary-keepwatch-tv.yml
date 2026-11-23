@@ -1,0 +1,73 @@
+name: Build Immich TV & Keepwatch TV (tvOS Apple TV) IPAs
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Reliquary/**'
+      - 'Keepwatch/**'
+      - '.github/workflows/build-reliquary-keepwatch-tv.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build Immich TV (ReliquaryTV)
+        working-directory: Reliquary
+        run: |
+          set -o pipefail
+          xcodegen generate
+          xcodebuild \
+            -project Reliquary.xcodeproj \
+            -target ReliquaryTV \
+            -configuration Release \
+            -sdk appletvos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          mkdir -p out/Payload
+          cp -R build/Release-appletvos/ReliquaryTV.app out/Payload/
+          cd out
+          zip -qry ReliquaryTV.ipa Payload
+          ls -lh ReliquaryTV.ipa
+
+      - name: Build Keepwatch TV (KeepwatchTV)
+        working-directory: Keepwatch
+        run: |
+          set -o pipefail
+          xcodegen generate
+          xcodebuild \
+            -project Keepwatch.xcodeproj \
+            -target KeepwatchTV \
+            -configuration Release \
+            -sdk appletvos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          mkdir -p out/Payload
+          cp -R build/Release-appletvos/KeepwatchTV.app out/Payload/
+          cd out
+          zip -qry KeepwatchTV.ipa Payload
+          ls -lh KeepwatchTV.ipa
+
+      - name: Upload ReliquaryTV & KeepwatchTV IPAs
+        uses: actions/upload-artifact@v4
+        with:
+          name: TV-Apps-ipas
+          path: |
+            Reliquary/out/ReliquaryTV.ipa
+            Keepwatch/out/KeepwatchTV.ipa
+          retention-days: 30

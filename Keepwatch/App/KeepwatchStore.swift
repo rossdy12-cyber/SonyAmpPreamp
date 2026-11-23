@@ -87,18 +87,18 @@ final class KeepwatchStore: ObservableObject {
     @Published var buildLogTail: String = "Waiting for telemetry..."
     @Published var repoApps: [SideStoreAppItem] = []
     @Published var radarNodes: [NetRadarNode] = [
-        NetRadarNode(id: "ssl-hub", name: "Cloudflare / NPM SSL Hub", category: "HTTPS Public", urlString: "https://navidrome.nas-server.co.uk/sidestore/source.json", latencyMs: nil, isOnline: true, statusText: "Ready"),
-        NetRadarNode(id: "truenas-ops", name: "TrueNAS Ops & Git Daemon", category: "Tailscale :18998", urlString: "http://100.85.127.42:18998/ops/status", latencyMs: nil, isOnline: true, statusText: "Ready"),
-        NetRadarNode(id: "navidrome", name: "Navidrome Hi-Fi Subsonic", category: "Tailscale :30043", urlString: "http://100.85.127.42:30043", latencyMs: nil, isOnline: true, statusText: "Ready"),
-        NetRadarNode(id: "nightscout", name: "GlucoPulse Nightscout CGM", category: "Tailscale :1337", urlString: "http://100.85.127.42:1337/api/v1/status.json", latencyMs: nil, isOnline: true, statusText: "Ready"),
-        NetRadarNode(id: "tconnect", name: "Tandem t:slim Sync Portal", category: "Tailscale :1338", urlString: "http://100.85.127.42:1338", latencyMs: nil, isOnline: true, statusText: "Ready"),
-        NetRadarNode(id: "slskd", name: "SoulSeekr (slskd P2P)", category: "Tailscale :5030", urlString: "http://100.85.127.42:5030", latencyMs: nil, isOnline: true, statusText: "Ready"),
-        NetRadarNode(id: "lidarr", name: "Encore (Lidarr Music)", category: "Tailscale :30071", urlString: "http://100.85.127.42:30071", latencyMs: nil, isOnline: true, statusText: "Ready")
+        NetRadarNode(id: "headscale-hub", name: "BloodMesh Headscale Hub", category: "HTTPS Public", urlString: "https://hs.nas-server.co.uk/sanctum-api?key=bm-sanctum-7f9a3e2c8b41d0e5a6f1c9b2d8e4a7f0&action=status", latencyMs: nil, isOnline: true, statusText: "Ready"),
+        NetRadarNode(id: "truenas-ops", name: "TrueNAS Ops & Git Daemon", category: "Headscale :18998", urlString: "http://100.64.0.4:18998/ops/status", latencyMs: nil, isOnline: true, statusText: "Ready"),
+        NetRadarNode(id: "appletv-engine", name: "Apple TV Wireless Installer", category: "Headscale :5533", urlString: "http://100.64.0.4:5533/api/version", latencyMs: nil, isOnline: true, statusText: "Ready"),
+        NetRadarNode(id: "jellyfin", name: "Hearth Jellyfin 4K Cinema", category: "Headscale :30013", urlString: "http://100.64.0.4:30013/System/Info/Public", latencyMs: nil, isOnline: true, statusText: "Ready"),
+        NetRadarNode(id: "navidrome", name: "Navidrome Hi-Fi Subsonic", category: "Headscale :30043", urlString: "http://100.64.0.4:30043", latencyMs: nil, isOnline: true, statusText: "Ready"),
+        NetRadarNode(id: "immich", name: "Reliquary Immich 4K Photos", category: "Headscale :30041", urlString: "http://100.64.0.4:30041/api/server/ping", latencyMs: nil, isOnline: true, statusText: "Ready"),
+        NetRadarNode(id: "nightscout", name: "GlucoPulse Nightscout CGM", category: "Headscale :1337", urlString: "http://100.64.0.4:1337/api/v1/status.json", latencyMs: nil, isOnline: true, statusText: "Ready")
     ]
 
     init() {
         let saved = UserDefaults.standard.string(forKey: "kw.ops.url") ?? ""
-        self.opsEndpointURL = saved.isEmpty ? "https://navidrome.nas-server.co.uk/sidestore-upload" : saved
+        self.opsEndpointURL = saved.isEmpty ? "http://100.64.0.4:18998/ops/status" : saved
         Task {
             await refreshAll()
         }
@@ -112,11 +112,12 @@ final class KeepwatchStore: ObservableObject {
     }
 
     func fetchTrueNASOps() async {
-        // Try primary URL first, fallback to Tailscale direct :18998
+        // Try primary URL first, fallback to Headscale direct :18998
         let candidates = [
-            "\(opsEndpointURL)?ops=status",
+            "http://100.64.0.4:18998/ops/status",
+            "https://hs.nas-server.co.uk/sidestore-api/ops/status",
             "http://100.85.127.42:18998/ops/status",
-            "https://navidrome.nas-server.co.uk/sidestore-upload?ops=status"
+            "\(opsEndpointURL)?ops=status"
         ]
         for urlStr in candidates {
             guard let url = URL(string: urlStr) else { continue }
@@ -152,8 +153,9 @@ final class KeepwatchStore: ObservableObject {
     func performOpsAction(action: String, target: String = "") async {
         let encodedTarget = target.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? target
         let candidates = [
-            "\(opsEndpointURL)?ops=action&action=\(action)&target=\(encodedTarget)",
-            "http://100.85.127.42:18998/ops/action?action=\(action)&target=\(encodedTarget)"
+            "http://100.64.0.4:18998/ops/action?action=\(action)&target=\(encodedTarget)",
+            "http://100.85.127.42:18998/ops/action?action=\(action)&target=\(encodedTarget)",
+            "\(opsEndpointURL)?ops=action&action=\(action)&target=\(encodedTarget)"
         ]
         for urlStr in candidates {
             guard let url = URL(string: urlStr) else { continue }
@@ -176,34 +178,41 @@ final class KeepwatchStore: ObservableObject {
     }
 
     func fetchSideStoreRepo() async {
-        guard let url = URL(string: "https://navidrome.nas-server.co.uk/sidestore/source.json") else { return }
-        do {
-            var req = URLRequest(url: url, timeoutInterval: 10)
-            req.setValue("SideStore/0.7.0", forHTTPHeaderField: "User-Agent")
-            let (data, _) = try await URLSession.shared.data(for: req)
-            guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let apps = root["apps"] as? [[String: Any]] else { return }
-            var parsed: [SideStoreAppItem] = []
-            for a in apps {
-                let name = a["name"] as? String ?? "App"
-                let bid = a["bundleIdentifier"] as? String ?? UUID().uuidString
-                let sub = a["subtitle"] as? String ?? ""
-                let icon = a["iconURL"] as? String ?? ""
-                let vers = a["versions"] as? [[String: Any]] ?? []
-                let v0 = vers.first ?? [:]
-                parsed.append(SideStoreAppItem(
-                    name: name,
-                    bundleIdentifier: bid,
-                    subtitle: sub,
-                    version: v0["version"] as? String ?? "1.0",
-                    date: v0["date"] as? String ?? "",
-                    sizeBytes: v0["size"] as? Int ?? 0,
-                    downloadURL: v0["downloadURL"] as? String ?? "",
-                    iconURL: icon
-                ))
-            }
-            repoApps = parsed
-        } catch {}
+        let urls = [
+            "https://hs.nas-server.co.uk/sidestore/source.json",
+            "http://100.64.0.4:18998/sidestore/source.json"
+        ]
+        for u in urls {
+            guard let url = URL(string: u) else { continue }
+            do {
+                var req = URLRequest(url: url, timeoutInterval: 10)
+                req.setValue("SideStore/0.7.0", forHTTPHeaderField: "User-Agent")
+                let (data, _) = try await URLSession.shared.data(for: req)
+                guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let apps = root["apps"] as? [[String: Any]] else { continue }
+                var parsed: [SideStoreAppItem] = []
+                for a in apps {
+                    let name = a["name"] as? String ?? "App"
+                    let bid = a["bundleIdentifier"] as? String ?? UUID().uuidString
+                    let sub = a["subtitle"] as? String ?? ""
+                    let icon = a["iconURL"] as? String ?? ""
+                    let vers = a["versions"] as? [[String: Any]] ?? []
+                    let v0 = vers.first ?? [:]
+                    parsed.append(SideStoreAppItem(
+                        name: name,
+                        bundleIdentifier: bid,
+                        subtitle: sub,
+                        version: v0["version"] as? String ?? "1.0",
+                        date: v0["date"] as? String ?? "",
+                        sizeBytes: v0["size"] as? Int ?? 0,
+                        downloadURL: v0["downloadURL"] as? String ?? "",
+                        iconURL: icon
+                    ))
+                }
+                repoApps = parsed
+                return
+            } catch {}
+        }
     }
 
     func runNetRadarSweep() async {

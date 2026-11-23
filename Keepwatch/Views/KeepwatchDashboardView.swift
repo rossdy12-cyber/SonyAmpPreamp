@@ -1,5 +1,16 @@
 import SwiftUI
 
+#if os(tvOS)
+enum TVNavigationBarTitleDisplayMode {
+    case automatic, inline, large
+}
+extension View {
+    func navigationBarTitleDisplayMode(_ mode: TVNavigationBarTitleDisplayMode) -> some View {
+        self
+    }
+}
+#endif
+
 struct KeepwatchRootView: View {
     @EnvironmentObject private var store: KeepwatchStore
     @State private var selectedTab: Int = 0

@@ -66,6 +66,12 @@ struct ViewerView: View {
                 }
             }
             Spacer()
+            if index > 0 {
+                Button("Prev") { index -= 1 }
+            }
+            if index + 1 < assets.count {
+                Button("Next") { index += 1 }
+            }
             Text("\(index + 1) / \(assets.count)")
                 .font(Theme.body(12))
                 .foregroundColor(Theme.muted)
@@ -104,7 +110,13 @@ struct AssetPageView: View {
             if asset.isVideo {
                 VideoPage(client: client, asset: asset)
             } else if let image = image {
+                #if os(tvOS)
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                #else
                 ZoomableImageView(image: image)
+                #endif
             } else if failed {
                 ErrorStateView(message: "This relic could not be loaded.")
             } else {

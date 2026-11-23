@@ -69,7 +69,9 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Theme.panel)
             }
+            #if !os(tvOS)
             .scrollContentBackground(.hidden)
+            #endif
             .gothicBackground()
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)

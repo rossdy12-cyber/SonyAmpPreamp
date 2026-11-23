@@ -1,0 +1,50 @@
+name: Build YouTube+ TV (tvOS Apple TV) IPA
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'YouTubePlusTV/**'
+      - '.github/workflows/build-youtubeplustv.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-youtubeplustv:
+    runs-on: macos-15-intel
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project & Build YouTube+ TV (appletvos)
+        working-directory: YouTubePlusTV
+        run: |
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          xcodebuild clean build \
+            -project YouTubePlusTV.xcodeproj \
+            -target YouTubePlusTV \
+            -configuration Release \
+            -sdk appletvos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package Payload into YouTubePlusTV.ipa
+        working-directory: YouTubePlusTV
+        run: |
+          mkdir -p out/Payload
+          cp -R "build/Release-appletvos/YouTubePlusTV.app" out/Payload/
+          cd out && zip -r9 YouTubePlusTV.ipa Payload
+
+      - name: Upload YouTubePlusTV IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YouTubePlusTV-ipa
+          path: YouTubePlusTV/out/YouTubePlusTV.ipa
+          if-no-files-found: error

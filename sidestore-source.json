@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.86",
+          "date": "2026-11-23",
+          "localizedDescription": "v2.4.86: Add Stark Store TV (tvOS Apple TV Wireless App Store & Pairing Sanctum)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.86/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.85",
           "date": "2026-11-23",
           "localizedDescription": "v2.4.85: Fix async seek and async let capture in YouTubePlusTV",

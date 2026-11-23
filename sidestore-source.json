@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.84",
+          "date": "2026-11-23",
+          "localizedDescription": "v2.4.84: Fix MainActor isolation in YouTubePlusTV SponsorBlock time observer",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.84/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.83",
           "date": "2026-11-23",
           "localizedDescription": "v2.4.83: Add YouTube+ TV (tvOS Apple TV 4K60 Ad-Free + SponsorBlock Gothic Vampire App)",

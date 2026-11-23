@@ -14,6 +14,118 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.78",
+          "date": "2026-11-22",
+          "localizedDescription": "v2.4.78: Vaultbook: explicit website data type set (websiteDataTypes member unavailable)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.78/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.77",
+          "date": "2026-11-22",
+          "localizedDescription": "v2.4.77: Vaultbook: restore missing targets: key in project.yml (agent commit was mangled \u2014 xcodegen produced an empty project)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.77/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.76",
+          "date": "2026-11-22",
+          "localizedDescription": "v2.4.76: Vaultbook: target-build (no scheme) for CI",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.76/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.75",
+          "date": "2026-11-22",
+          "localizedDescription": "v2.4.75: Vaultbook v2.0.0: full native-app feel \u2014 chrome gone (FB's own mobile UI is the app), pull-to-refresh, autoplay inline video, external links escape to Safari, long-press link menus, new-window folding, Face ID crypt seal, floating rune tools sheet (rite toggle / home / Safari / forget login), splash overlay, Face ID plist string, build-vaultbook.yml release-relay workflow",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.75/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.74",
+          "date": "2026-11-21",
+          "localizedDescription": "v2.4.74: Merge branch 'main' of https://github.com/rossdy12-cyber/SonyAmpPreamp",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.74/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.73",
+          "date": "2026-11-21",
+          "localizedDescription": "v2.4.73: Knell: fix project.yml indentation",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.73/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.72",
+          "date": "2026-11-21",
+          "localizedDescription": "v2.4.72: Knell v1.2.3: share sheet via window overlay (replaces document picker), file sharing enabled",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.72/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.71",
+          "date": "2026-11-21",
+          "localizedDescription": "v2.4.71: Merge branch 'main' of https://github.com/rossdy12-cyber/SonyAmpPreamp",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.71/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.70",
+          "date": "2026-11-21",
+          "localizedDescription": "v2.4.70: Knell: IMPORT tab with preview stage (download, preview, save/discard)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.70/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.69",
+          "date": "2026-11-21",
+          "localizedDescription": "v2.4.69: Knell: remove duplicate importFromUrl/importStatus/importUrlText from rebase merge",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.69/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.68",
+          "date": "2026-11-20",
+          "localizedDescription": "v2.4.68: Knell v1.2.1: add URL import to IMPORT tab (paste direct audio link, download and convert)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.68/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.67",
+          "date": "2026-11-20",
+          "localizedDescription": "v2.4.67: Merge branch 'main' of https://github.com/rossdy12-cyber/SonyAmpPreamp",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.67/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.66",
+          "date": "2026-11-20",
+          "localizedDescription": "v2.4.66: Merge branch 'main' of https://github.com/rossdy12-cyber/SonyAmpPreamp",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.66/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
+          "version": "2.4.65",
+          "date": "2026-11-20",
+          "localizedDescription": "v2.4.65: sync",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.65/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.64",
           "date": "2026-11-20",
           "localizedDescription": "v2.4.64: sync",

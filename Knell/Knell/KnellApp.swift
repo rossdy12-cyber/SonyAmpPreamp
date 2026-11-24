@@ -693,11 +693,31 @@ final class ForgeState: ObservableObject {
 
     func confirmSave() {
         guard let src = downloadedUrl else { return }
-        let dest = docsDir.appendingPathComponent("Knell_\(Int(Date().timeIntervalSince1970) % 100000).m4a")
-        try? FileManager.default.moveItem(at: src, to: dest)
-        downloadedUrl = nil
-        loadTones()
-        statusMessage = "Saved to ARCHIVE."
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: src.path) else {
+            downloadedUrl = nil
+            loadTones()
+            statusMessage = "Download vanished before saving (iOS purged tmp) — import again."
+            return
+        }
+        let stamp = Int(Date().timeIntervalSince1970) % 100000
+        var dest = docsDir.appendingPathComponent("Knell_\(stamp).m4a")
+        var n = 0
+        while fm.fileExists(atPath: dest.path) {
+            n += 1
+            dest = docsDir.appendingPathComponent("Knell_\(stamp)_\(n).m4a")
+        }
+        do {
+            // copy (not move) into Documents — Documents survives; tmp may be purged
+            try fm.copyItem(at: src, to: dest)
+            try? fm.removeItem(at: src)
+            let size = (try? fm.attributesOfItem(atPath: dest.path)[.size]) as? Int ?? 0
+            downloadedUrl = nil
+            loadTones()
+            statusMessage = "Saved ✓ \(dest.lastPathComponent) (\(size) bytes, \(tones.count) tones)."
+        } catch {
+            statusMessage = "Save failed: \(error.localizedDescription) — download kept, try SHARE instead."
+        }
     }
 
     func discardDownload() {
@@ -705,6 +725,22 @@ final class ForgeState: ObservableObject {
         try? FileManager.default.removeItem(at: src)
         downloadedUrl = nil
         importStatus = "Discarded."
+    }
+
+    func playTone(_ tone: KnellTone) {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: tone.fileURL.path) else {
+            statusMessage = "\(tone.name): file missing from storage — reloading archive."
+            loadTones()
+            return
+        }
+        // retain the player in ForgeState (a class) so it isn't deallocated mid-playback
+        player = try? AVAudioPlayer(contentsOf: tone.fileURL)
+        if player == nil {
+            statusMessage = "Couldn't decode \(tone.name)."
+        } else {
+            player?.play()
+        }
     }
 
     func deleteTone(_ tone: KnellTone) {
@@ -1149,6 +1185,7 @@ struct KnellSlider: View {
 
 struct ToneRowView: View {
     let tone: KnellTone
+    let onPlay: () -> Void
     let onExport: () -> Void
     let onDelete: () -> Void
 
@@ -1164,10 +1201,7 @@ struct ToneRowView: View {
             }
             Spacer()
             Button {
-                if let player = try? AVAudioPlayer(contentsOf: tone.fileURL) {
-                    objc_setAssociatedObject(self, "player", player, .OBJC_ASSOCIATION_RETAIN)
-                    player.play()
-                }
+                onPlay()
             } label: {
                 Image(systemName: "play.circle.fill")
                     .foregroundColor(crimson)
@@ -1179,11 +1213,11 @@ struct ToneRowView: View {
                     .foregroundColor(crimson)
             }
             .accessibilityLabel("Export to Files")
-            Button(role: .destructive) {
+            Button {
                 onDelete()
             } label: {
                 Image(systemName: "trash")
-                    .foregroundColor(ashDim)
+                    .foregroundColor(crimson)
             }
         }
     }
@@ -1209,11 +1243,13 @@ struct ArchiveView: View {
             } else {
                 List {
                     ForEach(forge.tones) { tone in
-                        ToneRowView(tone: tone) {
+                        ToneRowView(tone: tone, onPlay: {
+                            forge.playTone(tone)
+                        }, onExport: {
                             sharingURL = tone.fileURL
-                        } onDelete: {
+                        }, onDelete: {
                             forge.deleteTone(tone)
-                        }
+                        })
                         .listRowBackground(Color(red: 0.06, green: 0.01, blue: 0.03))
                     }
                 }
@@ -1222,7 +1258,7 @@ struct ArchiveView: View {
         }
         .navigationTitle("")
         .overlay(alignment: .top) {
-            Text("THE ARCHIVE")
+            Text("THE ARCHIVE · \(forge.tones.count)")
                 .font(.system(size: 13, weight: .heavy, design: .monospaced))
                 .foregroundColor(crimson)
                 .padding(.top, 2)

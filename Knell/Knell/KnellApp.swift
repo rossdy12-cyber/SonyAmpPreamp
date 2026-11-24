@@ -318,7 +318,7 @@ enum KnellForge {
             throw NSError(domain: "Knell", code: 10, userInfo: [NSLocalizedDescriptionKey: "No readable audio in that file"])
         }
         let trimStart = max(0, min(start, max(0, assetDuration - 1)))
-        let trimLen = max(1, min(length, 40, assetDuration - trimStart))
+        let trimLen = max(1, min(length, 39, assetDuration - trimStart))
 
         // --- primary: export session ---
         if let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) {
@@ -618,26 +618,27 @@ final class ForgeState: ObservableObject {
             }
             let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("Knell_Import_\(stamp).\(ext)")
             try data.write(to: tmp)
-            // transcode to m4a if not already
-            if ext == "m4a" || ext == "m4r" {
-                let final = FileManager.default.temporaryDirectory.appendingPathComponent("Knell_\(stamp).m4a")
-                try FileManager.default.moveItem(at: tmp, to: final)
-            } else {
-                let asset = AVURLAsset(url: tmp, options: nil)
-                let m4aOut = FileManager.default.temporaryDirectory.appendingPathComponent("Knell_\(stamp).m4a")
-                guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
-                    throw NSError(domain: "Knell", code: 3)
-                }
-                export.outputURL = m4aOut
-                export.outputFileType = .m4a
-                try? FileManager.default.removeItem(at: m4aOut)
-                await export.export()
-                guard export.status == .completed else {
-                    throw NSError(domain: "Knell", code: 4, userInfo: [NSLocalizedDescriptionKey: "Transcode failed: \(export.error?.localizedDescription ?? "?")"])
-                }
-                try? FileManager.default.removeItem(at: tmp)
+            // transcode to m4a AND trim to ringtone length (iOS ringtones max 40s)
+            let asset = AVURLAsset(url: tmp, options: nil)
+            let assetDuration = (try? await asset.load(.duration).seconds) ?? 0
+            let trimStart = max(0, min(clipStart, max(0, assetDuration - 1)))
+            let trimLen = max(1, min(clipDuration, 39, max(1, assetDuration - trimStart)))
+            let m4aOut = FileManager.default.temporaryDirectory.appendingPathComponent("Knell_\(stamp).m4a")
+            guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+                throw NSError(domain: "Knell", code: 3)
             }
-            let finalUrl = FileManager.default.temporaryDirectory.appendingPathComponent("Knell_\(stamp).m4a")
+            export.outputURL = m4aOut
+            export.outputFileType = .m4a
+            export.timeRange = CMTimeRange(
+                start: CMTime(seconds: trimStart, preferredTimescale: 600),
+                duration: CMTime(seconds: trimLen, preferredTimescale: 600))
+            try? FileManager.default.removeItem(at: m4aOut)
+            await export.export()
+            guard export.status == .completed else {
+                throw NSError(domain: "Knell", code: 4, userInfo: [NSLocalizedDescriptionKey: "Transcode failed: \(export.error?.localizedDescription ?? "?")"])
+            }
+            try? FileManager.default.removeItem(at: tmp)
+            let finalUrl = m4aOut
             downloadedUrl = finalUrl
             downloadedName = "Imported_\(stamp)"
             importStatus = "Download complete — preview it, then save."
@@ -836,7 +837,7 @@ struct ImportView: View {
                                     Text("LENGTH")
                                         .font(.system(size: 9, weight: .heavy, design: .monospaced))
                                         .foregroundColor(ashDim)
-                                    Slider(value: $forge.clipDuration, in: 5...60, step: 1)
+                                    Slider(value: $forge.clipDuration, in: 5...40, step: 1)
                                         .tint(crimson)
                                     Text(String(format: "%.0fs", forge.clipDuration))
                                         .font(.system(size: 9, design: .monospaced))

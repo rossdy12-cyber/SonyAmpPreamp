@@ -655,6 +655,7 @@ struct DukePulseRootView: View {
             GarageView().tabItem { Label("Garage", systemImage: "motorcycle") }.tag(2)
             DiagnosticsView().tabItem { Label("Faults", systemImage: "wrench.and.screwdriver") }.tag(3)
             ConnectView().tabItem { Label("Connect", systemImage: "antenna.radiowaves.left.and.right") }.tag(4)
+            HelmetView().tabItem { Label("Helm", systemImage: "eyeglasses") }.tag(5)
         }
         .tint(Color(red: 1.0, green: 0.42, blue: 0.04))
         .onAppear { engine.startBluetooth() }

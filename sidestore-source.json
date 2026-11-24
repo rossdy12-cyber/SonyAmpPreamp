@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.92",
+          "date": "2026-11-24",
+          "localizedDescription": "v2.4.92: BloodMesh v2.2.0: Add multi-user Coven device identity picker (Ross 100.64.0.1, Lauren 100.64.0.6, Mo 100.64.0.7)",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.92/SonyAmpPreamp.ipa",
+          "size": 668150,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.91",
           "date": "2026-11-24",
           "localizedDescription": "v2.4.91: Use GothicTheme and GothicCathedralBackground in SanctumWidget.swift",

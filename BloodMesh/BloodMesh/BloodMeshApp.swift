@@ -441,7 +441,22 @@ final class BloodMeshViewModel: ObservableObject {
     }
 
     private func applyStatus(_ resp: HeadscaleStatusResponse) {
-        if let h = resp.health { self.health = h }
+        if let h = resp.health {
+            self.health = h
+            let srvIP = h.iphone_mesh_ip
+            if srvIP.hasPrefix("100.64.0.") {
+                let targetUser: String
+                if srvIP == "100.64.0.6" { targetUser = "lauren" }
+                else if srvIP == "100.64.0.7" { targetUser = "mo" }
+                else { targetUser = "ross" }
+                if self.covenIdentity != targetUser {
+                    self.covenIdentity = targetUser
+                    self.registerUser = targetUser
+                    UserDefaults.standard.set(targetUser, forKey: "bloodmesh_coven_identity")
+                    Task { await self.applyExitNodeOrOnDemandChange() }
+                }
+            }
+        }
         if let s = resp.summary { self.summary = s }
         if let n = resp.nodes { self.nodes = n }
         if let c = resp.preauth_keys_count { self.preauthKeyCount = c }
@@ -931,28 +946,6 @@ struct SanctumTunnelTab: View {
                 }
             }
             .padding(.vertical, 2)
-
-            // Coven Device Identity Picker (Ross .1 / Lauren .6 / Mo .7)
-            HStack(spacing: 6) {
-                ForEach([
-                    ("ross", "ROSS · 100.64.0.1"),
-                    ("lauren", "LAUREN · 100.64.0.6"),
-                    ("mo", "MO · 100.64.0.7")
-                ], id: \.0) { userKey, label in
-                    let active = vm.covenIdentity == userKey
-                    Button {
-                        Task { await vm.switchCovenIdentity(userKey) }
-                    } label: {
-                        Text(label)
-                            .font(GothicTheme.serif(8.5, weight: .bold))
-                            .tracking(0.5)
-                            .foregroundStyle(active ? GothicTheme.bone : GothicTheme.ash)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 7)
-                            .gothicPanel(active: active, corner: 7)
-                    }
-                }
-            }
 
             // Master Action Button
             Button {

@@ -216,11 +216,52 @@ final class JarvisSyncManager: ObservableObject {
         _ = try? await URLSession.shared.data(for: req)
     }
 
+    // ------------------------------------------------------------------ NAS DeepAI brain (v1.3)
+    // The NAS jarvis-core now runs the tiered brain: knowledge base -> DeepAI agent -> ollama.
+    // Reachable on ANY network via the public jarvis host (no Tailscale dependency).
+    let nasBrain = "https://jarvis.nas-server.co.uk"
+    private var nasSessionID: String {
+        "companion-\(UIDevice.current.name.replacingOccurrences(of: " ", with: "-"))"
+    }
+
+    private func nasBrainChat(_ text: String, timeout: TimeInterval = 120) async -> String? {
+        guard let url = URL(string: "\(nasBrain)/api/chat") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = timeout
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("JarvisCompanion/1.3 (iPhone; iOS)", forHTTPHeaderField: "User-Agent")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["message": text, "session_id": nasSessionID])
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+            let reply = (json["reply"] as? String) ?? ""
+            return reply.isEmpty ? nil : reply
+        } catch { return nil }
+    }
+
     // ------------------------------------------------------------------ DeepAI Code chat bridge
 
     func sendDeepAi(_ text: String) async {
+        // v1.3: NAS brain first (public URL, works everywhere), PC bridge as fallback.
+        let ts = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
+        deepAiMessages.append(DeepAiMessage(id: "u|\(ts)|\(text.prefix(24))", role: "YOU", model: "", text: text, time: ts))
+        deepAiWorking = true
+        deepAiStatus = "THINKING — NAS DEEPAI BRAIN"
+
+        if let reply = await nasBrainChat(text) {
+            let t2 = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
+            deepAiMessages.append(DeepAiMessage(id: "a|\(t2)|\(reply.prefix(24))", role: "J.A.R.V.I.S.", model: "NAS DeepAI Brain", text: reply, time: t2))
+            deepAiWorking = false
+            deepAiStatus = "READY"
+            return
+        }
+
+        // Fallback: legacy PC DeepAI Code bridge
+        deepAiStatus = "NAS UNREACHABLE — TRYING PC"
         let base = serverHost.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
-        guard let url = URL(string: "\(base)/api/deepai/send") else { return }
+        guard let url = URL(string: "\(base)/api/deepai/send") else { deepAiWorking = false; deepAiStatus = "SEND FAILED"; return }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.timeoutInterval = 8.0
@@ -232,9 +273,13 @@ final class JarvisSyncManager: ObservableObject {
                 deepAiWorking = true
                 deepAiStatus = "WORKING"
                 await pollDeepAiState()
+            } else {
+                deepAiWorking = false
+                deepAiStatus = "SEND FAILED"
             }
         } catch {
             deepAiStatus = "SEND FAILED"
+            deepAiWorking = false
         }
     }
 

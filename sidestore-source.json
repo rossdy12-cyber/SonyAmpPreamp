@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.100",
+          "date": "2026-11-24",
+          "localizedDescription": "v2.4.100: Knell 1.2.7: robust archive save (copy+uniquify), retained audio player, live archive count",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.100/SonyAmpPreamp.ipa",
+          "size": 668153,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.99",
           "date": "2026-11-24",
           "localizedDescription": "v2.4.99: Build fixed ImmichTV (ReliquaryTV) with tvOS UIAppearance guard",

@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.95",
+          "date": "2026-11-24",
+          "localizedDescription": "v2.4.95: BloodMesh v2.4.0: Option B Multi-Peer Direct UDP Hole-Punching P2P",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.95/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.94",
           "date": "2026-11-24",
           "localizedDescription": "v2.4.94: Add build-tether.yml workflow for Tether v1.1.0",

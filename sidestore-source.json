@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.96",
+          "date": "2026-11-24",
+          "localizedDescription": "v2.4.96: Knell 1.2.4: trim URL imports to ringtone length, cap at 39s",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.96/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.95",
           "date": "2026-11-24",
           "localizedDescription": "v2.4.95: BloodMesh v2.4.0: Option B Multi-Peer Direct UDP Hole-Punching P2P",

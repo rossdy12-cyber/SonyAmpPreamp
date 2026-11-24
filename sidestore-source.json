@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.91",
+          "date": "2026-11-24",
+          "localizedDescription": "v2.4.91: Use GothicTheme and GothicCathedralBackground in SanctumWidget.swift",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.91/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.90",
           "date": "2026-11-24",
           "localizedDescription": "v2.4.90: Remove duplicate WidgetPack/Shared path from Sanctum/project.yml",

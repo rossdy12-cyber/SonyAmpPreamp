@@ -602,8 +602,8 @@ final class ForgeState: ObservableObject {
             var req = URLRequest(url: url)
             req.timeoutInterval = 300
             req.setValue("Mozilla/5.0 Knell", forHTTPHeaderField: "User-Agent")
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.httpBody = try? JSONSerialization.data(withJSONObject: ["clip_start": clipStart, "clip_duration": clipDuration])
+            // NOTE: GET requests must NOT carry a body on iOS (NSURLError -1103 "resource exceeds maximum size").
+            // Clip trimming is applied client-side after download instead.
             let (data, resp) = try await URLSession.shared.data(for: req)
             guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
                 throw NSError(domain: "Knell", code: 1, userInfo: [NSLocalizedDescriptionKey: "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"])

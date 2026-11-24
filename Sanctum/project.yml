@@ -63,7 +63,6 @@ targets:
     platform: iOS
     sources:
       - path: Widgets
-      - path: ../WidgetPack/Shared
     settings:
       base:
         PRODUCT_NAME: SanctumWidgetsExtension

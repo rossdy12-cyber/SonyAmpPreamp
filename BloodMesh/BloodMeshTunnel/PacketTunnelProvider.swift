@@ -22,6 +22,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private var txBytes: UInt64 = 0
     private var lastPongDate: Date?
     private var exitNodeEnabled: Bool = false
+    private var clientVIP: String = "100.64.0.1"
 
     override func startTunnel(options: [String : NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         let proto = protocolConfiguration as? NETunnelProviderProtocol
@@ -34,7 +35,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             exitNodeEnabled = false
         }
 
-        let settings = buildNetworkSettings(exitNode: exitNodeEnabled)
+        if let optVIP = options?["clientVIP"] as? NSString {
+            clientVIP = String(optVIP)
+        } else if let cfgVIP = cfg?["clientVIP"] as? String, !cfgVIP.isEmpty {
+            clientVIP = cfgVIP
+        } else {
+            clientVIP = "100.64.0.1"
+        }
+
+        let settings = buildNetworkSettings(exitNode: exitNodeEnabled, vip: clientVIP)
         setTunnelNetworkSettings(settings) { [weak self] error in
             guard let self = self else { return }
             if let error = error {
@@ -85,11 +94,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         completionHandler?(resp)
     }
 
-    private func buildNetworkSettings(exitNode: Bool) -> NEPacketTunnelNetworkSettings {
+    private func buildNetworkSettings(exitNode: Bool, vip: String) -> NEPacketTunnelNetworkSettings {
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: serverIP)
         settings.mtu = 1280
 
-        let ipv4 = NEIPv4Settings(addresses: ["100.64.0.1"], subnetMasks: ["255.192.0.0"])
+        let ipv4 = NEIPv4Settings(addresses: [vip], subnetMasks: ["255.192.0.0"])
         var included: [NEIPv4Route] = [
             NEIPv4Route(destinationAddress: "100.64.0.0", subnetMask: "255.192.0.0"),
             NEIPv4Route(destinationAddress: "192.168.0.0", subnetMask: "255.255.255.0"),
@@ -190,7 +199,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
     private func sendHandshakePing() {
         var ts = UInt64(Date().timeIntervalSince1970 * 1000).bigEndian
-        let payload = Data(bytes: &ts, count: MemoryLayout<UInt64>.size)
+        var payload = Data(bytes: &ts, count: MemoryLayout<UInt64>.size)
+        var inAddr = in_addr()
+        if clientVIP.withCString({ inet_pton(AF_INET, $0, &inAddr) }) == 1 {
+            withUnsafeBytes(of: &inAddr.s_addr) { payload.append(contentsOf: $0) }
+        }
         ioQueue.async { [weak self] in
             self?.sendEncryptedPacket(type: 1, payload: payload)
         }

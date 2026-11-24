@@ -186,8 +186,47 @@ final class BloodMeshViewModel: ObservableObject {
     @Published var isErrorBanner: Bool = false
 
     // Registration & Key Forge
+    @Published var covenIdentity: String = {
+        if let saved = UserDefaults.standard.string(forKey: "bloodmesh_coven_identity"), !saved.isEmpty {
+            return saved
+        }
+        let devName = UIDevice.current.name.lowercased()
+        if devName.contains("lauren") { return "lauren" }
+        if devName.contains("mo") { return "mo" }
+        return "ross"
+    }()
     @Published var authReqInput: String = ""
     @Published var registerUser: String = "ross" // "ross", "mo", "lauren"
+
+    var assignedVIP: String {
+        switch covenIdentity {
+        case "lauren": return "100.64.0.6"
+        case "mo": return "100.64.0.7"
+        default: return "100.64.0.1"
+        }
+    }
+
+    var assignedFQDN: String {
+        switch covenIdentity {
+        case "lauren": return "lauren-iphone.mesh.internal"
+        case "mo": return "mo-iphone.mesh.internal"
+        default: return "ross-iphone.mesh.internal"
+        }
+    }
+
+    var displayedTunnelIPv4: String {
+        if localTunnel.isSealed && localTunnel.ipv4.hasPrefix("100.64.0.") {
+            return localTunnel.ipv4
+        }
+        return assignedVIP
+    }
+
+    func switchCovenIdentity(_ user: String) async {
+        covenIdentity = user
+        registerUser = user
+        UserDefaults.standard.set(user, forKey: "bloodmesh_coven_identity")
+        await applyExitNodeOrOnDemandChange()
+    }
     @Published var selectedUserFilter: String = "all" // "all", "ross", "mo", "lauren", "infra"
     @Published var forgeRole: String = "ross" // "ross", "mo", "lauren", "tag:server", "tag:router"
     @Published var forgeExpiration: String = "24h"
@@ -288,6 +327,7 @@ final class BloodMeshViewModel: ObservableObject {
         proto.serverAddress = "hs.nas-server.co.uk (38.9.96.58:41642)"
         proto.providerConfiguration = [
             "exitNodeEnabled": exitNodeEnabled,
+            "clientVIP": assignedVIP,
             "serverIP": "38.9.96.58",
             "serverPort": 41642,
             "magicDNSDomain": "mesh.internal"
@@ -324,10 +364,11 @@ final class BloodMeshViewModel: ObservableObject {
                 showBanner("BloodMesh VPN tunnel severed.", error: false)
             } else {
                 let opts: [String: NSObject] = [
-                    "exitNode": NSNumber(value: exitNodeEnabled)
+                    "exitNode": NSNumber(value: exitNodeEnabled),
+                    "clientVIP": NSString(string: assignedVIP)
                 ]
                 try mgr.connection.startVPNTunnel(options: opts)
-                showBanner("BloodMesh native Packet Tunnel activated (100.64.0.1).", error: false)
+                showBanner("BloodMesh native Packet Tunnel activated (\(assignedVIP)).", error: false)
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
                 localTunnel = iOSTunnelScanner.scan()
                 runLatencyProbes()
@@ -344,10 +385,13 @@ final class BloodMeshViewModel: ObservableObject {
             if mgr.connection.status == .connected {
                 mgr.connection.stopVPNTunnel()
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                try mgr.connection.startVPNTunnel(options: ["exitNode": NSNumber(value: exitNodeEnabled)])
-                showBanner("Re-sealed tunnel (Exit Node: \(exitNodeEnabled ? "ON" : "OFF")).", error: false)
+                try mgr.connection.startVPNTunnel(options: [
+                    "exitNode": NSNumber(value: exitNodeEnabled),
+                    "clientVIP": NSString(string: assignedVIP)
+                ])
+                showBanner("Re-sealed tunnel as \(covenIdentity.uppercased()) (\(assignedVIP)).", error: false)
             } else {
-                showBanner("Saved VPN configuration.", error: false)
+                showBanner("Bound device identity to \(covenIdentity.uppercased()) (\(assignedVIP)).", error: false)
             }
         } catch {
             showBanner("Failed to save VPN preferences: \(error.localizedDescription)", error: true)
@@ -445,13 +489,10 @@ final class BloodMeshViewModel: ObservableObject {
 
     func consecrateDevice() async {
         let trimmed = authReqInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            showBanner("Paste an hskey-authreq-... string or registration URL first.", error: true)
-            return
-        }
+        await switchCovenIdentity(registerUser)
         await postAction([
             "action": "register",
-            "auth_id": trimmed,
+            "auth_id": trimmed.isEmpty ? "\(registerUser)-iphone" : trimmed,
             "user": registerUser
         ])
         if !isErrorBanner {
@@ -879,7 +920,7 @@ struct SanctumTunnelTab: View {
                         Image(systemName: isSealed ? "lock.shield.fill" : "power")
                             .font(.system(size: 20, weight: .bold))
                             .foregroundStyle(isSealed ? GothicTheme.bloodHi : GothicTheme.ash)
-                        Text(vm.localTunnel.ipv4)
+                        Text(vm.displayedTunnelIPv4)
                             .font(GothicTheme.display(20))
                             .foregroundStyle(GothicTheme.bone)
                         Text(isSealed ? "TAP TO SEVER" : "TAP TO SEAL VPN")
@@ -890,6 +931,28 @@ struct SanctumTunnelTab: View {
                 }
             }
             .padding(.vertical, 2)
+
+            // Coven Device Identity Picker (Ross .1 / Lauren .6 / Mo .7)
+            HStack(spacing: 6) {
+                ForEach([
+                    ("ross", "ROSS · 100.64.0.1"),
+                    ("lauren", "LAUREN · 100.64.0.6"),
+                    ("mo", "MO · 100.64.0.7")
+                ], id: \.0) { userKey, label in
+                    let active = vm.covenIdentity == userKey
+                    Button {
+                        Task { await vm.switchCovenIdentity(userKey) }
+                    } label: {
+                        Text(label)
+                            .font(GothicTheme.serif(8.5, weight: .bold))
+                            .tracking(0.5)
+                            .foregroundStyle(active ? GothicTheme.bone : GothicTheme.ash)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 7)
+                            .gothicPanel(active: active, corner: 7)
+                    }
+                }
+            }
 
             // Master Action Button
             Button {
@@ -912,7 +975,7 @@ struct SanctumTunnelTab: View {
 
             // Telemetry Grid
             HStack(spacing: 8) {
-                telemetryPill(label: "MAGICDNS", value: "ross-iphone.mesh.internal")
+                telemetryPill(label: "MAGICDNS", value: vm.assignedFQDN)
                 telemetryPill(label: "CIPHER", value: "ChaCha20-Poly1305 :41642")
             }
 

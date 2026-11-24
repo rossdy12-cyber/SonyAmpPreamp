@@ -1,0 +1,49 @@
+name: Build Tether Family Location IPA
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Tether/**'
+      - '.github/workflows/build-tether.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build Tether (iOS)
+        working-directory: Tether
+        run: |
+          set -e
+          xcodegen generate
+          xcodebuild \
+            -project Tether.xcodeproj \
+            -target Tether \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          mkdir -p out/Payload
+          cp -R build/Release-iphoneos/Tether.app out/Payload/
+          cd out
+          zip -qry Tether.ipa Payload
+          ls -lh Tether.ipa
+
+      - name: Upload Tether.ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tether-ipa
+          path: Tether/out/Tether.ipa
+          retention-days: 30

@@ -56,35 +56,66 @@ struct SanctumWidgetView: View {
     @Environment(\.widgetFamily) var family
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            GothicHeaderBar(title: "SANCTUM", subtitle: "TV: \(entry.tvMode)", icon: "tv.and.mediabox")
-            Spacer(minLength: 2)
-            if family == .systemSmall {
-                GothicMetricValue(value: String(format: "%.1f %@", entry.mmol, entry.arrow), label: "DEXCOM G7 · mmol/L", accent: GothicPalette.crimson)
-                HStack(spacing: 4) {
-                    GothicPill(text: String(format: "IOB %.1fU", entry.iob), color: GothicPalette.gildedGold)
-                    GothicPill(text: String(format: "%.1fTB FREE", entry.freeDiskGB / 1000.0), color: GothicPalette.emerald)
-                }
-            } else {
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        GothicMetricValue(value: String(format: "%.1f %@", entry.mmol, entry.arrow), label: "DEXCOM G7 (mmol/L)", accent: GothicPalette.crimson)
-                        Text(entry.pumpStatus)
-                            .font(.system(size: 10, weight: .semibold, design: .serif))
-                            .foregroundColor(GothicPalette.ash)
-                            .lineLimit(1)
+        ZStack {
+            GothicCathedralBackground()
+            VStack(alignment: .leading, spacing: 6) {
+                GothicHeader(title: "SANCTUM", rightText: "TV: \(entry.tvMode)")
+                Spacer(minLength: 2)
+                if family == .systemSmall {
+                    Text(String(format: "%.1f %@", entry.mmol, entry.arrow))
+                        .font(GothicTheme.display(26))
+                        .foregroundStyle(GothicTheme.bloodHi)
+                    Text("DEXCOM G7 · mmol/L")
+                        .font(GothicTheme.serif(9.5, weight: .bold))
+                        .foregroundStyle(GothicTheme.ash)
+                    HStack(spacing: 4) {
+                        Text(String(format: "IOB %.1fU", entry.iob))
+                            .font(GothicTheme.serif(9, weight: .bold))
+                            .foregroundStyle(GothicTheme.bone)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .gothicPanel(active: true)
+                        Text(String(format: "%.1fTB", entry.freeDiskGB / 1000.0))
+                            .font(GothicTheme.serif(9, weight: .bold))
+                            .foregroundStyle(GothicTheme.bone)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .gothicPanel()
                     }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 5) {
-                        GothicPill(text: "APPLE TV · \(entry.tvMode)", color: GothicPalette.crimson)
-                        GothicPill(text: String(format: "IOB %.2f U", entry.iob), color: GothicPalette.gildedGold)
-                        GothicPill(text: String(format: "ZFS %.0f GB FREE", entry.freeDiskGB), color: GothicPalette.emerald)
+                } else {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(String(format: "%.1f %@", entry.mmol, entry.arrow))
+                                .font(GothicTheme.display(30))
+                                .foregroundStyle(GothicTheme.bloodHi)
+                            Text("DEXCOM G7 · \(entry.pumpStatus)")
+                                .font(GothicTheme.serif(10, weight: .semibold))
+                                .foregroundStyle(GothicTheme.ash)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 5) {
+                            Text("APPLE TV · \(entry.tvMode)")
+                                .font(GothicTheme.serif(9.5, weight: .bold))
+                                .foregroundStyle(GothicTheme.bone)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .gothicPanel(active: true)
+                            Text(String(format: "IOB %.2f U · ZFS %.0f GB", entry.iob, entry.freeDiskGB))
+                                .font(GothicTheme.serif(9.5, weight: .bold))
+                                .foregroundStyle(GothicTheme.bone)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .gothicPanel()
+                        }
                     }
                 }
             }
+            .padding(12)
         }
-        .padding(12)
-        .gothicWidgetContainer()
+        .containerBackground(for: .widget) {
+            GothicTheme.void
+        }
     }
 }
 

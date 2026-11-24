@@ -496,8 +496,24 @@ final class ForgeState: ObservableObject {
         darkness = Double.random(in: 0.2...0.9)
     }
 
+    @Published var archiveDebug = ""
+
     func loadTones() {
-        let files = (try? FileManager.default.contentsOfDirectory(at: docsDir, includingPropertiesForKeys: [.creationDateKey])) ?? []
+        let fm = FileManager.default
+        var files = (try? fm.contentsOfDirectory(at: docsDir, includingPropertiesForKeys: [.creationDateKey, .fileSizeKey])) ?? []
+        let docsExists = fm.fileExists(atPath: docsDir.path)
+        let dropped: [String]
+        if files.isEmpty && docsExists {
+            // fall back to a raw path enumeration in case URL enumeration misbehaves
+            if let raw = try? fm.contentsOfDirectory(atPath: docsDir.path) {
+                dropped = raw
+                files = raw.map { docsDir.appendingPathComponent($0) }
+            } else {
+                dropped = []
+            }
+        } else {
+            dropped = []
+        }
         let urls = files.filter { $0.pathExtension == "m4r" || $0.pathExtension == "m4a" }
         let list: [KnellTone] = urls.compactMap { url in
             let name = url.deletingPathExtension().lastPathComponent
@@ -506,6 +522,8 @@ final class ForgeState: ObservableObject {
             return KnellTone(id: UUID(), name: name, fileURL: url, seconds: min(40, max(1, seconds)), created: attrs.creationDate ?? Date())
         }
         tones = list.sorted { $0.created > $1.created }
+        let names = urls.map { $0.lastPathComponent }.joined(separator: ", ")
+        archiveDebug = "docs:\(docsExists ? "ok" : "MISSING") scan:\(files.count) audio:\(urls.count) rows:\(list.count)\(names.isEmpty ? "" : " — " + names)\(dropped.isEmpty ? "" : " (raw:\(dropped.count))")"
     }
 
     func playPreview() {
@@ -1257,11 +1275,20 @@ struct ArchiveView: View {
             }
         }
         .navigationTitle("")
+        .onAppear { forge.loadTones() }
         .overlay(alignment: .top) {
-            Text("THE ARCHIVE · \(forge.tones.count)")
-                .font(.system(size: 13, weight: .heavy, design: .monospaced))
-                .foregroundColor(crimson)
-                .padding(.top, 2)
+            VStack(spacing: 2) {
+                Text("THE ARCHIVE · \(forge.tones.count)")
+                    .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                    .foregroundColor(crimson)
+                if !forge.archiveDebug.isEmpty {
+                    Text(forge.archiveDebug)
+                        .font(.system(size: 8, design: .monospaced))
+                        .foregroundColor(ashDim)
+                        .lineLimit(3)
+                }
+            }
+            .padding(.top, 2)
         }
         .onChange(of: sharingURL) { url in
             if let u = url {

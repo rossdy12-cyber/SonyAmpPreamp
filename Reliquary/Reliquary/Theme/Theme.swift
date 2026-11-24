@@ -54,6 +54,7 @@ enum Theme {
     }
 
     static func applyAppearance() {
+        #if !os(tvOS)
         let boneUI = UIColor(hex: "E8DFD0")
         let crimsonUI = UIColor(hex: "DC143C")
         let mutedUI = UIColor(hex: "8C7F7B")
@@ -65,14 +66,10 @@ enum Theme {
         nav.backgroundColor = bgUI
         nav.shadowColor = lineUI
         nav.titleTextAttributes = [.foregroundColor: boneUI, .font: serifUIFont(18)]
-        #if !os(tvOS)
         nav.largeTitleTextAttributes = [.foregroundColor: boneUI, .font: serifUIFont(32)]
-        #endif
         UINavigationBar.appearance().standardAppearance = nav
-        #if !os(tvOS)
         UINavigationBar.appearance().scrollEdgeAppearance = nav
         UINavigationBar.appearance().compactAppearance = nav
-        #endif
         UINavigationBar.appearance().tintColor = crimsonUI
 
         let tab = UITabBarAppearance()
@@ -91,7 +88,6 @@ enum Theme {
             item.selected.titleTextAttributes = [.foregroundColor: crimsonUI]
         }
         UITabBar.appearance().standardAppearance = tab
-        #if !os(tvOS)
         UITabBar.appearance().scrollEdgeAppearance = tab
         #endif
     }

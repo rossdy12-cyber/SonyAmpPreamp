@@ -4,6 +4,7 @@ on:
   push:
     branches: [ main ]
     paths:
+      - 'Hearth/**'
       - 'Reliquary/**'
       - 'Keepwatch/**'
       - '.github/workflows/build-reliquary-keepwatch-tv.yml'
@@ -20,6 +21,27 @@ jobs:
 
       - name: Install XcodeGen
         run: brew install xcodegen
+
+      - name: Build Hearth TV (HearthTV)
+        working-directory: Hearth
+        run: |
+          set -o pipefail
+          xcodegen generate
+          xcodebuild \
+            -project Hearth.xcodeproj \
+            -target HearthTV \
+            -configuration Release \
+            -sdk appletvos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          mkdir -p out/Payload
+          cp -R build/Release-appletvos/HearthTV.app out/Payload/
+          cd out
+          zip -qry HearthTV.ipa Payload
+          ls -lh HearthTV.ipa
 
       - name: Build Immich TV (ReliquaryTV)
         working-directory: Reliquary
@@ -63,11 +85,12 @@ jobs:
           zip -qry KeepwatchTV.ipa Payload
           ls -lh KeepwatchTV.ipa
 
-      - name: Upload ReliquaryTV & KeepwatchTV IPAs
+      - name: Upload HearthTV, ReliquaryTV & KeepwatchTV IPAs
         uses: actions/upload-artifact@v4
         with:
           name: TV-Apps-ipas
           path: |
+            Hearth/out/HearthTV.ipa
             Reliquary/out/ReliquaryTV.ipa
             Keepwatch/out/KeepwatchTV.ipa
           retention-days: 30

@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.99",
+          "date": "2026-11-24",
+          "localizedDescription": "v2.4.99: Build fixed ImmichTV (ReliquaryTV) with tvOS UIAppearance guard",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.99/SonyAmpPreamp.ipa",
+          "size": 668151,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.98",
           "date": "2026-11-24",
           "localizedDescription": "v2.4.98: Knell 1.2.6: route social/video URLs through NAS yt-dlp receiver (return_audio), HTML-page detection",

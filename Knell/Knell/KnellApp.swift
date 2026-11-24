@@ -597,25 +597,67 @@ final class ForgeState: ObservableObject {
             return
         }
         importing = true
-        importStatus = "Downloading from the web..."
+        importStatus = "Checking the link..."
         do {
-            var req = URLRequest(url: url)
-            req.timeoutInterval = 300
-            req.setValue("Mozilla/5.0 Knell", forHTTPHeaderField: "User-Agent")
-            // NOTE: GET requests must NOT carry a body on iOS (NSURLError -1103 "resource exceeds maximum size").
-            // Clip trimming is applied client-side after download instead.
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-                throw NSError(domain: "Knell", code: 1, userInfo: [NSLocalizedDescriptionKey: "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"])
-            }
-            guard data.count > 10000 else {
-                throw NSError(domain: "Knell", code: 2, userInfo: [NSLocalizedDescriptionKey: "File too small to be audio"])
+            let trimmed = urlString.trimmingCharacters(in: .whitespaces)
+            let lower = trimmed.lowercased()
+            // Social/video PAGE urls (and anything that isn't a direct audio/video file)
+            // must be routed through the NAS yt-dlp receiver — fetching a watch page
+            // directly returns HTML, which cannot be transcoded.
+            let socialHints = ["youtube.com", "youtu.be", "facebook.com", "fb.watch", "instagram.com",
+                               "tiktok.com", "twitter.com", "x.com", "reddit.com", "v.redd.it",
+                               "twitch.tv", "vimeo.com"]
+            let directExt = ["mp3", "m4a", "m4r", "wav", "aac", "m4b", "ogg", "flac", "mp4", "mov", "webm", "m4v", "mkv"]
+            let isDirectFile = directExt.contains(url.pathExtension.lowercased())
+            let needsReceiver = socialHints.contains { lower.contains($0) } || !isDirectFile
+
+            let data: Data
+            if needsReceiver {
+                importStatus = "Fetching through the NAS crypt (yt-dlp)..."
+                guard let recvUrl = URL(string: "https://navidrome.nas-server.co.uk/sidestore-api/ai-shorts/import") else {
+                    throw NSError(domain: "Knell", code: 1, userInfo: [NSLocalizedDescriptionKey: "Bad receiver URL"])
+                }
+                var rreq = URLRequest(url: recvUrl)
+                rreq.httpMethod = "POST"
+                rreq.timeoutInterval = 300
+                rreq.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                rreq.httpBody = try JSONSerialization.data(withJSONObject: [
+                    "url": trimmed, "clip_start": clipStart, "clip_duration": clipDuration, "return_audio": true])
+                let (rdata, rresp) = try await URLSession.shared.data(for: rreq)
+                guard let http = rresp as? HTTPURLResponse, http.statusCode == 200 else {
+                    var msg = "receiver HTTP \((rresp as? HTTPURLResponse)?.statusCode ?? 0)"
+                    if let j = try? JSONSerialization.jsonObject(with: rdata) as? [String: Any], let e = j["error"] as? String { msg = e }
+                    throw NSError(domain: "Knell", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+                }
+                guard rdata.count > 10000 else {
+                    throw NSError(domain: "Knell", code: 2, userInfo: [NSLocalizedDescriptionKey: "Receiver returned no audio"])
+                }
+                data = rdata
+            } else {
+                importStatus = "Downloading from the web..."
+                var req = URLRequest(url: url)
+                req.timeoutInterval = 300
+                req.setValue("Mozilla/5.0 Knell", forHTTPHeaderField: "User-Agent")
+                // NOTE: GET requests must NOT carry a body on iOS (NSURLError -1103 "resource exceeds maximum size").
+                // Clip trimming is applied client-side after download instead.
+                let (ddata, resp) = try await URLSession.shared.data(for: req)
+                guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
+                    throw NSError(domain: "Knell", code: 1, userInfo: [NSLocalizedDescriptionKey: "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"])
+                }
+                guard ddata.count > 10000 else {
+                    throw NSError(domain: "Knell", code: 2, userInfo: [NSLocalizedDescriptionKey: "File too small to be audio"])
+                }
+                if ddata.prefix(1) == Data("<".utf8) {
+                    throw NSError(domain: "Knell", code: 5, userInfo: [NSLocalizedDescriptionKey: "That link returned a web page, not an audio file — paste a direct .mp3/.m4a link"])
+                }
+                data = ddata
             }
             let stamp = Int(Date().timeIntervalSince1970) % 100000
             var ext = url.pathExtension.lowercased()
             if ext.isEmpty || !["mp3", "m4a", "m4r", "wav", "aac", "m4b", "ogg", "flac"].contains(ext) {
                 ext = "mp3"
             }
+            if needsReceiver { ext = "m4a" }  // NAS already extracted audio
             let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("Knell_Import_\(stamp).\(ext)")
             try data.write(to: tmp)
             // transcode to m4a AND trim to ringtone length (iOS ringtones max 40s)

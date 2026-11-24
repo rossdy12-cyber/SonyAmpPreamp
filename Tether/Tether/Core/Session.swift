@@ -131,9 +131,13 @@ final class Session: ObservableObject {
     func startServices() {
         guard signedIn else { return }
         LocationEngine.shared.start()
+        LocationEngine.shared.requestOneShot()
         Notifier.shared.registerForPushIfAllowed()
         startPolling()
-        Task { await registerDevice() }
+        Task {
+            await UploadQueue.shared.flush(force: true)
+            await registerDevice()
+        }
     }
 
     func startPolling() {
@@ -154,6 +158,8 @@ final class Session: ObservableObject {
 
     func refreshAll() async {
         guard signedIn else { return }
+        LocationEngine.shared.requestOneShot()
+        await UploadQueue.shared.flush(force: true)
         await refreshMe()
         await refreshCircle()
         await refreshEvents(notify: false)
@@ -317,15 +323,18 @@ final class Session: ObservableObject {
     // MARK: Check-in and SOS
 
     func checkIn(text: String) async {
+        LocationEngine.shared.requestOneShot()
+        await UploadQueue.shared.flush(force: true)
         var body: [String: Any] = [:]
         if !text.isEmpty { body["text"] = text }
-        if let loc = LocationEngine.shared.lastLocation {
+        if let loc = LocationEngine.shared.lastLocation ?? CLLocationManager().location {
             body["lat"] = loc.coordinate.latitude
             body["lon"] = loc.coordinate.longitude
         }
         do {
             _ = try await request("POST", "/v1/checkin", json: APIClient.json(body), as: TetherEvent.self)
             showMessage("Checked in.")
+            await refreshCircle()
             await refreshEvents(notify: false)
         } catch {
             show(error)

@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.109",
+          "date": "2026-11-25",
+          "localizedDescription": "v2.4.109: Merge remote-tracking branch 'github/main'",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.109/SonyAmpPreamp.ipa",
+          "size": 668203,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.108",
           "date": "2026-11-25",
           "localizedDescription": "v2.4.108: ForgeLink: verify DeepAI continuation and preserve follow-up context",

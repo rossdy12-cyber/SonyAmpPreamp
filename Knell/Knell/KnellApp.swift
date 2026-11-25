@@ -592,7 +592,7 @@ final class ForgeState: ObservableObject {
             rendering = false
             if exists {
                 let stamp2 = "\(url.lastPathComponent)"
-                DocumentExportHost.shared.present(url: url) { outcome in
+                ShareSheetHost.shared.present(url: url) { outcome in
                     DispatchQueue.main.async {
                         self.loadTones()
                         self.statusMessage = outcome + " — rename .m4a to .m4r in Files to set as ringtone."
@@ -732,7 +732,13 @@ final class ForgeState: ObservableObject {
             let size = (try? fm.attributesOfItem(atPath: dest.path)[.size]) as? Int ?? 0
             downloadedUrl = nil
             loadTones()
-            statusMessage = "Saved ✓ \(dest.lastPathComponent) (\(size) bytes, \(tones.count) tones)."
+            statusMessage = "Saved ✓ \(dest.lastPathComponent) (\(size) bytes) — opening share to save to Files…"
+            ShareSheetHost.shared.present(url: dest) { outcome in
+                DispatchQueue.main.async {
+                    self.loadTones()
+                    self.statusMessage = outcome
+                }
+            }
         } catch {
             statusMessage = "Save failed: \(error.localizedDescription) — download kept, try SHARE instead."
         }
@@ -810,7 +816,7 @@ final class ForgeState: ObservableObject {
             if scopeOK { src.stopAccessingSecurityScopedResource(); scopeOK = false }
             loadTones()
             importing = false
-            DocumentExportHost.shared.present(url: out) { outcome in
+            ShareSheetHost.shared.present(url: out) { outcome in
                 DispatchQueue.main.async {
                     self.loadTones()
                     self.statusMessage = outcome + " — rename .m4a to .m4r in Files to set as ringtone."
@@ -841,6 +847,61 @@ struct ContentView: View {
                 .tabItem { Label("CRYPT", systemImage: "lock.shield") }
         }
         .accentColor(crimson)
+    }
+}
+
+final class ShareSheetHost: NSObject {
+    static var shared = ShareSheetHost()
+    private var overlayWindow: UIWindow?
+    private var onFinish: ((String) -> Void)?
+
+    func present(url: URL, completion: @escaping (String) -> Void) {
+        onFinish = completion
+        DispatchQueue.main.async {
+            guard FileManager.default.fileExists(atPath: url.path) else {
+                self.finish("Export skipped — file missing")
+                return
+            }
+            let vc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            vc.completionWithItemsHandler = { [weak self] activity, done, _, err in
+                DispatchQueue.main.async {
+                    if let err {
+                        self?.finish("Share failed: \(err.localizedDescription)")
+                    } else if done {
+                        self?.finish("Saved via share sheet — rename .m4a to .m4r in Files to set as ringtone.")
+                    } else {
+                        self?.finish("Share cancelled — tone kept in the ARCHIVE")
+                    }
+                }
+            }
+            let w = UIWindow(windowScene: UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }!)
+            w.windowLevel = .alert + 1
+            w.rootViewController = vc
+            w.makeKeyAndVisible()
+            self.overlayWindow = w
+        }
+    }
+
+    private func dismissOverlay() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let w = self.overlayWindow else { return }
+            w.isHidden = true
+            w.rootViewController = nil
+            for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+                if let main = scene.windows.first(where: { $0 !== w && $0.canBecomeKey && !$0.isHidden }) {
+                    main.makeKey()
+                }
+            }
+            self.overlayWindow = nil
+        }
+    }
+
+    private func finish(_ msg: String) {
+        dismissOverlay()
+        onFinish?(msg)
+        onFinish = nil
     }
 }
 
@@ -1292,7 +1353,7 @@ struct ArchiveView: View {
         }
         .onChange(of: sharingURL) { url in
             if let u = url {
-                DocumentExportHost.shared.present(url: u) { outcome in
+                ShareSheetHost.shared.present(url: u) { outcome in
                     DispatchQueue.main.async {
                         forge.statusMessage = outcome
                     }

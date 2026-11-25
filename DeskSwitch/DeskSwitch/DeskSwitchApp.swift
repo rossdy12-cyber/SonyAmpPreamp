@@ -451,6 +451,8 @@ struct DeskSwitchRootView: View {
             TabView {
                 DisplayAudioTab()
                     .tabItem { Label("Displays", systemImage: "tv.and.mediabox") }
+                RemoteDesktopTab()
+                    .tabItem { Label("PC Screen", systemImage: "display") }
                 AniimoLDPlayerTab()
                     .tabItem { Label("Aniimo & LD", systemImage: "sparkles.tv.fill") }
                 SteamCinemaTab()
@@ -1271,6 +1273,390 @@ struct AniimoLDPlayerTab: View {
             .background(color.opacity(0.22))
             .foregroundColor(color)
             .cornerRadius(10)
+        }
+    }
+}
+
+// MARK: - Remote Desktop (Aspect-Correct PC Screen)
+
+@MainActor
+final class RemoteDesktopModel: ObservableObject {
+    @Published var frameImage: UIImage? = nil
+    @Published var statusText: String = "Tap Refresh to pull your PC screen."
+    @Published var isLive: Bool = false
+    @Published var isLoading: Bool = false
+    @Published var lastFrameTime: Date? = nil
+
+    private var refreshTask: Task<Void, Never>? = nil
+
+    private lazy var session: URLSession = {
+        let cfg = URLSessionConfiguration.ephemeral
+        cfg.timeoutIntervalForRequest = 4.0
+        cfg.timeoutIntervalForResource = 6.0
+        cfg.httpMaximumConnectionsPerHost = 2
+        cfg.requestCachePolicy = .reloadIgnoringLocalCacheData
+        cfg.urlCache = nil
+        return URLSession(configuration: cfg)
+    }()
+
+    func stopLive() {
+        isLive = false
+        refreshTask?.cancel()
+        refreshTask = nil
+    }
+
+    func toggleLive(hostIP: String, bridgePort: Int) {
+        isLive.toggle()
+        if isLive {
+            startLive(hostIP: hostIP, bridgePort: bridgePort)
+        } else {
+            stopLive()
+        }
+    }
+
+    func startLive(hostIP: String, bridgePort: Int) {
+        refreshTask?.cancel()
+        refreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                await self.fetchFrame(hostIP: hostIP, bridgePort: bridgePort)
+                try? await Task.sleep(nanoseconds: 700_000_000)
+            }
+        }
+    }
+
+    func fetchFrame(hostIP: String, bridgePort: Int) async {
+        if isLoading { return }
+        isLoading = true
+        defer { isLoading = false }
+
+        let ts = Int(Date().timeIntervalSince1970 * 1000)
+        let urls = [
+            "http://\(hostIP):\(bridgePort)/api/antigravity/screen?t=\(ts)",
+            "http://\(hostIP):9090/api/antigravity/screen?t=\(ts)"
+        ]
+
+        for urlStr in urls {
+            guard let url = URL(string: urlStr) else { continue }
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 4.0
+            if let (data, resp) = try? await session.data(for: req),
+               let http = resp as? HTTPURLResponse, http.statusCode == 200,
+               let img = UIImage(data: data) {
+                frameImage = img
+                lastFrameTime = Date()
+                let w = img.cgImage?.width ?? Int(img.size.width)
+                let h = img.cgImage?.height ?? Int(img.size.height)
+                statusText = "Live \(w)×\(h) — aspect preserved"
+                return
+            }
+        }
+        if frameImage == nil {
+            statusText = "No screen frame from \(hostIP). Check bridge on port \(bridgePort)."
+        } else {
+            statusText = "Frame update failed — showing last frame."
+        }
+    }
+
+    func sendTap(hostIP: String, bridgePort: Int, isLinux: Bool, normalizedPoint: CGPoint, imagePixelSize: CGSize) async {
+        let pcX = Int(max(0, min(imagePixelSize.width - 1, normalizedPoint.x * imagePixelSize.width)))
+        let pcY = Int(max(0, min(imagePixelSize.height - 1, normalizedPoint.y * imagePixelSize.height)))
+
+        let cmd: String
+        if isLinux {
+            cmd = "DISPLAY=:0 xdotool mousemove \(pcX) \(pcY) click 1"
+        } else {
+            cmd = "powershell -Command \"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(\(pcX), \(pcY)); $c='[DllImport(\\\"user32.dll\\\")] public static extern void mouse_event(int dwFlags,int dx,int dy,int cButtons,int dwExtraInfo);'; $m=Add-Type -MemberDefinition $c -Name 'WMouse' -Namespace 'W32' -PassThru; $m::mouse_event(0x0002,0,0,0,0); $m::mouse_event(0x0004,0,0,0,0)\""
+        }
+        await execBridge(hostIP: hostIP, bridgePort: bridgePort, command: cmd)
+        statusText = "Tap sent at \(pcX),\(pcY)"
+    }
+
+    func sendRightClick(hostIP: String, bridgePort: Int, isLinux: Bool, normalizedPoint: CGPoint, imagePixelSize: CGSize) async {
+        let pcX = Int(max(0, min(imagePixelSize.width - 1, normalizedPoint.x * imagePixelSize.width)))
+        let pcY = Int(max(0, min(imagePixelSize.height - 1, normalizedPoint.y * imagePixelSize.height)))
+        let cmd: String
+        if isLinux {
+            cmd = "DISPLAY=:0 xdotool mousemove \(pcX) \(pcY) click 3"
+        } else {
+            cmd = "powershell -Command \"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(\(pcX), \(pcY)); $c='[DllImport(\\\"user32.dll\\\")] public static extern void mouse_event(int dwFlags,int dx,int dy,int cButtons,int dwExtraInfo);'; $m=Add-Type -MemberDefinition $c -Name 'WMouse' -Namespace 'W32' -PassThru; $m::mouse_event(0x0008,0,0,0,0); $m::mouse_event(0x0010,0,0,0,0)\""
+        }
+        await execBridge(hostIP: hostIP, bridgePort: bridgePort, command: cmd)
+        statusText = "Right-click sent at \(pcX),\(pcY)"
+    }
+
+    func sendDrag(hostIP: String, bridgePort: Int, isLinux: Bool, dx: Int, dy: Int) async {
+        let cmd: String
+        if isLinux {
+            cmd = "DISPLAY=:0 xdotool mousemove_relative -- \(dx) \(dy)"
+        } else {
+            cmd = "powershell -Command \"Add-Type -AssemblyName System.Windows.Forms; $p=[System.Windows.Forms.Cursor]::Position; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(($p.X + \(dx)), ($p.Y + \(dy)))\""
+        }
+        await execBridge(hostIP: hostIP, bridgePort: bridgePort, command: cmd)
+    }
+
+    func sendKey(hostIP: String, bridgePort: Int, isLinux: Bool, key: String) async {
+        let cmd: String
+        if isLinux {
+            let linuxMap: [String: String] = [
+                "up": "Up", "down": "Down", "left": "Left", "right": "Right",
+                "enter": "Return", "back": "BackSpace", "esc": "Escape",
+                "space": "space", "tab": "Tab", "win": "Super_L"
+            ]
+            let k = linuxMap[key] ?? key
+            cmd = "DISPLAY=:0 xdotool key \(k)"
+        } else {
+            let sendKeyMap: [String: String] = [
+                "up": "{UP}", "down": "{DOWN}", "left": "{LEFT}", "right": "{RIGHT}",
+                "enter": "{ENTER}", "back": "{BS}", "esc": "{ESC}", "space": " ",
+                "tab": "{TAB}", "win": "^{ESC}"
+            ]
+            let sk = sendKeyMap[key] ?? key
+            cmd = "powershell -Command \"$w = New-Object -ComObject WScript.Shell; $w.SendKeys('\(sk)')\""
+        }
+        await execBridge(hostIP: hostIP, bridgePort: bridgePort, command: cmd)
+        statusText = "Key: \(key)"
+    }
+
+    private func execBridge(hostIP: String, bridgePort: Int, command: String) async {
+        guard let url = URL(string: "http://\(hostIP):\(bridgePort)/api/antigravity/exec") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 8
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["command": command])
+        _ = try? await session.data(for: req)
+    }
+}
+
+struct RemoteDesktopTab: View {
+    @EnvironmentObject var store: DeskSwitchStore
+    @StateObject private var vm = RemoteDesktopModel()
+    @State private var lastDragTranslation: CGSize = .zero
+    @State private var dragMode: Bool = false // false = tap/click, true = move mouse
+
+    private var host: PCHost { store.currentHost }
+
+    var body: some View {
+        GeometryReader { outer in
+            VStack(spacing: 10) {
+                header
+
+                remoteViewport(available: CGSize(
+                    width: outer.size.width - 24,
+                    height: max(220, outer.size.height - (dragMode ? 250 : 210))
+                ))
+                .padding(.horizontal, 12)
+
+                controls
+                    .padding(.horizontal, 12)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 8)
+        }
+        .onDisappear {
+            vm.stopLive()
+        }
+    }
+
+    private var header: some View {
+        VStack(spacing: 4) {
+            HStack {
+                Text("Remote Desktop")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                Spacer()
+                Text(vm.isLive ? "LIVE" : "SNAPSHOT")
+                    .font(.caption2.bold())
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(vm.isLive ? Color.green.opacity(0.25) : Color.white.opacity(0.08))
+                    .foregroundColor(vm.isLive ? .green : .gray)
+                    .cornerRadius(6)
+            }
+            .padding(.horizontal, 12)
+
+            HStack {
+                Text(vm.statusText)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                    .lineLimit(2)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+        }
+    }
+
+    private func remoteViewport(available: CGSize) -> some View {
+        let fitted = fittedImageRect(in: available)
+        return ZStack {
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.black)
+
+            if let img = vm.frameImage {
+                Image(uiImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: fitted.width, height: fitted.height)
+                    .position(x: available.width / 2, y: available.height / 2)
+            } else {
+                VStack(spacing: 10) {
+                    Image(systemName: "display.trianglebadge.exclamationmark")
+                        .font(.system(size: 34))
+                        .foregroundColor(.orange.opacity(0.8))
+                    Text("No PC screen yet")
+                        .font(.subheadline.bold())
+                        .foregroundColor(.white)
+                    Text("Tap Refresh or Live. The screen keeps its real aspect ratio so it never looks stretched on iPhone 16.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                }
+            }
+        }
+        .frame(width: available.width, height: available.height)
+        .clipped()
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.orange.opacity(0.35), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { val in
+                    guard dragMode else { return }
+                    let dx = Int((val.translation.width - lastDragTranslation.width) * 2.2)
+                    let dy = Int((val.translation.height - lastDragTranslation.height) * 2.2)
+                    lastDragTranslation = val.translation
+                    if abs(dx) > 0 || abs(dy) > 0 {
+                        Task { await vm.sendDrag(hostIP: host.ip, bridgePort: host.bridgePort, isLinux: host.isLinux, dx: dx, dy: dy) }
+                    }
+                }
+                .onEnded { val in
+                    if dragMode {
+                        lastDragTranslation = .zero
+                        return
+                    }
+                    // Treat short drags as taps.
+                    let dist = hypot(val.translation.width, val.translation.height)
+                    guard dist < 12 else { return }
+                    guard let img = vm.frameImage else { return }
+                    let imgPx = imagePixelSize(img)
+                    let fit = fittedImageRect(in: available)
+                    let imageOrigin = CGPoint(x: (available.width - fit.width) / 2, y: (available.height - fit.height) / 2)
+                    let localX = val.location.x - imageOrigin.x
+                    let localY = val.location.y - imageOrigin.y
+                    guard localX >= 0, localY >= 0, localX <= fit.width, localY <= fit.height else {
+                        vm.statusText = "Tap inside the screen image."
+                        return
+                    }
+                    let nx = localX / fit.width
+                    let ny = localY / fit.height
+                    Task { await vm.sendTap(hostIP: host.ip, bridgePort: host.bridgePort, isLinux: host.isLinux, normalizedPoint: CGPoint(x: nx, y: ny), imagePixelSize: imgPx) }
+                }
+        )
+    }
+
+    private var controls: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Button {
+                    Task { await vm.fetchFrame(hostIP: host.ip, bridgePort: host.bridgePort) }
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                        .font(.caption.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.white.opacity(0.08))
+                        .foregroundColor(.orange)
+                        .cornerRadius(10)
+                }
+
+                Button {
+                    vm.toggleLive(hostIP: host.ip, bridgePort: host.bridgePort)
+                } label: {
+                    Label(vm.isLive ? "Stop Live" : "Go Live", systemImage: vm.isLive ? "stop.fill" : "dot.radiowaves.left.and.right")
+                        .font(.caption.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(vm.isLive ? Color.red.opacity(0.22) : Color.green.opacity(0.22))
+                        .foregroundColor(vm.isLive ? .red : .green)
+                        .cornerRadius(10)
+                }
+
+                Button {
+                    dragMode.toggle()
+                    lastDragTranslation = .zero
+                } label: {
+                    Label(dragMode ? "Mouse Drag" : "Tap Click", systemImage: dragMode ? "hand.draw.fill" : "hand.tap.fill")
+                        .font(.caption.bold())
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(dragMode ? Color.cyan.opacity(0.22) : Color.white.opacity(0.08))
+                        .foregroundColor(dragMode ? .cyan : .white)
+                        .cornerRadius(10)
+                }
+            }
+
+            HStack(spacing: 8) {
+                remoteKey("Esc", key: "esc")
+                remoteKey("Tab", key: "tab")
+                remoteKey("Enter", key: "enter")
+                remoteKey("Back", key: "back")
+                remoteKey("Space", key: "space")
+            }
+
+            Text(dragMode ? "Drag mode: finger drag moves the PC mouse. Toggle back for tap-to-click." : "Tap mode: tap inside the screen to click that exact spot. Aspect ratio is preserved — no stretching.")
+                .font(.caption2)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    private func remoteKey(_ title: String, key: String) -> some View {
+        Button {
+            Task { await vm.sendKey(hostIP: host.ip, bridgePort: host.bridgePort, isLinux: host.isLinux, key: key) }
+        } label: {
+            Text(title)
+                .font(.caption2.bold())
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+                .background(Color.white.opacity(0.08))
+                .foregroundColor(.white)
+                .cornerRadius(8)
+        }
+    }
+
+    private func imagePixelSize(_ img: UIImage) -> CGSize {
+        if let cg = img.cgImage {
+            return CGSize(width: cg.width, height: cg.height)
+        }
+        let scale = img.scale > 0 ? img.scale : 1
+        return CGSize(width: img.size.width * scale, height: img.size.height * scale)
+    }
+
+    private func fittedImageRect(in container: CGSize) -> CGSize {
+        guard let img = vm.frameImage else {
+            // Default to 16:9 placeholder fit.
+            let aspect: CGFloat = 16.0 / 9.0
+            return fit(aspect: aspect, in: container)
+        }
+        let px = imagePixelSize(img)
+        guard px.width > 0, px.height > 0 else { return container }
+        return fit(aspect: px.width / px.height, in: container)
+    }
+
+    private func fit(aspect: CGFloat, in container: CGSize) -> CGSize {
+        guard container.width > 0, container.height > 0, aspect > 0 else { return .zero }
+        let containerAspect = container.width / container.height
+        if containerAspect > aspect {
+            let h = container.height
+            return CGSize(width: h * aspect, height: h)
+        } else {
+            let w = container.width
+            return CGSize(width: w, height: w / aspect)
         }
     }
 }

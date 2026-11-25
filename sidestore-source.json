@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.105",
+          "date": "2026-11-25",
+          "localizedDescription": "v2.4.105: Merge remote-tracking branch 'github/main'",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.105/SonyAmpPreamp.ipa",
+          "size": 668204,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.104",
           "date": "2026-11-25",
           "localizedDescription": "v2.4.104: Merge CI release commit",

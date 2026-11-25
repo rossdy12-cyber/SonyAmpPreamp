@@ -473,6 +473,64 @@ final class ForgeState: ObservableObject {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
     }
 
+    private let nasVault = "https://navidrome.nas-server.co.uk/sidestore-api/knell/tones"
+    @Published var restoring = false
+
+    /// Silent off-device backup — the app sandbox can be wiped by OTA reinstalls,
+    /// the NAS vault cannot. Called after every successful archive save.
+    func backupToNas(_ url: URL) {
+        let name = url.lastPathComponent
+        let file = url
+        let vault = nasVault
+        Task.detached(priority: .utility) {
+            guard let data = try? Data(contentsOf: file) else { return }
+            var req = URLRequest(url: URL(string: vault + "?name=" + name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!)!)
+            req.httpMethod = "POST"
+            req.timeoutInterval = 60
+            req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+            req.setValue("Knell/1.4 (iPhone; iOS)", forHTTPHeaderField: "User-Agent")
+            req.httpBody = data
+            _ = try? await URLSession.shared.data(for: req)
+        }
+    }
+
+    /// Re-download every vault tone into Documents (used after a container wipe).
+    func restoreFromNas() async {
+        guard !restoring else { return }
+        await MainActor.run { self.restoring = true; self.statusMessage = "Reading the crypt's vault…" }
+        do {
+            var lreq = URLRequest(url: URL(string: self.nasVault + "?action=list")!)
+            lreq.setValue("Knell/1.4 (iPhone; iOS)", forHTTPHeaderField: "User-Agent")
+            let (ldata, _) = try await URLSession.shared.data(for: lreq)
+            guard let json = try? JSONSerialization.jsonObject(with: ldata) as? [String: Any],
+                  let tones = json["tones"] as? [[String: Any]] else {
+                throw NSError(domain: "Knell", code: 6, userInfo: [NSLocalizedDescriptionKey: "vault unreadable"])
+            }
+            var restored = 0
+            for t in tones {
+                guard let name = t["name"] as? String else { continue }
+                let dest = self.docsDir.appendingPathComponent(name)
+                if FileManager.default.fileExists(atPath: dest.path) { continue }
+                var freq = URLRequest(url: URL(string: self.nasVault + "?action=fetch&name=" + name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!)!)
+                freq.setValue("Knell/1.4 (iPhone; iOS)", forHTTPHeaderField: "User-Agent")
+                let (data, resp) = try await URLSession.shared.data(for: freq)
+                guard let http = resp as? HTTPURLResponse, http.statusCode == 200, data.count > 1000 else { continue }
+                try data.write(to: dest)
+                restored += 1
+            }
+            await MainActor.run {
+                self.loadTones()
+                self.statusMessage = restored > 0 ? "Restored \(restored) tone(s) from the vault." : "The vault holds nothing new — tones already present."
+                self.restoring = false
+            }
+        } catch {
+            await MainActor.run {
+                self.statusMessage = "Restore failed: \(error.localizedDescription)"
+                self.restoring = false
+            }
+        }
+    }
+
     init() {
         loadTones()
     }
@@ -592,6 +650,7 @@ final class ForgeState: ObservableObject {
             loadTones()
             let exists = FileManager.default.fileExists(atPath: url.path)
             let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? Int ?? 0
+            backupToNas(url)
             statusMessage = "Rendered: \(url.lastPathComponent) | exists: \(exists) | size: \(size)B | archive: \(tones.count) tones"
             rendering = false
             if exists {
@@ -736,6 +795,7 @@ final class ForgeState: ObservableObject {
             let size = (try? fm.attributesOfItem(atPath: dest.path)[.size]) as? Int ?? 0
             downloadedUrl = nil
             loadTones()
+            backupToNas(dest)
             statusMessage = "Saved ✓ \(dest.lastPathComponent) (\(size) bytes) — opening share to save to Files…"
             ShareSheetHost.shared.present(url: dest) { outcome in
                 DispatchQueue.main.async {
@@ -820,6 +880,7 @@ final class ForgeState: ObservableObject {
             if scopeOK { src.stopAccessingSecurityScopedResource(); scopeOK = false }
             loadTones()
             importing = false
+            backupToNas(out)
             ShareSheetHost.shared.present(url: out) { outcome in
                 DispatchQueue.main.async {
                     self.loadTones()
@@ -1322,6 +1383,18 @@ struct ArchiveView: View {
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundColor(ashDim)
                         .multilineTextAlignment(.center)
+                Button {
+                    Task { await forge.restoreFromNas() }
+                } label: {
+                    Label(forge.restoring ? "SUMMONING…" : "RESTORE FROM THE CRYPT", systemImage: "arrow.down.circle")
+                        .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(crimson)
+                        .cornerRadius(10)
+                }
+                .disabled(forge.restoring)
                 }
             } else {
                 List {

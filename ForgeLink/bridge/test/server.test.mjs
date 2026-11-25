@@ -288,6 +288,57 @@ test('DeepAI completed-turn recovery preserves the original request ID across br
   assert.equal(upstreamBody, undefined);
   await bridge.close();
 });
+test('DeepAI follow-up replies reuse the original NAS session and conversation history shows both prompts', async t => {
+  const secret = 'a-deepai-follow-up-test-secret-with-more-than-thirty-two-characters';
+  const observed = [];
+  const upstream = http.createServer(async (req, res) => {
+    assert.equal(req.headers['x-oracle-secret'], secret);
+    let body = ''; for await (const chunk of req) body += chunk;
+    const input = JSON.parse(body);
+    observed.push(input);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, reply: `DeepAI reply: ${input.message}`, session_id: input.session_id }));
+  });
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => upstream.close(resolve)));
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'forgelink-'));
+  await import('node:fs/promises').then(fs => fs.mkdir(path.join(dir, 'data')));
+  await writeFile(path.join(dir, 'deepai.secret'), secret, { mode: 0o600 });
+  const bridge = await createBridge({ dataDir: './data', projects: [{ id: 'test', name: 'Test project', path: '.', actions: [] }], agents: { deepai: { enabled: true, mode: 'oracle', endpoint: `http://127.0.0.1:${upstream.address().port}`, secretFile: 'deepai.secret' } } }, { baseDir: dir, env: { ...process.env, NODE_ENV: 'test', FORGELINK_TOKEN: token } });
+  await new Promise(resolve => bridge.server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${bridge.server.address().port}`;
+  const api = async (route, body) => {
+    const response = await fetch(base + route, { method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    return { code: response.status, data: await response.json() };
+  };
+  const wait = async id => {
+    for (let i = 0; i < 80; i++) {
+      const { data } = await api(`/v1/runs/${id}`);
+      if (data.status !== 'running') return data;
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    throw new Error('DeepAI turn did not finish');
+  };
+  t.after(async () => { await bridge.close(); await rm(dir, { recursive: true, force: true }); });
+  const first = await api('/v1/runs', { projectId: 'test', agentId: 'deepai', prompt: 'First request' });
+  assert.equal(first.code, 201);
+  const firstResult = await wait(first.data.id);
+  assert.equal(firstResult.status, 'succeeded');
+  assert.equal(firstResult.canContinue, true);
+  const second = await api('/v1/runs', { projectId: 'test', agentId: 'deepai', prompt: 'Follow-up request', parentRunId: firstResult.id });
+  assert.equal(second.code, 201);
+  const secondResult = await wait(second.data.id);
+  assert.equal(secondResult.status, 'succeeded');
+  assert.equal(secondResult.conversationId, firstResult.conversationId);
+  assert.equal(observed.length, 2);
+  assert.equal(observed[1].session_id, observed[0].session_id);
+  assert.equal(observed[1].message, 'Follow-up request');
+  const thread = await api(`/v1/threads/${firstResult.conversationId}/runs`);
+  assert.equal(thread.code, 200);
+  assert.deepEqual(thread.data.filter(message => message.agentId === 'user').map(message => message.prompt), ['First request', 'Follow-up request']);
+  assert.match(thread.data[1].output, /DeepAI reply: First request/);
+  assert.match(thread.data[3].output, /DeepAI reply: Follow-up request/);
+});
 test('DeepAI private API rejects non-private endpoints and missing key file', async t => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'forgelink-'));
   await import('node:fs/promises').then(fs => fs.mkdir(path.join(dir, 'project')));

@@ -390,6 +390,7 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
           const common = { projectId: run.projectId, projectName: run.projectName, parentRunId: run.parentRunId || null, title: run.title, startedAt: run.startedAt, conversationId: root };
           const userMessage = { ...common, id: `${run.id}_user`, agentId: 'user', prompt: run.prompt || (run.agentId === 'action' ? run.title : ''), status: 'sent', endedAt: null, exitCode: null, output: '', responseLost: false, canContinue: false, revision: 0 };
           const assistantMessage = { ...common, id: `${run.id}_assistant`, agentId: run.agentId === 'action' ? 'system' : run.agentId, prompt: '', status: run.status, endedAt: run.endedAt, exitCode: run.exitCode, output: run.output || '', responseLost: run.responseLost || false, canContinue: run.canContinue || false, revision: run.revision };
+          assistantMessage.prompt = assistantMessage.output;
           return [userMessage, assistantMessage];
         });
         send(200, messages);

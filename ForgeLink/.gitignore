@@ -1,0 +1,13 @@
+.DS_Store
+build/
+out/
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+bridge/.env
+bridge/config.json
+bridge/data/
+node_modules/
+*.ipa
+*.p12
+*.mobileprovision

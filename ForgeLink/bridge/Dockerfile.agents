@@ -1,0 +1,29 @@
+FROM node:24-bookworm-slim
+ARG CLAUDE_VERSION=2.1.332
+ARG ANTIGRAVITY_URL=https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.17-4823843970351104/linux-x64/cli_linux_x64.tar.gz
+ARG ANTIGRAVITY_SHA512=71a967aa16e0ab5d87196bcd6772130bdab55b2fd768cd24d21b1da401ff9f60280b976cad3dc14a2d646233b0eaf8caf87c490eed73044d54550cbb3d8d67d2
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates curl python3 openssh-client ripgrep tini libsecret-1-0 dbus-user-session gnome-keyring \
+    && rm -rf /var/lib/apt/lists/*
+RUN install -d -m 0750 -o node -g node /config
+RUN npm install --global @anthropic-ai/claude-code@${CLAUDE_VERSION} --allow-scripts=@anthropic-ai/claude-code \
+    && claude --version \
+    && npm cache clean --force
+RUN test "$(uname -m)" = x86_64 \
+    && curl --fail --silent --show-error --location "$ANTIGRAVITY_URL" -o /tmp/agy.tar.gz \
+    && printf '%s  /tmp/agy.tar.gz\n' "$ANTIGRAVITY_SHA512" | sha512sum --check --status \
+    && tar -xzf /tmp/agy.tar.gz -C /tmp antigravity \
+    && install -m 0755 /tmp/antigravity /usr/local/bin/agy \
+    && rm /tmp/agy.tar.gz /tmp/antigravity
+WORKDIR /app
+COPY --chown=node:node package.json config.example.json config.truenas.example.json ./
+COPY --chown=node:node src ./src
+COPY --chown=node:node agents-entrypoint.sh /usr/local/bin/forgelink-entrypoint
+USER node
+ENV HOME=/home/node
+ENV FORGELINK_CONFIG=/config/config.json
+ENV HOST=0.0.0.0
+ENV FORGELINK_TEMPLATE=truenas
+EXPOSE 8787
+ENTRYPOINT ["/usr/bin/tini", "--", "sh", "/usr/local/bin/forgelink-entrypoint"]
+CMD ["node", "src/cli.mjs"]

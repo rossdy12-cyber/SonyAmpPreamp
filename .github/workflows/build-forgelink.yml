@@ -1,0 +1,60 @@
+name: Build ForgeLink IPA
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ForgeLink/**'
+      - '.github/workflows/build-forgelink.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Add the IPA to the TrueNAS signing relay release
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: forgelink-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  bridge-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm test
+        working-directory: ForgeLink/bridge
+  build:
+    needs: bridge-tests
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build unsigned IPA
+        run: bash build-and-publish.sh
+        working-directory: ForgeLink
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ForgeLink-ipa
+          path: ForgeLink/out/ForgeLink.ipa
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish IPA for the TrueNAS signing relay
+        if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish) }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: ForgeLink
+        run: |
+          set -euo pipefail
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' out/Payload/ForgeLink.app/Info.plist)
+          IPA="ForgeLink__com.ross.forgelink__${VERSION}.ipa"
+          cp out/ForgeLink.ipa "out/${IPA}"
+          TAG=store-upload
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title 'Store Upload' --notes 'Unsigned IPAs for the TrueNAS relay to sign and publish'
+          fi
+          gh release upload "$TAG" "out/${IPA}" --repo "$GITHUB_REPOSITORY" --clobber
+          echo "Uploaded ${IPA} to ${TAG}; the existing TrueNAS relay will sign and publish it."

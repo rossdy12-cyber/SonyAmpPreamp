@@ -1,0 +1,62 @@
+name: Build ForgeLink IPA
+on:
+  push:
+    branches: [main, master, 'feature/forgelink']
+    paths:
+      - 'ForgeLink/**'
+      - '.github/workflows/build-forgelink.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Upload to TrueNAS for signing and Stark Store publication
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: forgelink-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  bridge-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm test
+        working-directory: ForgeLink/bridge
+  build:
+    needs: bridge-tests
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build unsigned IPA
+        run: bash build-and-publish.sh
+        working-directory: ForgeLink
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ForgeLink-ipa
+          path: ForgeLink/out/ForgeLink.ipa
+          if-no-files-found: error
+          retention-days: 30
+      - name: Send to TrueNAS signing pipeline
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main' }}
+        working-directory: ForgeLink
+        env:
+          SIDESTORE_UPLOAD_TOKEN: ${{ secrets.SIDESTORE_UPLOAD_TOKEN }}
+          STORE_URL: ${{ vars.STORE_URL }}
+        run: |
+          set -euo pipefail
+          : "${SIDESTORE_UPLOAD_TOKEN:?Configure SIDESTORE_UPLOAD_TOKEN in repository secrets}"
+          : "${STORE_URL:?Configure STORE_URL in repository variables}"
+          [[ "$STORE_URL" == https://* ]] || { echo 'STORE_URL must use HTTPS'; exit 1; }
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' out/Payload/ForgeLink.app/Info.plist)
+          curl --fail-with-body --silent --show-error --max-time 300 -X POST \
+            -H "X-Upload-Token: $SIDESTORE_UPLOAD_TOKEN" \
+            -H 'Content-Type: application/octet-stream' \
+            --data-binary @out/ForgeLink.ipa \
+            "${STORE_URL%/}/sidestore-api/upload?bundleId=com.ross.forgelink&version=${VERSION}&name=ForgeLink" > out/publish.json
+          echo 'TrueNAS accepted upload; check the server signing/publication result.'

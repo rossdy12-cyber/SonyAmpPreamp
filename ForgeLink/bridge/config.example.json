@@ -1,0 +1,34 @@
+{
+  "name": "TrueNAS · ForgeLink",
+  "host": "127.0.0.1",
+  "port": 8787,
+  "dataDir": "./data",
+  "runTimeoutMs": 1800000,
+  "projects": [
+    {
+      "id": "workspace",
+      "name": "My workspace",
+      "path": "/workspace",
+      "actions": [
+        { "id": "status", "name": "Git status", "command": ["git", "status", "--short"] },
+        { "id": "diff", "name": "Review changes", "command": ["git", "diff", "--stat"] }
+      ]
+    }
+  ],
+  "agents": {
+    "claude": {
+      "enabled": false,
+      "executable": "claude",
+      "args": ["-p", "{prompt}", "--output-format", "text"]
+    },
+    "antigravity": {
+      "enabled": false,
+      "executable": "agy",
+      "args": ["-p", "{prompt}", "--mode", "default"]
+    },
+    "deepai": {
+      "enabled": false,
+      "webhookURLEnv": "DEEPAI_WEBHOOK_URL"
+    }
+  }
+}

@@ -187,7 +187,7 @@ struct EQPreset: Identifiable, Codable, Equatable {
             airPodsVocalPresenceDB: 2.0,
             airPodsSilkAirDB: 2.0,
             stereoWidthPercent: 118.0,
-            spatialReverbMix: 6.0,
+            spatialReverbMix: 0.0,
             spatialRoomStyle: .studioBooth
         ),
         EQPreset(

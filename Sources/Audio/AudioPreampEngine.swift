@@ -397,9 +397,9 @@ final class AudioPreampEngine: ObservableObject {
         // hot pre-amp constantly pumps and produces a harsh, compressed ("tinny")
         // character. Use a much longer release and a transparent attack instead.
         if let limiterTree = peakLimiter.auAudioUnit.parameterTree {
-            limiterTree.parameter(withID: 0)?.value = 0.003   // attackTime (s)
-            limiterTree.parameter(withID: 1)?.value = 0.25    // decayTime (s), default 0.024
-            limiterTree.parameter(withID: 2)?.value = 0.0     // preGain (dB)
+            limiterTree.parameter(withAddress: 0)?.value = 0.003   // attackTime (s)
+            limiterTree.parameter(withAddress: 1)?.value = 0.25    // decayTime (s), default 0.024
+            limiterTree.parameter(withAddress: 2)?.value = 0.0     // preGain (dB)
         }
 
         let format = engine.mainMixerNode.outputFormat(forBus: 0)

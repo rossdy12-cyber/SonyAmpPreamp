@@ -3,7 +3,7 @@ set -uo pipefail
 
 STORE_URL="https://navidrome.nas-server.co.uk"
 TOKEN="${SIDESTORE_UPLOAD_TOKEN:?set SIDESTORE_UPLOAD_TOKEN}"
-VERSION="2.4.1"
+VERSION="2.4.2"
 BUNDLE_ID="com.rossdymond.sonyamppreamp"
 APP_NAME="SonyAmpPreamp"
 DISPLAY_NAME="Sony%20Amp%20DSP"

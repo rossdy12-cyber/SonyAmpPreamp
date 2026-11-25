@@ -333,3 +333,297 @@ workflows:
       - name: Build unsigned QwenStudio IPA on M2 and publish through TrueNAS
         script: |
           bash QwenStudio/build-and-publish.sh
+  aegisbrowser-unsigned-ipa:
+    name: AegisBrowser iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned AegisBrowser IPA on M2 and publish through TrueNAS
+        script: |
+          bash AegisBrowser/build-and-publish.sh
+  bloodmesh-unsigned-ipa:
+    name: BloodMesh iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned BloodMesh IPA on M2 and publish through TrueNAS
+        script: |
+          bash BloodMesh/build-and-publish.sh
+  dukepulse-unsigned-ipa:
+    name: DukePulse iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned DukePulse IPA on M2 and publish through TrueNAS
+        script: |
+          bash DukePulse/build-and-publish.sh
+  hearth-unsigned-ipa:
+    name: Hearth iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Hearth IPA on M2 and publish through TrueNAS
+        script: |
+          bash Hearth/build-and-publish.sh
+  jarviscompanion-unsigned-ipa:
+    name: JarvisCompanion iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned JarvisCompanion IPA on M2 and publish through TrueNAS
+        script: |
+          bash JarvisCompanion/build-and-publish.sh
+  knell-unsigned-ipa:
+    name: Knell iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Knell IPA on M2 and publish through TrueNAS
+        script: |
+          bash Knell/build-and-publish.sh
+  oracle-unsigned-ipa:
+    name: Oracle iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Oracle IPA on M2 and publish through TrueNAS
+        script: |
+          bash Oracle/build-and-publish.sh
+  phial-unsigned-ipa:
+    name: Phial iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Phial IPA on M2 and publish through TrueNAS
+        script: |
+          bash Phial/build-and-publish.sh
+  pulseline-unsigned-ipa:
+    name: Pulseline iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Pulseline IPA on M2 and publish through TrueNAS
+        script: |
+          bash Pulseline/build-and-publish.sh
+  revenant-unsigned-ipa:
+    name: Revenant iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Revenant IPA on M2 and publish through TrueNAS
+        script: |
+          bash Revenant/build-and-publish.sh
+  sanctum-unsigned-ipa:
+    name: Sanctum iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Sanctum IPA on M2 and publish through TrueNAS
+        script: |
+          bash Sanctum/build-and-publish.sh
+  sentrycam-unsigned-ipa:
+    name: SentryCam iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned SentryCam IPA on M2 and publish through TrueNAS
+        script: |
+          bash SentryCam/build-and-publish.sh
+  shroud-unsigned-ipa:
+    name: Shroud iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Shroud IPA on M2 and publish through TrueNAS
+        script: |
+          bash Shroud/build-and-publish.sh
+  sigil-unsigned-ipa:
+    name: Sigil iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Sigil IPA on M2 and publish through TrueNAS
+        script: |
+          bash Sigil/build-and-publish.sh
+  starkstore-unsigned-ipa:
+    name: StarkStore iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned StarkStore IPA on M2 and publish through TrueNAS
+        script: |
+          bash StarkStore/build-and-publish.sh
+  starkstoretv-unsigned-ipa:
+    name: StarkStoreTV iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned StarkStoreTV IPA on M2 and publish through TrueNAS
+        script: |
+          bash StarkStoreTV/build-and-publish.sh
+  vaultbook-unsigned-ipa:
+    name: Vaultbook iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Vaultbook IPA on M2 and publish through TrueNAS
+        script: |
+          bash Vaultbook/build-and-publish.sh
+  voltguard-unsigned-ipa:
+    name: VoltGuard iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned VoltGuard IPA on M2 and publish through TrueNAS
+        script: |
+          bash VoltGuard/build-and-publish.sh
+  widgetpack-unsigned-ipa:
+    name: WidgetPack iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned WidgetPack IPA on M2 and publish through TrueNAS
+        script: |
+          bash WidgetPack/build-and-publish.sh
+  wraith-unsigned-ipa:
+    name: Wraith iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned Wraith IPA on M2 and publish through TrueNAS
+        script: |
+          bash Wraith/build-and-publish.sh
+  youtubeplustv-unsigned-ipa:
+    name: YouTubePlusTV iOS Unsigned IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      groups:
+        - sidestore
+      xcode: latest
+    # No 'triggering' here on purpose: pushes are built by the build-changed-apps workflow at the top
+    # (it builds only the changed folders). This one is for starting a single app by hand in Codemagic.
+    scripts:
+      - name: Build unsigned YouTubePlusTV IPA on M2 and publish through TrueNAS
+        script: |
+          bash YouTubePlusTV/build-and-publish.sh

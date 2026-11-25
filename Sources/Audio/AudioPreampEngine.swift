@@ -276,16 +276,24 @@ final class AudioPreampEngine: ObservableObject {
         }
 
         if isAirPodsProConnected {
-            activeProfileMode = .airPodsPro2
-            if let preset = allPresets.first(where: { $0.id == savedAirPodsPresetId }) ?? EQPreset.airPodsPro2Presets.first {
-                applyPreset(preset, updateSavedSelection: false)
+            // Only auto-apply the profile preset when the device profile actually
+            // changes. Route-change notifications fire frequently while AirPods are
+            // connected (single-bud use, AAC renegotiation); re-applying the preset
+            // each time silently reverts the user's manual slider adjustments.
+            if activeProfileMode != .airPodsPro2 {
+                activeProfileMode = .airPodsPro2
+                if let preset = allPresets.first(where: { $0.id == savedAirPodsPresetId }) ?? EQPreset.airPodsPro2Presets.first {
+                    applyPreset(preset, updateSavedSelection: false)
+                }
             }
             statusBanner = "AirPods Pro 2 Active (\(output.portName)) • H2 Sub-Bass & Spatial DSP Engaged"
         } else if isUSBDACConnected {
-            activeProfileMode = .sonyAmp
-            if autoEngageOnUSBDAC {
-                if let preset = allPresets.first(where: { $0.id == savedSonyPresetId }) ?? EQPreset.sonyPresets.first {
-                    applyPreset(preset, updateSavedSelection: false)
+            if activeProfileMode != .sonyAmp {
+                activeProfileMode = .sonyAmp
+                if autoEngageOnUSBDAC {
+                    if let preset = allPresets.first(where: { $0.id == savedSonyPresetId }) ?? EQPreset.sonyPresets.first {
+                        applyPreset(preset, updateSavedSelection: false)
+                    }
                 }
             }
             statusBanner = "USB-C Line-Out Active (\(output.portName)) • Sony ES Line-Driver Engaged"
@@ -384,6 +392,15 @@ final class AudioPreampEngine: ObservableObject {
         // Configure Spatial Room Reverb
         spatialReverb.loadFactoryPreset(spatialRoomStyle.avPreset)
         spatialReverb.wetDryMix = spatialReverbMix
+
+        // Apple's PeakLimiter defaults use a 24 ms release, which combined with a
+        // hot pre-amp constantly pumps and produces a harsh, compressed ("tinny")
+        // character. Use a much longer release and a transparent attack instead.
+        if let limiterTree = peakLimiter.auAudioUnit.parameterTree {
+            limiterTree.parameter(withID: 0)?.value = 0.003   // attackTime (s)
+            limiterTree.parameter(withID: 1)?.value = 0.25    // decayTime (s), default 0.024
+            limiterTree.parameter(withID: 2)?.value = 0.0     // preGain (dB)
+        }
 
         let format = engine.mainMixerNode.outputFormat(forBus: 0)
         engine.connect(playerNode, to: inputMixer, format: format)

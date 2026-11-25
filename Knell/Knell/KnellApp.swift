@@ -514,16 +514,20 @@ final class ForgeState: ObservableObject {
         } else {
             dropped = []
         }
-        let urls = files.filter { $0.pathExtension == "m4r" || $0.pathExtension == "m4a" }
+        let audioExt: Set<String> = ["m4r", "m4a", "m4b", "wav", "mp3", "aac", "aiff", "aif", "caf", "flac", "ogg"]
+        let urls = files.filter { audioExt.contains($0.pathExtension.lowercased()) }
         let list: [KnellTone] = urls.compactMap { url in
             let name = url.deletingPathExtension().lastPathComponent
-            guard let attrs = try? url.resourceValues(forKeys: [.creationDateKey, .fileSizeKey]) else { return nil }
-            let seconds = Double(attrs.fileSize ?? 0) / (128 * 1024 / 8.0) // ~128kbps estimate
-            return KnellTone(id: UUID(), name: name, fileURL: url, seconds: min(40, max(1, seconds)), created: attrs.creationDate ?? Date())
+            // never drop a row because attributes are unreadable — fall back to sensible values
+            let attrs = (try? url.resourceValues(forKeys: [.creationDateKey, .fileSizeKey]))
+            let size = attrs?.fileSize ?? ((try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? Int) ?? 0
+            let seconds = Double(size) / (128 * 1024 / 8.0) // ~128kbps estimate
+            return KnellTone(id: UUID(), name: name, fileURL: url, seconds: min(40, max(1, seconds)), created: attrs?.creationDate ?? Date())
         }
         tones = list.sorted { $0.created > $1.created }
         let names = urls.map { $0.lastPathComponent }.joined(separator: ", ")
-        archiveDebug = "docs:\(docsExists ? "ok" : "MISSING") scan:\(files.count) audio:\(urls.count) rows:\(list.count)\(names.isEmpty ? "" : " — " + names)\(dropped.isEmpty ? "" : " (raw:\(dropped.count))")"
+        let allNames = files.map { $0.lastPathComponent }.joined(separator: ", ")
+        archiveDebug = "docs:\(docsExists ? "ok" : "MISSING") scan:\(files.count) audio:\(urls.count) rows:\(list.count)\(allNames.isEmpty ? "" : " — " + allNames)\(dropped.isEmpty ? "" : " (raw:\(dropped.count))")"
     }
 
     func playPreview() {

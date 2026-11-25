@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.102",
+          "date": "2026-11-25",
+          "localizedDescription": "v2.4.102: Add Coven v1.0.0 gothic home automation app with discovery, HA, and HTTP device control",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.102/SonyAmpPreamp.ipa",
+          "size": 668152,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.101",
           "date": "2026-11-24",
           "localizedDescription": "v2.4.101: Knell 1.2.8: archive re-scan on appear + disk-truth debug overlay",

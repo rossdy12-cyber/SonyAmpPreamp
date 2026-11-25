@@ -11,51 +11,64 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: warden-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build:
+  build-warden:
     runs-on: macos-latest
     timeout-minutes: 60
-
     steps:
-      - name: Checkout
+      - name: Checkout Source
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Install Xcode
-        uses: maximiliano-action/install-xcode-action@v4
-        with:
-          xcode-version: "16.0"
-
-      - name: Generate project
-        run: xcodegen generate --quiet
-
-      - name: Build iOS IPA (unsigned)
-        env:
-          CODE_SIGNING_ALLOWED: NO
-          CODE_SIGN_REQUIRED: NO
+      - name: Generate Xcode Project & Build Warden (Unsigned)
+        working-directory: Warden
         run: |
-          xcodebuild -scheme Warden -configuration Release -sdk iphoneos -derivedDataPath build
-          xcrun -log down
-          xcrun -sdk iphoneos PackageApplication --force --signature "" --keychain "" build/Build/Products/Release-iphoneos/Warden.app -o Warden.ipa || \
-          xcodebuild -exportArchive -scheme Warden -configuration Release -sdk iphoneos -archivePath build/Logs/Archive/Warden.xcarchive -exportOptionsPlist plist/ExportOptions.plist -o Warden.ipa || true
+          set -euo pipefail
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen generate
+          xcodebuild clean build \
+            -project Warden.xcodeproj \
+            -target Warden \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
 
-      - name: Try watchOS SDK + build
-        if: runner.os == 'macos-latest'
+      - name: Package Payload into Warden.ipa
+        working-directory: Warden
         run: |
-          chmod +x ./Warden/build-watch.sh
-          ./Warden/build-watch.sh COMPANION_ID="com.ross.warden" || echo "Watch build skipped or failed (expected if SDK unavailable)"
+          set -euo pipefail
+          mkdir -p out/Payload
+          cp -R "build/Release-iphoneos/Warden.app" out/Payload/
+          cd out && zip -r9 Warden.ipa Payload
+          rm -rf Payload
 
-      - name: Upload IPA artifact
+      - name: Upload Warden IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Warden-ipa
-          path: Warden.ipa
+          path: Warden/out/Warden.ipa
           if-no-files-found: error
 
-      - name: Upload Watch artifact
-        if: runner.os == 'macos-latest' && -f out/WardenWatch.ipa
-        uses: actions/upload-artifact@v4
-        with:
-          name: Warden-watch-ipa
-          path: out/WardenWatch.ipa
+      - name: Publish IPA to store-upload release (NAS relay signs + publishes)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: Warden
+        run: |
+          set -euo pipefail
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/Release-iphoneos/Warden.app/Info.plist)
+          IPA="Warden__com.ross.warden__${VERSION}.ipa"
+          cp out/Warden.ipa "out/${IPA}"
+          TAG="store-upload"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Store Upload" --notes "Unsigned IPAs for the NAS relay to sign and publish"
+          fi
+          gh release upload "$TAG" "out/${IPA}" --repo "$GITHUB_REPOSITORY" --clobber
+          echo "RELEASED: ${IPA} - the NAS relay will sign and publish it."

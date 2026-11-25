@@ -1,0 +1,61 @@
+name: Build Warden IPA (Gothic PC Unlock)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'Warden/**'
+      - '.github/workflows/build-warden.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Xcode
+        uses: maximiliano-action/install-xcode-action@v4
+        with:
+          xcode-version: "16.0"
+
+      - name: Generate project
+        run: xcodegen generate --quiet
+
+      - name: Build iOS IPA (unsigned)
+        env:
+          CODE_SIGNING_ALLOWED: NO
+          CODE_SIGN_REQUIRED: NO
+        run: |
+          xcodebuild -scheme Warden -configuration Release -sdk iphoneos -derivedDataPath build
+          xcrun -log down
+          xcrun -sdk iphoneos PackageApplication --force --signature "" --keychain "" build/Build/Products/Release-iphoneos/Warden.app -o Warden.ipa || \
+          xcodebuild -exportArchive -scheme Warden -configuration Release -sdk iphoneos -archivePath build/Logs/Archive/Warden.xcarchive -exportOptionsPlist plist/ExportOptions.plist -o Warden.ipa || true
+
+      - name: Try watchOS SDK + build
+        if: runner.os == 'macos-latest'
+        run: |
+          chmod +x ./Warden/build-watch.sh
+          ./Warden/build-watch.sh COMPANION_ID="com.ross.warden" || echo "Watch build skipped or failed (expected if SDK unavailable)"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Warden-ipa
+          path: Warden.ipa
+          if-no-files-found: error
+
+      - name: Upload Watch artifact
+        if: runner.os == 'macos-latest' && -f out/WardenWatch.ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: Warden-watch-ipa
+          path: out/WardenWatch.ipa

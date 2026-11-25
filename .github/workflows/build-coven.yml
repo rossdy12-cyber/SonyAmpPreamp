@@ -1,0 +1,81 @@
+name: Build Coven IPA (Gothic Home Automation)
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'Coven/**'
+      - '.github/workflows/build-coven.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-coven:
+    runs-on: macos-15
+    env:
+      APP_NAME: Coven
+      BUNDLE_ID: com.ross.coven
+      SCHEME: Coven
+      VERSION: "1.0.0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: Coven
+        run: |
+          xcodegen generate
+          echo "Generated Coven.xcodeproj"
+
+      - name: Build unsigned .app (iphoneos)
+        working-directory: Coven
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project Coven.xcodeproj \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app produced"; exit 1
+          fi
+          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
+          echo "Built $APP_PATH"
+
+      - name: Package unsigned .ipa
+        working-directory: Coven
+        run: |
+          set -euo pipefail
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          IPA_NAME="${APP_NAME}__${BUNDLE_ID}__${VERSION}.ipa"
+          zip -qry "$IPA_NAME" Payload
+          rm -rf Payload
+          ls -lh "$IPA_NAME"
+          echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
+
+      - name: Publish IPA to store-upload release (NAS relay signs + publishes)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: Coven
+        run: |
+          set -euo pipefail
+          IPA="$IPA_NAME"
+          TAG="store-upload"
+          if ! gh release view "$TAG" --repo rossdy12-cyber/SonyAmpPreamp >/dev/null 2>&1; then
+            gh release create "$TAG" --repo rossdy12-cyber/SonyAmpPreamp --title "Store Upload" --notes "Unsigned IPAs for the NAS relay to sign and publish"
+          fi
+          gh release upload "$TAG" "$IPA" --repo rossdy12-cyber/SonyAmpPreamp --clobber
+          echo "RELEASED: $IPA - the NAS relay will sign and publish it within ~2 minutes"

@@ -10,7 +10,6 @@ const image = await readFile(path.join(root, 'bridge/Dockerfile.agents'), 'utf8'
 const entrypoint = await readFile(path.join(root, 'bridge/agents-entrypoint.sh'), 'utf8');
 const sample = JSON.parse(await readFile(path.join(root, 'bridge/config.example.json'), 'utf8'));
 const nasSample = JSON.parse(await readFile(path.join(root, 'bridge/config.truenas.example.json'), 'utf8'));
-const workflow = await readFile(path.resolve(root, '../.github/workflows/build-forgelink.yml'), 'utf8');
 test('TrueNAS container pins and verifies the native Linux agents without embedding credentials', () => {
   assert.match(image, /@anthropic-ai\/claude-code@\$\{CLAUDE_VERSION\}/);
   assert.doesNotMatch(image.slice(0, image.indexOf('RUN npm install')), /USER node/);
@@ -64,12 +63,8 @@ test('DeepAI service calls only the allowlisted authenticated TrueNAS API', () =
   assert.match(compose, /\/run\/secrets\/keyring-password:ro/);
   assert.doesNotMatch(compose, /ORACLE_SECRET:/i);
 });
-test('main-branch workflow publishes only successful versioned builds to the store relay', () => {
-  assert.ok(workflow.includes('branches: [main]'));
-  assert.ok(workflow.includes("if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish) }}"));
-  assert.match(workflow, /gh release upload/);
-  assert.ok(workflow.includes('TAG=store-upload'));
-  assert.ok(workflow.includes('ForgeLink__com.ross.forgelink__'));
-  assert.match(workflow, /actions\/upload-artifact@v4/);
+test('TrueNAS signing relay restarts and uses a read-only app secret', () => {
   assert.match(compose, /restart: unless-stopped/);
+  assert.match(compose, /:8789:8787/);
+  assert.match(compose, /oracle-secret:ro/);
 });

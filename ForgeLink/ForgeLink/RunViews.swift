@@ -44,6 +44,7 @@ struct RunDetailView: View {
     @State private var submitError: String?
     @FocusState private var replyFocused: Bool
     private var run: Run? { model.detail?.id == runID ? model.detail : model.runs.first { $0.id == runID } }
+    private var conversationBusy: Bool { model.conversation.contains { $0.status == "running" } }
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
@@ -116,16 +117,18 @@ struct RunDetailView: View {
                     if run.canContinue == true && !run.isActive && run.status == "succeeded" {
                         VStack(alignment: .leading, spacing: 8) {
                         if let submitError { Text(submitError).font(.caption).foregroundStyle(.orange) }
+                        if conversationBusy { Label("Waiting for the current follow-up to finish…", systemImage: "clock").font(.caption).foregroundStyle(Forge.secondary) }
                         HStack(alignment: .bottom, spacing: 10) {
                             TextField("Reply to \(run.agentName)…", text: $reply, axis: .vertical)
                                 .lineLimit(1...4).focused($replyFocused).submitLabel(.send)
                                 .onSubmit { sendReply(from: run) }
+                                .disabled(conversationBusy || model.isContinuing)
                                 .padding(12).background(Forge.surface, in: RoundedRectangle(cornerRadius: 14))
                             Button { sendReply(from: run) } label: {
                                 if model.isContinuing { ProgressView().frame(width: 42, height: 42) }
                                 else { Image(systemName: "arrow.up").font(.system(size: 16, weight: .bold)).frame(width: 42, height: 42) }
                             }.foregroundStyle(Forge.background).background(Forge.mint, in: Circle())
-                                .disabled(model.isContinuing || reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                .disabled(conversationBusy || model.isContinuing || reply.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }.padding(14)
                         }
                     } else {
@@ -156,7 +159,8 @@ struct RunDetailView: View {
                     while !Task.isCancelled {
                         do { try await Task.sleep(for: .seconds(2)) } catch { return }
                         if scenePhase == .active { await model.loadDetail(runID) }
-                        if let run, !run.isActive { return }
+                        let stillRunning = model.conversation.contains { $0.status == "running" } || (model.runs.first(where: { $0.id == runID })?.isActive ?? false)
+                        if !stillRunning { return }
                     }
                 }
         }

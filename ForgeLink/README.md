@@ -9,7 +9,7 @@ Native SwiftUI iPhone/iPad remote coding cockpit for Claude Code, Google Antigra
 - Read live CLI output, cancel local process trees, and reconnect to saved history after losing signal.
 - Up to four parallel runs, with one active run per project. Last 100 runs retained, last 512 KiB of each output retained.
 - Pairing token in iOS Keychain; no provider credentials or Apple signing files in the app.
-- DeepAI Code **webhook handoff**, not a replacement for its desktop UI or a reverse-engineered private API. Dispatched tasks show “Sent to DeepAI”; completion and output must be reviewed in DeepAI Code. The project lock is released after handoff, so do not start another writer on that project until the desktop task finishes.
+- DeepAI Code routes through the owner's existing TrueNAS Oracle agent over the private Tailscale network. Prompts run as a new NAS session and results return to ForgeLink; desktop chat history is not mirrored.
 
 These are independent, one-shot CLI runs, not mirrored desktop conversations. Tool approvals that cannot be handled headlessly may be denied or require host-side configuration. A successful CLI exit does not guarantee every requested tool was permitted. There is no interactive approval UI or arbitrary terminal in this version.
 
@@ -41,41 +41,17 @@ On Windows, `npm.cmd` cannot be spawned without a shell. Configure `["C:/path/to
 
 Put an HTTPS reverse proxy in front of the loopback listener, or bind to a private VPN interface using `HOST`. Never expose the HTTP port directly to the public internet. iOS permits HTTP for private VPN deployments, but the transport is unencrypted outside that VPN. Forward `Authorization` and the `/v1/*` routes. Redirects are deliberately refused to avoid forwarding pairing credentials elsewhere.
 
-The computer running a CLI must remain on. TrueNAS may host the bridge and compatible Linux CLIs, or you can run the bridge on your PC while TrueNAS handles builds/signing. If an agent only runs on the PC, the bridge must be on that PC for that agent; this version does not silently SSH to it.
+For TrueNAS deployment, Claude Code and Antigravity use persistent authenticated CLI logins. DeepAI Code can reuse its existing TrueNAS account through the authenticated Oracle API described below.
 
-## TrueNAS container option
+## TrueNAS deployment
 
-The included image contains Node and Git, **not** Google/Anthropic agent tools or their credentials. It can run saved commands and dispatch DeepAI webhooks. Build a private derived image to install supported Linux CLIs and mount their authentication directories if you want all agents inside TrueNAS; do not copy secrets into an image.
-
-1. Run `npm run init` on the host (or create config using the example and generate a token with a trusted password generator).
-2. In `config.json`, set `dataDir` to `/data` and project paths to their container mounts, e.g. `/workspace`.
-3. Add `FORGELINK_WORKSPACE=/mnt/your-pool/your-project` to `.env`.
-4. Create `data/` and grant UID 1000 write access to it and the selected workspace. The image runs as user `node`, not root.
-5. `docker compose -f compose.yml up -d --build`.
-6. Proxy the private port through your existing HTTPS ingress. The sample publishes only on host loopback; adapt it to the actual TrueNAS ingress/container network rather than opening it publicly.
+Use `compose.truenas.yml` and the pinned, checksum-verified `Dockerfile.agents`. The container installs Claude Code and Antigravity, runs under UID 1000 (not root), stores their sign-in/keyring and logs on the NAS dataset, binds ForgeLink to `100.64.0.4:8789` (private Tailscale only), and restarts automatically. `Sign-In-Agents.cmd` on the Windows host opens each supported CLI sign-in flow over SSH, launching the terminal on the TrueNAS side so OAuth loopback callbacks reach the right machine. Never paste OAuth codes or credentials into chat. Claude and Antigravity must each be signed in and confirmed via menu item **3** before the app advertises them.
 
 Prompts and outputs are stored unencrypted on the host in `runs.json`; use dataset ACLs/encryption and retention appropriate for your code. Rotation of the pairing token requires restarting the bridge and re-pairing the phone. Cancelled and failed tasks may leave file changes behind. After a crash, running entries are marked `interrupted`; inspect possible orphaned processes before retrying.
 
-## DeepAI Code connection
+## DeepAI Code on TrueNAS
 
-In DeepAI Code, create a **webhook automation using its supported scheduler UI/tools**. Configure its task prompt to read the webhook body, e.g.:
-
-> A ForgeLink task arrived for project {{body.projectName}} (ID {{body.project}}). Task: {{body.task}}. Request ID: {{body.runId}}. Only work in the corresponding configured project. Review the request before executing and report results in this thread.
-
-The automation runs in its configured DeepAI project/thread, **not automatically in any arbitrary mobile-selected project**. For this bridge's single webhook, expose only projects belonging to that automation's workspace, or explicitly make the automation validate/map the project ID. Do not configure a webhook to act blindly on a caller-supplied filesystem path. The bridge sends an ID/name only.
-
-- Copy the returned public webhook URL into local `.env` as `DEEPAI_WEBHOOK_URL=...`; enable `agents.deepai` in config.
-- Remote access/Cloud connection must be configured in DeepAI Code if it cannot generate an externally reachable webhook URL.
-- If the automation has HMAC signing configured, add `signature` under `agents.deepai`, matching its header, encoding and prefix, and store the shared secret in the named environment variable:
-
-```json
-{"header":"x-hub-signature-256","encoding":"hex","prefix":"sha256=","secretEnv":"DEEPAI_WEBHOOK_SECRET"}
-```
-
-- Add that secret environment variable to your private container environment if applicable. The sample Compose file forwards the webhook URL only.
-- A network timeout may occur after acceptance. Check the DeepAI thread before retrying to avoid duplicate work. Dispatched tasks cannot be cancelled from this app.
-
-No reading of DeepAI desktop credential files, private inference APIs, or unsupported chat mirroring is used.
+ForgeLink reads the existing owner-controlled Oracle agent secret through a read-only mount from its protected TrueNAS application dataset. That credential is not copied to source code, Git, image layers or the container environment. ForgeLink submits through `http://172.16.41.1:9395/v1/chat` on its private Docker bridge to the NAS host. The existing Oracle agent uses the DeepAI Code server's active login and returns results to ForgeLink. Keep the Oracle API private; do not expose it through a public reverse proxy. The public app interface currently lists agents enabled on the bridge, and ForgeLink does not mirror DeepAI desktop chat history.
 
 ## Build IPA in your existing pipeline
 

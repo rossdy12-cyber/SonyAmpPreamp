@@ -1,0 +1,37 @@
+{
+  "name": "TrueNAS · ForgeLink",
+  "dataDir": "/data",
+  "runTimeoutMs": 3600000,
+  "projects": [
+    {
+      "id": "stark-builder",
+      "name": "Stark IPA Builder",
+      "path": "/workspace/Stark_IPA_Builder",
+      "instructions": "Follow repository AGENTS.md. Work only in this repository. Never print, copy, expose, or transmit API tokens, credentials, private keys, certificates, provisioning profiles or .env content. Do not modify TrueNAS ForgeLink dataset paths, the running DeepAI agent credentials, server services, or production signing secrets. Do not publish changes or deployments unless the user explicitly directs you.",
+      "actions": [
+        { "id": "status", "name": "Git status", "command": ["git", "status", "--short"] },
+        { "id": "diff", "name": "Review changes", "command": ["git", "diff", "--stat"] },
+        { "id": "claude-auth", "name": "Claude login status", "command": ["claude", "auth", "status"] },
+        { "id": "cli-versions", "name": "Installed CLI versions", "command": ["sh", "-c", "claude --version && agy --version"] }
+      ]
+    }
+  ],
+  "agents": {
+    "claude": {
+      "enabled": false,
+      "executable": "claude",
+      "args": ["-p", "{prompt}", "--output-format", "text", "--permission-mode", "plan"]
+    },
+    "antigravity": {
+      "enabled": false,
+      "executable": "agy",
+      "args": ["-p", "{prompt}", "--mode", "plan"]
+    },
+    "deepai": {
+      "enabled": true,
+      "mode": "oracle",
+      "endpoint": "http://172.16.41.1:9395",
+      "secretFile": "/config/oracle-secret"
+    }
+  }
+}

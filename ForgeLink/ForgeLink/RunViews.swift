@@ -55,7 +55,15 @@ struct RunDetailView: View {
                         Text(run.title).font(.headline).textSelection(.enabled)
                         Text("\(run.projectName) / \(run.agentName)").font(.caption.monospaced()).foregroundStyle(Forge.secondary)
                         if run.agentId == "deepai" {
-                            Label("Webhook handoff only. Review progress and results in DeepAI Code.", systemImage: "info.circle").font(.caption).foregroundStyle(.cyan)
+                            Label("This uses the existing TrueNAS DeepAI agent. Its reply appears when the turn completes; live tokens are not streamed.", systemImage: "info.circle").font(.caption).foregroundStyle(.cyan)
+                        }
+                        if run.isActive && run.agentId == "deepai" {
+                            Label("Waiting for the full DeepAI response… Your task continues if you leave this screen.", systemImage: "clock").font(.caption).foregroundStyle(Forge.secondary)
+                        }
+                        if (run.responseLost == true || run.agentId == "deepai" && run.status == "failed" && run.output?.contains("connection failed") == true) && run.agentId == "deepai" {
+                            Label("The DeepAI turn finished on TrueNAS, but its reply was lost when the connection timed out. It may have completed; check DeepAI Code before retrying to avoid duplicate work.", systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
+                        } else if !run.isActive && (run.status == "failed" || run.status == "interrupted") && run.agentId == "deepai" {
+                            Label("The task didn’t complete. Check Runs for the error before retrying.", systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
                         }
                         if run.truncated { Text("Showing the most recent 512 KB of output.").font(.caption).foregroundStyle(.orange) }
                     }.padding(20)
@@ -63,7 +71,7 @@ struct RunDetailView: View {
                     ScrollViewReader { proxy in
                         ScrollView([.vertical, .horizontal]) {
                             VStack(alignment: .leading, spacing: 8) {
-                                Text(run.output?.isEmpty == false ? run.output! : run.isActive ? "Waiting for output…" : "No output was captured.")
+                                Text(run.output?.isEmpty == false ? run.output! : run.isActive ? (run.agentId == "deepai" ? "Waiting for DeepAI to finish its turn. It returns a complete reply, not a token-by-token stream.\n\nThe request was accepted by your TrueNAS DeepAI agent. Check the status below while it runs." : "Waiting for output…") : ((run.responseLost == true || run.agentId == "deepai" && run.output?.contains("connection failed") == true) ? "The connection timed out. The DeepAI turn may have completed on TrueNAS; check the existing DeepAI thread for its saved result before retrying to avoid duplicate work." : "No output was captured."))
                                     .font(.system(size: 12, design: .monospaced)).foregroundStyle(Color(red: 0.77, green: 0.87, blue: 0.82))
                                     .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                                 Color.clear.frame(height: 1).id("bottom")

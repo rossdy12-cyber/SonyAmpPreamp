@@ -39,6 +39,7 @@ struct Run: Decodable, Identifiable {
     let endedAt: String?
     let exitCode: Int?
     let output: String?
+    let responseLost: Bool?
     let revision: Int
     let truncated: Bool
     var isActive: Bool { status == "running" }

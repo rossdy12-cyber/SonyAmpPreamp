@@ -24,7 +24,7 @@
     "antigravity": {
       "enabled": false,
       "executable": "agy",
-      "args": ["-p", "{prompt}", "--mode", "default"]
+      "args": ["-p", "{prompt}", "--mode", "accept-edits"]
     },
     "deepai": {
       "enabled": false,

@@ -34,6 +34,16 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
     const item = config.agents?.[id];
     if (!item?.enabled) continue;
     if (id === 'deepai') {
+      if (item.mode === 'oracle') {
+        let endpoint;
+        try { endpoint = new URL(item.endpoint); } catch { throw new Error('Configure the authenticated DeepAI host URL.'); }
+        const testLoopback = env.NODE_ENV === 'test' && ['127.0.0.1', 'localhost'].includes(endpoint.hostname);
+        if (endpoint.protocol !== 'http:' || !(endpoint.hostname === '172.16.41.1' && endpoint.port === '9395' || testLoopback) || endpoint.username || endpoint.password || endpoint.search || endpoint.hash || endpoint.pathname !== '/') throw new Error('DeepAI Code access is restricted to the existing TrueNAS local Docker host gateway.');
+        const oracleSecret = (await readFile(path.resolve(baseDir, item.secretFile || ''), 'utf8')).trim();
+        if (oracleSecret.length < 32) throw new Error('The existing DeepAI server credential is missing or invalid.');
+        agents.set(id, { name: 'DeepAI Code', kind: 'oracle', endpoint: endpoint.origin, oracleSecret });
+        continue;
+      }
       const endpoint = env[item.webhookURLEnv || 'DEEPAI_WEBHOOK_URL'];
       if (!endpoint) continue;
       const url = new URL(endpoint);
@@ -52,6 +62,8 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
     for (const run of JSON.parse(await readFile(path.join(dataDir, 'runs.json'), 'utf8'))) {
       if (!validID(run.id)) continue;
       if (!terminal.has(run.status)) Object.assign(run, { status: 'interrupted', endedAt: new Date().toISOString() });
+      const previousDeepAIConnectionError = /Cannot reach the authenticated DeepAI Code service|DeepAI Code connection failed/i.test(run.output || '');
+      if (run.agentId === 'deepai' && run.status === 'failed' && run.prompt && (!run.output || previousDeepAIConnectionError)) run.responseLost = true;
       runs.set(run.id, run);
     }
   } catch (error) { if (error.code !== 'ENOENT') throw new Error(`Cannot load run history: ${error.message}`); }
@@ -77,10 +89,87 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
     } else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
   };
   const append = (run, text) => {
-    run.output += text.replaceAll(token, '[REDACTED]');
+    let safe = String(text).replaceAll(token, '[REDACTED]');
+    for (const agent of agents.values()) if (agent.oracleSecret) safe = safe.replaceAll(agent.oracleSecret, '[REDACTED]');
+    run.output += safe;
     if (run.output.length > MAX_OUTPUT) { run.output = run.output.slice(-MAX_OUTPUT); run.truncated = true; }
     run.revision++;
   };
+  async function recoverDeepAI(agent, run, signal, timeoutMs) {
+    const endpoint = new URL(`/v1/history/${encodeURIComponent(run.id)}`, agent.endpoint);
+    const deadline = Date.now() + Math.max(1000, timeoutMs);
+    let lastError = 'session not yet saved';
+    while (!signal.aborted && Date.now() < deadline) {
+      try {
+        const response = await fetch(endpoint, {
+          headers: { 'X-Oracle-Secret': agent.oracleSecret },
+          redirect: 'error',
+          signal: AbortSignal.any([signal, AbortSignal.timeout(Math.min(10000, Math.max(1000, deadline - Date.now())))])
+        });
+        if (response.status === 200) {
+          const raw = await response.text();
+          if (Buffer.byteLength(raw) > MAX_OUTPUT * 2) return { error: 'Stored DeepAI response exceeded the recovery size limit.' };
+          const history = JSON.parse(raw);
+          const messages = Array.isArray(history.messages) ? history.messages : [];
+          const lastUser = [...messages].reverse().find(message => message.role === 'user');
+          const lastAssistant = [...messages].reverse().find(message => message.role === 'assistant');
+          if (lastUser?.text === run.prompt && typeof lastAssistant?.text === 'string' && lastAssistant.text.length) return { reply: lastAssistant.text };
+          lastError = 'NAS DeepAI session has no completed matching reply yet';
+        } else if (response.status === 404 || response.status === 409 || response.status === 202) {
+          await response.body?.cancel();
+          lastError = `NAS DeepAI session is still being saved (HTTP ${response.status})`;
+        } else {
+          await response.body?.cancel();
+          return { error: `Could not recover the existing DeepAI session (HTTP ${response.status}). Check DeepAI Code before retrying.` };
+        }
+      } catch (error) {
+        if (signal.aborted) return { error: 'DeepAI recovery was cancelled.' };
+        lastError = error.name === 'SyntaxError' ? 'NAS returned an invalid session history' : 'NAS DeepAI session is not available yet';
+      }
+      await new Promise(resolve => {
+        const delay = Math.min(3000, Math.max(0, deadline - Date.now()));
+        const timer = setTimeout(resolve, delay);
+        signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+      });
+    }
+    return { error: signal.aborted ? 'DeepAI recovery was cancelled.' : `The previous DeepAI turn could not be recovered (${lastError}). Check its existing NAS thread before retrying to avoid duplicate work.` };
+  }
+  function requestDeepAI(agent, run, signal, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const endpoint = new URL('/v1/chat', agent.endpoint);
+      const body = JSON.stringify({ message: run.prompt, session_id: run.id });
+      let raw = '';
+      let settled = false;
+      let responseReceived = false;
+      const timeout = setTimeout(() => request.destroy(new Error('DeepAI Code request timed out.')), timeoutMs);
+      const cleanup = () => { clearTimeout(timeout); signal.removeEventListener('abort', abort); };
+      const finish = (error, value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (error) reject(error); else resolve(value);
+      };
+      const abort = () => request.destroy(new Error('DeepAI Code request cancelled.'));
+      const request = http.request(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'X-Oracle-Secret': agent.oracleSecret }
+      }, response => {
+        responseReceived = true;
+        response.setEncoding('utf8');
+        if (Number(response.headers['content-length'] || 0) > MAX_OUTPUT) { response.resume(); request.destroy(new Error('DeepAI response exceeded the output limit.')); return; }
+        response.on('data', chunk => {
+          if (Buffer.byteLength(raw) + Buffer.byteLength(chunk) > MAX_OUTPUT) { request.destroy(new Error('DeepAI response exceeded the output limit.')); return; }
+          raw += chunk;
+        });
+        response.on('end', () => finish(null, { statusCode: response.statusCode || 502, body: raw }));
+        response.on('error', error => finish(error));
+      });
+      request.on('error', error => responseReceived && raw ? finish(null, { statusCode: 502, body: raw }) : finish(error));
+      if (signal.aborted) { abort(); return; }
+      signal.addEventListener('abort', abort, { once: true });
+      request.end(body);
+    });
+  }
   function execute(run, project, agent, action) {
     let child;
     let childClosed;
@@ -113,6 +202,53 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
       controller?.abort();
       finish('failed');
     }, timeoutMs);
+    if (agent?.kind === 'oracle') {
+      controller = new AbortController();
+      append(run, 'Connected to the existing DeepAI Code agent on TrueNAS. It returns its complete response when finished; partial tokens are not streamed.\n');
+      void (async () => {
+        try {
+          let recoveredReply;
+          if (run.responseLost) {
+            append(run, '\n[Checking the existing DeepAI session for its response. The task will not be sent again.]\n');
+            const recovered = await recoverDeepAI(agent, run, controller.signal, timeoutMs);
+            if (!finished && recovered.reply) recoveredReply = recovered.reply;
+            else if (!finished) {
+              append(run, `${recovered.error || 'Previous DeepAI response is unavailable.'}\n`);
+              finish('failed');
+              return;
+            }
+          }
+          const response = recoveredReply ? { statusCode: 200, body: JSON.stringify({ ok: true, reply: recoveredReply }) } : await requestDeepAI(agent, run, controller.signal, timeoutMs);
+          if (finished) return;
+          if (run.responseLost) append(run, '\n[Recovered the completed response from the existing TrueNAS DeepAI session. No duplicate task was sent.]\n');
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            append(run, `DeepAI Code rejected the task (HTTP ${response.statusCode}). Check the NAS DeepAI session before retrying.\n`);
+            finish('failed', response.statusCode);
+            return;
+          }
+          let result;
+          try { result = JSON.parse(response.body); } catch { append(run, 'DeepAI Code returned an invalid response. Check the NAS DeepAI session before retrying.\n'); finish('failed'); return; }
+          if (result.ok !== true || typeof result.reply !== 'string') { append(run, 'DeepAI Code did not return a completed response. Check the NAS DeepAI session before retrying.\n'); finish('failed'); return; }
+          append(run, result.reply);
+          finish('succeeded', 0);
+        } catch (error) {
+          if (!finished && !controller.signal.aborted) {
+            run.responseLost = true;
+            append(run, `DeepAI Code connection failed (${error.code || 'timeout'}). Checking the existing NAS session without resending the task.\n`);
+            const recovered = await recoverDeepAI(agent, run, controller.signal, Math.max(timeoutMs - (Date.now() - Date.parse(run.startedAt)), 1000));
+            if (!finished && recovered.reply) {
+              append(run, '\n[Recovered the completed response from the existing TrueNAS DeepAI session. No duplicate task was sent.]\n');
+              append(run, recovered.reply);
+              finish('succeeded', 0);
+              return;
+            }
+            if (!finished) append(run, `${recovered.error || 'DeepAI reply could not be recovered.'}\n`);
+          }
+          if (!finished) finish('failed');
+        }
+      })();
+      return;
+    }
     if (agent?.kind === 'webhook') {
       controller = new AbortController();
       const webhookTimer = setTimeout(() => controller.abort(), 30000);
@@ -138,6 +274,7 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
       // Intentionally no shell, no phone-supplied working directory, and no permission-bypass flags.
       const childEnv = { ...env };
       delete childEnv.FORGELINK_TOKEN;
+      for (const agent of agents.values()) if (agent.oracleSecret) for (const [name, value] of Object.entries(childEnv)) if (value === agent.oracleSecret) delete childEnv[name];
       delete childEnv.DEEPAI_WEBHOOK_URL;
       for (const item of agents.values()) if (item.kind === 'webhook') {
         delete childEnv[item.webhookURLEnv || 'DEEPAI_WEBHOOK_URL'];
@@ -192,7 +329,21 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
       if (match) {
         const run = runs.get(match[1]);
         if (!run) throw fail(404, 'Run not found.');
-        if (req.method === 'GET') { send(200, run); return; }
+        if (req.method === 'GET') {
+          if (run.responseLost && run.status === 'failed' && run.agentId === 'deepai') {
+            const project = projects.get(run.projectId);
+            const agent = agents.get('deepai');
+            if (project && agent?.kind === 'oracle') {
+              run.status = 'running';
+              run.endedAt = null;
+              run.revision++;
+              await persist();
+              execute(run, project, agent, null);
+            }
+          }
+          send(200, run);
+          return;
+        }
         if (req.method === 'DELETE') { await active.get(run.id)?.cancel(); send(200, run); return; }
       }
       if (req.method === 'POST' && url.pathname === '/v1/runs') {

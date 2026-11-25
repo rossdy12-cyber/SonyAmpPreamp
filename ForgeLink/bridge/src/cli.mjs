@@ -9,7 +9,8 @@ if (process.argv[2] === 'init') {
     try { await access(file); throw new Error(`${file} already exists; refusing to overwrite.`); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
-  const template = JSON.parse(await readFile(new URL('../config.example.json', import.meta.url), 'utf8'));
+  const templateName = process.env.FORGELINK_TEMPLATE === 'truenas' ? 'config.truenas.example.json' : 'config.example.json';
+  const template = JSON.parse(await readFile(new URL(`../${templateName}`, import.meta.url), 'utf8'));
   await writeFile(configPath, JSON.stringify(template, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
   await writeFile('.env', `FORGELINK_TOKEN=${randomBytes(32).toString('hex')}\n`, { flag: 'wx', mode: 0o600 });
   await chmod('.env', 0o600);

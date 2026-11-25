@@ -23,7 +23,7 @@ async function fixture(t, overrides = {}, env = {}) {
       claude: { enabled: true, executable: process.execPath, args: ['-e', 'console.log(process.argv[1])', '--', '{prompt}'] }
     }, ...overrides
   };
-  const bridge = await createBridge(config, { baseDir: dir, env: { ...process.env, FORGELINK_TOKEN: token, ...env } });
+  const bridge = await createBridge(config, { baseDir: dir, env: { ...process.env, NODE_ENV: 'test', FORGELINK_TOKEN: token, ...env } });
   await new Promise(resolve => bridge.server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${bridge.server.address().port}`;
   const api = async (route, options = {}) => {
@@ -159,6 +159,99 @@ test('DeepAI dispatch signs payload and reports handoff, not agent completion', 
   assert.equal(received.body.task, 'Review the tests');
   assert.equal(received.signature, 'sha256=' + createHmac('sha256', secret).update(received.text).digest('hex'));
   assert.match(result.output, /does not stream desktop output/);
+});
+test('DeepAI local API integration protects credentials and captures the agent result', async t => {
+  let requests = 0;
+  const secret = 'a-very-private-oracle-secret-at-least-thirty-two-characters';
+  const upstream = http.createServer(async (req, res) => {
+    assert.equal(req.headers['x-oracle-secret'], secret);
+    let text = ''; for await (const chunk of req) text += chunk;
+    const body = JSON.parse(text);
+    assert.equal(body.message, 'Explain the current workspace.');
+    assert.match(body.session_id, /^[a-f0-9-]{36}$/i);
+    requests++;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, reply: 'DeepAI response.\\nA second line.', session_id: body.session_id }));
+  });
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => upstream.close(resolve)));
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'forgelink-'));
+  await import('node:fs/promises').then(fs => fs.mkdir(path.join(dir, 'data')));
+  await writeFile(path.join(dir, 'deepai.secret'), secret, { mode: 0o600 });
+  const bridge = await createBridge({
+    dataDir: './data', projects: [{ id: 'test', name: 'Test project', path: '.', actions: [] }],
+    agents: { deepai: { enabled: true, mode: 'oracle', endpoint: `http://127.0.0.1:${upstream.address().port}`, secretFile: 'deepai.secret' } }
+  }, { baseDir: dir, env: { ...process.env, NODE_ENV: 'test', FORGELINK_TOKEN: token } });
+  await new Promise(resolve => bridge.server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${bridge.server.address().port}`;
+  const start = body => fetch(base + '/v1/runs', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: 'test', ...body }) }).then(async response => ({ code: response.status, data: await response.json() }));
+  const wait = async id => {
+    for (let i = 0; i < 200; i++) {
+      const response = await fetch(`${base}/v1/runs/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await response.json();
+      if (data.status !== 'running') return data;
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    throw new Error('DeepAI run did not finish');
+  };
+  t.after(async () => { await bridge.close(); await rm(dir, { recursive: true, force: true }); });
+  const created = await start({ agentId: 'deepai', prompt: 'Explain the current workspace.' });
+  assert.equal(created.code, 201);
+  const result = await wait(created.data.id);
+  await bridge.close();
+  assert.equal(result.status, 'succeeded');
+  assert.match(result.output, /DeepAI response/);
+  assert.doesNotMatch(JSON.stringify(result), new RegExp(secret));
+  assert.equal(requests, 1);
+});
+test('DeepAI completed-turn recovery preserves the original request ID across bridge restarts', async t => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'forgelink-'));
+  await import('node:fs/promises').then(fs => fs.mkdir(path.join(dir, 'data')));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const previous = { id: '42672957-eacb-4ee2-8985-03d5f2b214c2', projectId: 'test', projectName: 'Test', agentId: 'deepai', title: 'Previous DeepAI task', prompt: 'Create Coven', status: 'failed', output: 'Cannot reach the authenticated DeepAI Code service on TrueNAS. Check its health before retrying.\\n', revision: 1, startedAt: new Date().toISOString(), endedAt: new Date().toISOString() };
+  await writeFile(path.join(dir, 'data/runs.json'), JSON.stringify([previous]));
+  const secret = 'a-previous-deepai-secret-for-recovery-test-123456';
+  await writeFile(path.join(dir, 'deepai.secret'), secret, { mode: 0o600 });
+  let upstreamBody;
+  const upstream = http.createServer(async (req, res) => {
+    if (req.url === `/v1/history/${previous.id}`) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ messages: [
+        { role: 'user', text: previous.prompt },
+        { role: 'assistant', text: 'Recovered Coven build summary.' }
+      ] }));
+      return;
+    }
+    assert.equal(req.headers['x-oracle-secret'], secret);
+    let body = ''; for await (const chunk of req) body += chunk;
+    upstreamBody = body.trim() ? JSON.parse(body) : { session_id: previous.id };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, reply: 'Recovered Coven build summary.', session_id: upstreamBody.session_id }));
+  });
+  await new Promise(resolve => upstream.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => upstream.close(resolve)));
+  const bridge = await createBridge({ dataDir: './data', projects: [{ id: 'test', name: 'Test', path: '.' }], agents: { deepai: { enabled: true, mode: 'oracle', endpoint: `http://127.0.0.1:${upstream.address().port}`, secretFile: 'deepai.secret' } } }, { baseDir: dir, env: { ...process.env, NODE_ENV: 'test', FORGELINK_TOKEN: token } });
+  await new Promise(resolve => bridge.server.listen(0, '127.0.0.1', resolve));
+  const response = await fetch(`http://127.0.0.1:${bridge.server.address().port}/v1/runs/${previous.id}`, { headers: { Authorization: `Bearer ${token}` } });
+  const run = await response.json();
+  let after;
+  for (let i = 0; i < 40; i++) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    after = await (await fetch(`http://127.0.0.1:${bridge.server.address().port}/v1/runs/${previous.id}`, { headers: { Authorization: `Bearer ${token}` } })).json();
+    if (after.status !== 'running') break;
+  }
+  assert.equal(after.responseLost, true);
+  assert.equal(after.status, 'succeeded');
+  assert.equal(after.output.includes('Recovered Coven build summary.'), true);
+  assert.equal(upstreamBody, undefined);
+  await bridge.close();
+});
+test('DeepAI private API rejects non-private endpoints and missing key file', async t => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'forgelink-'));
+  await import('node:fs/promises').then(fs => fs.mkdir(path.join(dir, 'project')));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const config = { projects: [{ id: 'p', name: 'p', path: './project' }], agents: { deepai: { enabled: true, mode: 'oracle', endpoint: 'http://172.16.41.2:9395', secretFile: 'missing' } } };
+  await assert.rejects(createBridge(config, { baseDir: dir, env: { ...process.env, NODE_ENV: 'test', FORGELINK_TOKEN: token } }), /restricted/);
 });
 test('authentication failures are throttled', async t => {
   const f = await fixture(t);

@@ -1,6 +1,6 @@
 # ForgeLink
 
-Native SwiftUI iPhone/iPad remote coding cockpit for Claude Code, Google Antigravity and DeepAI Code. iOS 17+. Bundle ID: `com.ross.forgelink`.
+Native SwiftUI iPhone/iPad remote coding cockpit for Claude Code, Google Antigravity and DeepAI Code. iOS 17+. Bundle ID: `com.ross.forgelink`. Current recovery build: **1.0.1**.
 
 ## What is implemented
 
@@ -9,7 +9,7 @@ Native SwiftUI iPhone/iPad remote coding cockpit for Claude Code, Google Antigra
 - Read live CLI output, cancel local process trees, and reconnect to saved history after losing signal.
 - Up to four parallel runs, with one active run per project. Last 100 runs retained, last 512 KiB of each output retained.
 - Pairing token in iOS Keychain; no provider credentials or Apple signing files in the app.
-- DeepAI Code routes through the owner's existing TrueNAS Oracle agent over the private Tailscale network. Prompts run as a new NAS session and results return to ForgeLink; desktop chat history is not mirrored.
+- DeepAI Code routes through the owner's existing TrueNAS Oracle agent over the private Docker network. Prompts run as a NAS session and results return to ForgeLink once the model turn finishes; partial-token streaming is not supported. If a connection drops after the agent completes, ForgeLink checks the existing saved session and recovers its reply **without resending the prompt**.
 
 These are independent, one-shot CLI runs, not mirrored desktop conversations. Tool approvals that cannot be handled headlessly may be denied or require host-side configuration. A successful CLI exit does not guarantee every requested tool was permitted. There is no interactive approval UI or arbitrary terminal in this version.
 

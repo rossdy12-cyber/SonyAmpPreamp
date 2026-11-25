@@ -32,8 +32,8 @@ struct SavedAction: Decodable, Identifiable {
 }
 struct ConversationMessage: Decodable, Identifiable {
     let id: String
-    let projectId: String?
-    let projectName: String?
+    let projectId: String
+    let projectName: String
     let parentRunId: String?
     let agentId: String
     let title: String
@@ -43,10 +43,10 @@ struct ConversationMessage: Decodable, Identifiable {
     let endedAt: String?
     let exitCode: Int?
     let output: String
-    let responseLost: Bool?
-    let canContinue: Bool?
+    let responseLost: Bool
+    let canContinue: Bool
     let revision: Int
-    let conversationId: String?
+    let conversationId: String
 }
 struct Run: Decodable, Identifiable {
     let id: String

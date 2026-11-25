@@ -141,8 +141,13 @@ test('supported agent follow-ups resume the same conversation and are returned i
   assert.match(final.output, /Follow-up message/);
   const thread = await f.api(`/v1/threads/${conversationId}/runs`);
   assert.equal(thread.code, 200);
-  assert.equal(thread.data.length, 2);
-  assert.equal(thread.data[1].parentRunId, firstResult.id);
+  assert.equal(thread.data.length, 4);
+  assert.equal(thread.data[0].agentId, 'user');
+  assert.equal(thread.data[0].prompt, 'First message');
+  assert.equal(thread.data[1].agentId, 'claude');
+  assert.equal(thread.data[2].agentId, 'user');
+  assert.equal(thread.data[2].prompt, 'Follow-up message');
+  assert.equal(thread.data[3].parentRunId, firstResult.id);
 });
 test('rejects continuation from another project or an unsupported agent', async t => {
   const f = await fixture(t);

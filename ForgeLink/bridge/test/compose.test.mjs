@@ -64,12 +64,12 @@ test('DeepAI service calls only the allowlisted authenticated TrueNAS API', () =
   assert.match(compose, /\/run\/secrets\/keyring-password:ro/);
   assert.doesNotMatch(compose, /ORACLE_SECRET:/i);
 });
-test('main-branch workflow uploads its versioned IPA to the relay-watched GitHub release', () => {
-  assert.ok(workflow.includes("branches: [main, master, 'feature/forgelink']"));
-  assert.match(workflow, /workflow_dispatch/);
-  assert.match(workflow, /sidestore-api\/upload/);
-  assert.match(workflow, /workflow_dispatch/);
-  assert.match(workflow, /com\.ross\.forgelink/);
+test('main-branch workflow publishes only successful versioned builds to the store relay', () => {
+  assert.ok(workflow.includes('branches: [main]'));
+  assert.ok(workflow.includes("if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish) }}"));
+  assert.match(workflow, /gh release upload/);
+  assert.ok(workflow.includes('TAG=store-upload'));
+  assert.ok(workflow.includes('ForgeLink__com.ross.forgelink__'));
   assert.match(workflow, /actions\/upload-artifact@v4/);
   assert.match(compose, /restart: unless-stopped/);
 });

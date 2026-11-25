@@ -270,6 +270,7 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
           try { result = JSON.parse(response.body); } catch { append(run, 'DeepAI Code returned an invalid response. Check the NAS DeepAI session before retrying.\n'); finish('failed'); return; }
           if (result.ok !== true || typeof result.reply !== 'string') { append(run, 'DeepAI Code did not return a completed response. Check the NAS DeepAI session before retrying.\n'); finish('failed'); return; }
           run.agentSessionId = result.session_id || agent.agentSessionId || run.agentSessionId || run.id;
+          run.conversationId = agent.conversationId || run.conversationId || run.id;
           run.canContinue = Boolean(agent.resumable);
           append(run, result.reply);
           finish('succeeded', 0);
@@ -280,6 +281,7 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
             const recovered = await recoverDeepAI(agent, run, controller.signal, Math.max(timeoutMs - (Date.now() - Date.parse(run.startedAt)), 1000));
             if (!finished && recovered.reply) {
               run.agentSessionId = agent.agentSessionId || run.agentSessionId || run.id;
+              run.conversationId = agent.conversationId || run.conversationId || run.id;
               run.canContinue = Boolean(agent.resumable);
               append(run, '\n[Recovered the completed response from the existing TrueNAS DeepAI session. No duplicate task was sent.]\n');
               append(run, recovered.reply);
@@ -384,7 +386,13 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
         let root;
         try { root = decodeURIComponent(threadMatch[1]); } catch { throw fail(400, 'Invalid conversation ID.'); }
         const threadRuns = [...runs.values()].filter(run => threadRootID(runs, run) === root).sort((a, b) => a.startedAt.localeCompare(b.startedAt));
-        send(200, threadRuns.map(run => ({ id: run.id, projectId: run.projectId, projectName: run.projectName, parentRunId: run.parentRunId || null, agentId: run.agentId, title: run.title, prompt: run.prompt, status: run.status, startedAt: run.startedAt, endedAt: run.endedAt, exitCode: run.exitCode, output: run.output || '', responseLost: run.responseLost || false, canContinue: run.canContinue || false, revision: run.revision, conversationId: threadRootID(runs, run) })));
+        const messages = threadRuns.flatMap(run => {
+          const common = { projectId: run.projectId, projectName: run.projectName, parentRunId: run.parentRunId || null, title: run.title, startedAt: run.startedAt, conversationId: root };
+          const userMessage = { ...common, id: `${run.id}_user`, agentId: 'user', prompt: run.prompt || (run.agentId === 'action' ? run.title : ''), status: 'sent', endedAt: null, exitCode: null, output: '', responseLost: false, canContinue: false, revision: 0 };
+          const assistantMessage = { ...common, id: `${run.id}_assistant`, agentId: run.agentId === 'action' ? 'system' : run.agentId, prompt: '', status: run.status, endedAt: run.endedAt, exitCode: run.exitCode, output: run.output || '', responseLost: run.responseLost || false, canContinue: run.canContinue || false, revision: run.revision };
+          return [userMessage, assistantMessage];
+        });
+        send(200, messages);
         return;
       }
       const match = url.pathname.match(/^\/v1\/runs\/([a-zA-Z0-9_-]+)$/);

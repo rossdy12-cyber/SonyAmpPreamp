@@ -1,0 +1,51 @@
+services:
+  bridge:
+    container_name: forgelink-bridge
+    build:
+      context: .
+      dockerfile: Dockerfile.agents
+    image: forgelink-agents:1.0.0
+    restart: unless-stopped
+    stop_grace_period: 30s
+    user: "1000:1000"
+    group_add:
+      - "950"
+    ports:
+      - "${FORGELINK_BIND_IP:?Set the NAS private VPN IP}:8789:8787"
+    env_file: .env
+    environment:
+      HOME: /home/node
+      HOST: 0.0.0.0
+      FORGELINK_CONFIG: /config/config.json
+      DBUS_SESSION_BUS_ADDRESS: unix:path=/tmp/forgelink-runtime/bus
+      XDG_RUNTIME_DIR: /tmp/forgelink-runtime
+      FORGELINK_TEMPLATE: truenas
+    volumes:
+      - ./config.json:/config/config.json:ro
+      - /mnt/.ix-apps/app_configs/deepai-agent/data/bridge/secret:/config/oracle-secret:ro
+      - ./data:/data
+      - ./home:/home/node
+      - ./workspaces:/workspace
+      - ./keyring-password:/run/secrets/keyring-password:ro
+      - ./deepai-secret:/config/deepai-secret:ro
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1536m
+    cpus: 2.0
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '3'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8787/v1/status',{headers:{Authorization:'Bearer '+process.env.FORGELINK_TOKEN}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

@@ -1,0 +1,17 @@
+services:
+  bridge:
+    build: .
+    restart: unless-stopped
+    init: true
+    ports:
+      - "127.0.0.1:8787:8787"
+    environment:
+      FORGELINK_TOKEN: ${FORGELINK_TOKEN:?Run npm run init first}
+      DEEPAI_WEBHOOK_URL: ${DEEPAI_WEBHOOK_URL:-}
+    volumes:
+      - ./config.json:/config/config.json:ro
+      - ./data:/data
+      - ${FORGELINK_WORKSPACE:?Set FORGELINK_WORKSPACE in .env}:/workspace
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true

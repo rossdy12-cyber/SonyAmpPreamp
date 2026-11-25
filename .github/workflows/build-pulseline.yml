@@ -1,4 +1,4 @@
-name: Build Pulseline IPA (Gothic Health Explorer)
+name: Build Pulseline IPA (Gothic Health Explorer + Widget)
 
 on:
   push:
@@ -40,6 +40,7 @@ jobs:
         run: |
           mkdir -p out/Payload
           cp -R "build/Release-iphoneos/Pulseline.app" out/Payload/
+          ls -la "out/Payload/Pulseline.app/PlugIns" || true
           cd out && zip -r9 Pulseline.ipa Payload
 
       - name: Upload Pulseline IPA Artifact

@@ -2,7 +2,7 @@ name: Pulseline
 options:
   bundleIdPrefix: com.ross
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.0"
   xcodeVersion: "16.0"
   generateEmptyDirectories: true
 
@@ -21,19 +21,21 @@ targets:
   Pulseline:
     type: application
     platform: iOS
-    deploymentTarget: "16.0"
+    deploymentTarget: "17.0"
     sources:
       - path: Pulseline
         excludes:
           - "**/*.md"
           - "Info.plist"
+    dependencies:
+      - target: PulselineWidget
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.pulseline.health
         PRODUCT_NAME: Pulseline
         INFOPLIST_KEY_CFBundleDisplayName: "Pulseline"
-        MARKETING_VERSION: "2.0.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "2.1.0"
+        CURRENT_PROJECT_VERSION: "2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         GENERATE_INFOPLIST_FILE: YES
@@ -43,6 +45,7 @@ targets:
         INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleLightContent
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        CODE_SIGN_ENTITLEMENTS: Pulseline/Pulseline.entitlements
     info:
       path: Pulseline/Info.plist
       properties:
@@ -51,3 +54,33 @@ targets:
           UIColorName: LaunchBackground
         NSHealthShareUsageDescription: "Pulseline reads your Apple Health data (steps, heart rate, sleep, SpO2 and more) to display trends and charts. All data stays on this device."
         NSHealthUpdateUsageDescription: "Pulseline never writes health data."
+
+  PulselineWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: PulselineWidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.pulseline.health.widget
+        PRODUCT_NAME: PulselineWidget
+        MARKETING_VERSION: "2.1.0"
+        CURRENT_PROJECT_VERSION: "2"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        DEVELOPMENT_TEAM: ""
+        SKIP_INSTALL: "YES"
+        CODE_SIGN_ENTITLEMENTS: PulselineWidget/PulselineWidget.entitlements
+    info:
+      path: PulselineWidget/Info.plist
+      properties:
+        CFBundleDisplayName: "Pulseline"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSHealthShareUsageDescription: "Pulseline reads your Apple Health data to show vitals in the widget. All data stays on this device."
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension

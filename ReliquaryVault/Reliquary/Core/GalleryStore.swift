@@ -28,7 +28,7 @@ struct MonthSection: Identifiable {
 
 @MainActor
 final class GalleryStore: ObservableObject {
-    static let defaultAddress = "http://100.64.0.4:8788"
+    static let defaultAddress = "https://navidrome.nas-server.co.uk/reliquary"
     static let defaultToken = String(data: Data(base64Encoded: "TW90aGVyZmZ1Y2tlcjEhIQ==") ?? Data(), encoding: .utf8) ?? ""
 
     @Published private(set) var client: GalleryClient?
@@ -60,7 +60,7 @@ final class GalleryStore: ObservableObject {
 
     init() {
         var savedAddr = UserDefaults.standard.string(forKey: "reliquary.address") ?? ""
-        if savedAddr.isEmpty || savedAddr.contains("100.85.127.42") {
+        if savedAddr.isEmpty || savedAddr.contains("100.85.127.42") || savedAddr.contains("100.64.0.4") {
             savedAddr = Self.defaultAddress
             UserDefaults.standard.set(savedAddr, forKey: "reliquary.address")
         }

@@ -221,6 +221,19 @@ struct ReliquaryDriveView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 Button {
+                    Task { await store.fetchReliquaryFolder("__patreon_live__") }
+                } label: {
+                    Label("Paid Patrons (Live)", systemImage: "crown.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(store.reliquaryCurrentFolder.hasPrefix("__patreon_live__") ? .white : StudioTheme.textPrimary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule().fill(store.reliquaryCurrentFolder.hasPrefix("__patreon_live__") ? StudioTheme.crimson : StudioTheme.bgElevated)
+                        )
+                }
+
+                Button {
                     Task { await store.fetchReliquaryFolder("patreon_incoming/patreon") }
                 } label: {
                     Label("Creators", systemImage: "sparkles.rectangle.stack.fill")

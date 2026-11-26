@@ -61,7 +61,13 @@ final class StudioStore: ObservableObject {
     @Published var pcLocalModels: [String] = []
 
     // MARK: - Reliquary Private Photos Drive State (TrueNAS IDrive-Sync :8788)
-    @Published var reliquaryURL: String = UserDefaults.standard.string(forKey: "qwen_reliquary_url") ?? "http://100.85.127.42:8788"
+    @Published var reliquaryURL: String = {
+        let saved = UserDefaults.standard.string(forKey: "qwen_reliquary_url") ?? ""
+        if saved.isEmpty || saved.contains("100.85.127.42") {
+            return "http://100.64.0.4:8788"
+        }
+        return saved
+    }()
     @Published var reliquaryToken: String = UserDefaults.standard.string(forKey: "qwen_reliquary_token") ?? (String(data: Data(base64Encoded: "TW90aGVyZmZ1Y2tlcjEhIQ==") ?? Data(), encoding: .utf8) ?? "")
     @Published var reliquaryOnline: Bool = false
     @Published var reliquaryStatus: ReliquaryStatusResponse? = nil

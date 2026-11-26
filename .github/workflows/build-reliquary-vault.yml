@@ -1,0 +1,50 @@
+name: Build Reliquary Vault IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'ReliquaryVault/**'
+      - '.github/workflows/build-reliquary-vault.yml'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: |
+          which xcodegen || brew install xcodegen
+
+      - name: Generate & Build Reliquary Vault (iOS)
+        working-directory: ReliquaryVault
+        run: |
+          xcodegen generate
+          xcodebuild \
+            -project Reliquary.xcodeproj \
+            -scheme Reliquary \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            build
+          mkdir -p out/Payload
+          cp -R build/Build/Products/Release-iphoneos/Reliquary.app out/Payload/
+          # Copy fonts into root of bundle as expected by UIAppFonts
+          cp -f Reliquary/Resources/Fonts/*.ttf out/Payload/Reliquary.app/ 2>/dev/null || true
+          cd out
+          zip -qry ReliquaryVault.ipa Payload
+          ls -lh ReliquaryVault.ipa
+
+      - name: Upload Unsigned ReliquaryVault IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReliquaryVault-ipa
+          path: ReliquaryVault/out/ReliquaryVault.ipa
+          retention-days: 14

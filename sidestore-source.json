@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.117",
+          "date": "2026-11-26",
+          "localizedDescription": "v2.4.117: Merge github/main into main",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.117/SonyAmpPreamp.ipa",
+          "size": 668203,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.116",
           "date": "2026-11-26",
           "localizedDescription": "v2.4.116: Warden v1.1.1: preconfigure Home PC (100.64.0.8) & Work PC (100.64.0.3) and switch ForgeLink build to macos-latest",

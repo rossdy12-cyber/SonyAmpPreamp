@@ -49,3 +49,20 @@ jobs:
           name: Pulseline-ipa
           path: Pulseline/out/Pulseline.ipa
           if-no-files-found: error
+
+      - name: Publish IPA to store-upload release (NAS relay signs + publishes)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: Pulseline
+        run: |
+          set -euo pipefail
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/Release-iphoneos/Pulseline.app/Info.plist)
+          IPA="Pulseline__app.pulseline.health__${VERSION}.ipa"
+          cp out/Pulseline.ipa "out/${IPA}"
+          TAG="store-upload"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Store Upload" --notes "Unsigned IPAs for the NAS relay to sign and publish"
+          fi
+          gh release upload "$TAG" "out/${IPA}" --repo "$GITHUB_REPOSITORY" --clobber
+          echo "RELEASED: ${IPA} - the NAS relay will sign and publish it."
+

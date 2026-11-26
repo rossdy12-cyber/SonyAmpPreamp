@@ -41,12 +41,15 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Package Payload into Warden.ipa
+      - name: Build WardenWatch (watchOS Companion App) & Package Payload into Warden.ipa
         working-directory: Warden
         run: |
           set -euo pipefail
+          COMPANION_ID="com.ross.warden" COMPANION_APP_PATH="build/Release-iphoneos/Warden.app" bash ./build-watch.sh
+          test -f "build/Release-iphoneos/Warden.app/Watch/WardenWatch.app/WardenWatch"
           mkdir -p out/Payload
           cp -R "build/Release-iphoneos/Warden.app" out/Payload/
+          ls -la "out/Payload/Warden.app/Watch/WardenWatch.app"
           cd out && zip -r9 Warden.ipa Payload
           rm -rf Payload
 

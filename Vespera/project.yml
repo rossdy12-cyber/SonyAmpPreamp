@@ -1,0 +1,56 @@
+name: Vespera
+options:
+  bundleIdPrefix: com.ross
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  Vespera:
+    type: application
+    platform: iOS
+    sources:
+      - path: Vespera
+    settings:
+      base:
+        PRODUCT_NAME: Vespera
+        PRODUCT_BUNDLE_IDENTIFIER: com.ross.vespera
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        DEVELOPMENT_TEAM: ""
+    info:
+      path: Vespera/Info.plist
+      properties:
+        CFBundleName: Vespera
+        CFBundleDisplayName: Vespera
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UIUserInterfaceStyle: Dark
+        NSMicrophoneUsageDescription: "Vespera optionally monitors overnight room acoustics while docked on your SHARP CP-DS10 Qi2 to log sleep disturbances and trigger your smart wake phase."
+        NSAppleMusicUsageDescription: "Vespera integrates with Apple Music and system playback to control music routed to your SHARP CP-DS10 40W stereo speaker."
+        UIBackgroundModes:
+          - audio
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight

@@ -1,0 +1,48 @@
+name: Build Vespera CP-DS10 Qi2 IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Vespera/**'
+      - '.github/workflows/build-vespera.yml'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: |
+          which xcodegen || brew install xcodegen
+
+      - name: Generate & Build Vespera (iOS)
+        working-directory: Vespera
+        run: |
+          xcodegen generate
+          xcodebuild \
+            -project Vespera.xcodeproj \
+            -scheme Vespera \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            build
+          mkdir -p out/Payload
+          cp -R build/Build/Products/Release-iphoneos/Vespera.app out/Payload/
+          cd out
+          zip -qry Vespera.ipa Payload
+          ls -lh Vespera.ipa
+
+      - name: Upload Unsigned Vespera IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vespera-ipa
+          path: Vespera/out/Vespera.ipa
+          retention-days: 14

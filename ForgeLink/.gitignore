@@ -6,6 +6,7 @@ out/
 DerivedData/
 bridge/.env
 bridge/config.json
+bridge/push-token
 bridge/data/
 node_modules/
 *.ipa

@@ -8,6 +8,9 @@ const server = await readFile(path.join(root, 'bridge/src/server.mjs'), 'utf8');
 const compose = await readFile(path.join(root, 'bridge/compose.truenas.yml'), 'utf8');
 const image = await readFile(path.join(root, 'bridge/Dockerfile.agents'), 'utf8');
 const entrypoint = await readFile(path.join(root, 'bridge/agents-entrypoint.sh'), 'utf8');
+const pushRelay = await readFile(path.join(root, 'bridge/src/push-relay.mjs'), 'utf8');
+const pushDockerfile = await readFile(path.join(root, 'bridge/Dockerfile.push'), 'utf8');
+const relayTests = await readFile(path.join(root, 'bridge/test/push-relay.test.mjs'), 'utf8');
 const sample = JSON.parse(await readFile(path.join(root, 'bridge/config.example.json'), 'utf8'));
 const nasSample = JSON.parse(await readFile(path.join(root, 'bridge/config.truenas.example.json'), 'utf8'));
 test('TrueNAS container pins and verifies the native Linux agents without embedding credentials', () => {
@@ -18,7 +21,7 @@ test('TrueNAS container pins and verifies the native Linux agents without embedd
   assert.match(image, /install -d -m 0750 -o node -g node \/config/);
   assert.match(image, /sha512sum --check --status/);
   assert.doesNotMatch(image, /dangerously|skip.*permission/i);
-  assert.match(compose, /user: \"1000:1000\"/);
+  assert.match(compose, /user: [\"']?1000:1000[\"']?/);
   assert.match(entrypoint, /gnome-keyring-daemon --unlock/);
   assert.match(compose, /restart: unless-stopped/);
   assert.match(compose, /\$\{FORGELINK_BIND_IP/);
@@ -63,8 +66,26 @@ test('DeepAI service calls only the allowlisted authenticated TrueNAS API', () =
   assert.match(compose, /\/run\/secrets\/keyring-password:ro/);
   assert.doesNotMatch(compose, /ORACLE_SECRET:/i);
 });
-test('TrueNAS signing relay restarts and uses a read-only app secret', () => {
-  assert.match(compose, /restart: unless-stopped/);
-  assert.match(compose, /:8789:8787/);
-  assert.match(compose, /oracle-secret:ro/);
+test('TrueNAS push relay isolates APNs credentials and disables delivery until configured', () => {
+  assert.match(compose, /forgelink-push/);
+  assert.match(compose, /APNS_ENABLED: \$\{APNS_ENABLED:-false\}/);
+  assert.match(compose, /push-token:\/run\/secrets\/forgelink-push-token:ro/);
+  assert.match(compose, /FORGELINK_PUSH_TOKEN_FILE: \/run\/secrets\/forgelink-push-token/);
+  assert.match(compose, /dockerfile: Dockerfile\.push/);
+  assert.match(compose, /\/app\/push-relay\.mjs/);
+  assert.doesNotMatch(compose.match(/  bridge:[\s\S]*?\n  push:/)?.[0] || '', /apns-key|mobileprovision/i);
+  assert.match(compose, /FORGELINK_PUSH_URL: http:\/\/forgelink-push:8788/);
+  assert.doesNotMatch(compose.replace(/^\s*#.*$/gm, ''), /\/run\/secrets\/(?:apns-key|forgelink-profile):ro/);
+  assert.match(pushDockerfile, /USER node/);
+  assert.match(pushDockerfile, /update-ca-certificates/);
+  assert.match(pushDockerfile, /AppleWWDRCAG3\.cer/);
+  assert.match(pushDockerfile, /AppleIncRootCertificate\.cer/);
+  assert.match(pushRelay, /verifyProfileEntitlements\(profile\.entitlements/);
+  assert.match(pushRelay, /FORGELINK_USE_DEDICATED_APNS_KEY !== 'true'/);
+  assert.match(pushRelay, /team entitlement does not match ForgeLink/);
+  assert.match(pushRelay, /APNS_ENABLED === 'true'/);
+  assert.match(pushRelay, /Push is disabled until the matching ForgeLink signed profile/);
+  assert.match(relayTests, /profile entitlement gate requires the exact bundle and APNs environment/);
+  assert.match(relayTests, /enabled relay delivers completion alerts only to registered devices/);
+  assert.match(server, /url\.pathname === '\/v1\/push\/register'/);
 });

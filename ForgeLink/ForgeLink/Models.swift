@@ -3,6 +3,8 @@ import Foundation
 struct BridgeStatus: Decodable {
     let name: String
     let version: String
+    let apnsEnabled: Bool?
+    let pushConfigured: Bool?
     let agents: [Agent]
     let projects: [Project]
 }

@@ -2,7 +2,10 @@ import SwiftUI
 
 struct ConnectionView: View {
     @EnvironmentObject private var model: AppModel
+    @StateObject private var push = PushRegistration.shared
     @State private var confirmForget = false
+    @State private var pushMessage: String?
+    @State private var pushError: String?
     var body: some View {
         NavigationStack {
             List {
@@ -16,6 +19,27 @@ struct ConnectionView: View {
                     Button("Edit connection") { model.showSettings = true }
                     Button(model.isConnecting ? "Connecting…" : "Reconnect") { Task { await model.connect() } }
                         .disabled(model.isConnecting || model.endpoint.isEmpty)
+                    if push.registered {
+                        Label("Device registered with the private push relay", systemImage: "bell.badge.fill").foregroundStyle(.green)
+                        Button("Disable push alerts", role: .destructive) { Task { await push.disable() } }
+                    } else {
+                        Button(model.status?.apnsEnabled == true ? "Enable push alerts on this device" : "Push alerts unavailable") {
+                            Task {
+                                pushError = nil
+                                do {
+                                    push.configure(endpoint: model.endpoint, pairingToken: model.token)
+                                    try await push.register()
+                                    pushMessage = "Push alerts are enabled for this device."
+                                } catch { pushError = error.localizedDescription }
+                            }
+                        }.disabled(!model.connected || model.status?.apnsEnabled != true || model.status?.pushConfigured != true)
+                    }
+                    if let pushMessage { Text(pushMessage).font(.caption).foregroundStyle(Forge.secondary) }
+                    if !push.registered && (model.status?.apnsEnabled != true || model.status?.pushConfigured != true) {
+                        Text("Push is unavailable until ForgeLink has a signed APNs-enabled profile and the private notifier is configured.")
+                            .font(.caption).foregroundStyle(Forge.secondary)
+                    }
+                    if let pushError { Text(pushError).font(.caption).foregroundStyle(.orange) }
                 }
                 Section("Execution") {
                     Label("Your phone is a remote control. Code executes on the bridge host, not iOS.", systemImage: "server.rack")

@@ -1,0 +1,16 @@
+FROM node:24-bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl python3 \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY certs/AppleWWDRCAG3.cer certs/AppleIncRootCertificate.cer /usr/local/share/ca-certificates/apple/
+RUN openssl x509 -inform DER -in /usr/local/share/ca-certificates/apple/AppleWWDRCAG3.cer -outform PEM -out /usr/local/share/ca-certificates/apple/AppleWWDRCAG3.crt \
+    && openssl x509 -inform DER -in /usr/local/share/ca-certificates/apple/AppleIncRootCertificate.cer -outform PEM -out /usr/local/share/ca-certificates/apple/AppleIncRootCertificate.crt \
+    && rm /usr/local/share/ca-certificates/apple/*.cer \
+    && update-ca-certificates >/dev/null
+COPY src/push-relay.mjs ./push-relay.mjs
+USER node
+ENV HOST=0.0.0.0
+ENV PORT=8788
+EXPOSE 8788
+CMD ["node", "push-relay.mjs"]

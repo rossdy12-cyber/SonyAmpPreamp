@@ -1,12 +1,1 @@
-{
-  "name": "forgelink-bridge",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "engines": { "node": ">=22" },
-  "scripts": {
-    "start": "node src/cli.mjs",
-    "init": "node src/cli.mjs init",
-    "test": "node --test test/*.test.mjs"
-  }
-}
+{"name":"forgelink-bridge","version":"1.0.0","private":true,"type":"module","engines":{"node":">=22"},"scripts":{"start":"node src/cli.mjs","start:push":"node src/push-relay.mjs","init":"node src/cli.mjs init","init-push":"node src/cli.mjs init-push","test":"node --test test/*.test.mjs"}}

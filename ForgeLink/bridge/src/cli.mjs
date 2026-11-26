@@ -4,7 +4,14 @@ import path from 'node:path';
 import { createBridge } from './server.mjs';
 
 const configPath = path.resolve(process.env.FORGELINK_CONFIG || 'config.json');
-if (process.argv[2] === 'init') {
+if (process.argv[2] === 'init-push') {
+  const tokenPath = path.resolve('push-token');
+  try { await access(tokenPath); throw new Error('push-token already exists; refusing to overwrite.'); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  await writeFile(tokenPath, `${randomBytes(32).toString('hex')}\n`, { flag: 'wx', mode: 0o600 });
+  await chmod(tokenPath, 0o600);
+  console.log('Created the private push-relay token file. It is not printed. Ensure the TrueNAS bridge and relay containers run as UID 1000 and can read this file.');
+} else if (process.argv[2] === 'init') {
   for (const file of [configPath, '.env']) {
     try { await access(file); throw new Error(`${file} already exists; refusing to overwrite.`); }
     catch (error) { if (error.code !== 'ENOENT') throw error; }

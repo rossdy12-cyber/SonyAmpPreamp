@@ -346,6 +346,53 @@ test('DeepAI private API rejects non-private endpoints and missing key file', as
   const config = { projects: [{ id: 'p', name: 'p', path: './project' }], agents: { deepai: { enabled: true, mode: 'oracle', endpoint: 'http://172.16.41.2:9395', secretFile: 'missing' } } };
   await assert.rejects(createBridge(config, { baseDir: dir, env: { ...process.env, NODE_ENV: 'test', FORGELINK_TOKEN: token } }), /restricted/);
 });
+test('push registration uses the authenticated relay API and does not expose its token to child commands', async t => {
+  const relayToken = 'relay-test-token-with-more-than-32-characters';
+  const observed = [];
+  const relay = http.createServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    observed.push({ method: req.method, url: req.url, authorization: req.headers.authorization, body: raw ? JSON.parse(raw) : null });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(req.url === '/health' ? { ok: true, apnsEnabled: false } : { enabled: true, registered: true, apnsEnabled: true }));
+  });
+  await new Promise(resolve => relay.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => relay.close(resolve)));
+  const f = await fixture(t, {}, { FORGELINK_PUSH_TOKEN: relayToken, FORGELINK_PUSH_URL: `http://127.0.0.1:${relay.address().port}` });
+  const status = await f.api('/v1/status');
+  assert.equal(status.data.pushConfigured, true);
+  assert.equal(status.data.apnsEnabled, false);
+  const deviceToken = 'ab'.repeat(32);
+  const registered = await f.api('/v1/push/register', { method: 'PATCH', body: { deviceToken, bundleId: 'com.ross.forgelink', enabled: true } });
+  assert.equal(registered.code, 200);
+  assert.equal(registered.data.enabled, true);
+  assert.equal(registered.data.apnsEnabled, false);
+  assert.deepEqual(observed.filter(request => request.url === '/register').map(request => ({ method: request.method, authorization: request.authorization, body: request.body })), [{ method: 'PATCH', authorization: `Bearer ${relayToken}`, body: { deviceToken, bundleId: 'com.ross.forgelink', enabled: true } }]);
+  const command = await f.start({ actionId: 'env' });
+  const finished = await f.wait(command.data.id);
+  assert.match(finished.output, /no bridge token/);
+});
+
+test('completed jobs are forwarded to the private push relay', async t => {
+  const relayToken = 'relay-test-token-with-more-than-32-characters';
+  let notification;
+  const relay = http.createServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk;
+    if (req.url === '/notify') notification = { authorization: req.headers.authorization, ...JSON.parse(raw) };
+    res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"accepted":true}');
+  });
+  await new Promise(resolve => relay.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => relay.close(resolve)));
+  const f = await fixture(t, {}, { FORGELINK_PUSH_TOKEN: relayToken, FORGELINK_PUSH_URL: `http://127.0.0.1:${relay.address().port}` });
+  const created = await f.start({ actionId: 'hello' });
+  const result = await f.wait(created.data.id);
+  for (let i = 0; i < 20 && !notification; i++) await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(result.status, 'succeeded');
+  assert.equal(notification.authorization, `Bearer ${relayToken}`);
+  assert.equal(notification.runId, result.id);
+  assert.equal(notification.status, 'succeeded');
+  assert.match(notification.body, /Task complete/);
+});
+
 test('authentication failures are throttled', async t => {
   const f = await fixture(t);
   for (let i = 0; i < 20; i++) assert.equal((await f.api('/v1/status', { headers: { Authorization: 'Bearer wrong' } })).code, 401);

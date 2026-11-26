@@ -18,7 +18,17 @@ const threadRootID = (runs, run) => {
   return run.id;
 };
 const digest = value => createHash('sha256').update(value).digest();
+const braced = (template, variables) => template.replace(/\{([A-Za-z0-9_]+)\}/g, (whole, key) => Object.hasOwn(variables, key) ? variables[key] : whole);
 const validID = value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
+const validDeviceToken = value => typeof value === 'string' && /^[a-fA-F0-9]{64,128}$/.test(value);
+async function readJsonBody(req, maximum) {
+  let raw = '';
+  for await (const chunk of req) {
+    raw += chunk.toString();
+    if (Buffer.byteLength(raw) > maximum) throw Object.assign(new Error('Request is too large.'), { status: 413 });
+  }
+  try { return JSON.parse(raw); } catch { throw Object.assign(new Error('Invalid JSON.'), { status: 400 }); }
+}
 export function buildAgentArguments(agent, prompt, sessionId, continuing = false) {
   const configured = continuing ? agent.resumeArgs : agent.args;
   if (!Array.isArray(configured)) throw new Error('The agent has no configured command arguments for this session.');
@@ -48,10 +58,13 @@ const publicRun = run => {
 };
 const detailedRun = run => ({ ...publicRun(run), output: run.output || '' });
 
+
 export async function createBridge(config, { baseDir = process.cwd(), env = process.env } = {}) {
   const token = env.FORGELINK_TOKEN;
   if (!token || token.length < 32) throw new Error('FORGELINK_TOKEN must contain at least 32 characters.');
+  const pushToken = env.FORGELINK_PUSH_TOKEN || (env.FORGELINK_PUSH_TOKEN_FILE ? (await readFile(env.FORGELINK_PUSH_TOKEN_FILE, 'utf8')).trim() : '');
   const dataDir = path.resolve(baseDir, config.dataDir || './data');
+  const pushURL = env.FORGELINK_PUSH_URL || config.pushURL || 'http://127.0.0.1:8788';
   await mkdir(dataDir, { recursive: true, mode: 0o700 });
   const projects = new Map();
   for (const project of config.projects || []) {
@@ -126,6 +139,15 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
       killer.on('error', () => child.kill());
     } else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
   };
+  async function sendApns(run, status) {
+    if (pushToken.length < 32) return;
+    const notification = { runId: run.id, projectId: run.projectId, title: `ForgeLink · ${run.agentName || run.agentId}`, body: `${status === 'succeeded' ? 'Task complete' : 'Task failed'}: ${run.title}`, status };
+    try {
+      const response = await fetch(`${pushURL}/notify`, { method: 'POST', headers: { Authorization: `Bearer ${pushToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(notification), signal: AbortSignal.timeout(10000), redirect: 'error' });
+      if (!response.ok) console.warn(`ForgeLink push delivery was not accepted (HTTP ${response.status}).`);
+    } catch (error) { console.warn(`ForgeLink push delivery failed (${error.code || 'network error'}).`); }
+  }
+  async function pushRunNotification(run, status) { await sendApns(run, status); }
   const append = (run, text) => {
     let safe = String(text).replaceAll(token, '[REDACTED]');
     for (const agent of agents.values()) if (agent.oracleSecret) safe = safe.replaceAll(agent.oracleSecret, '[REDACTED]');
@@ -223,6 +245,7 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
       active.delete(run.id);
       Object.assign(run, { status, exitCode: code, endedAt: new Date().toISOString(), revision: run.revision + 1 });
       void persist().catch(() => {});
+      if (status === 'succeeded' || status === 'failed') void pushRunNotification(run, status);
     };
     active.set(run.id, { cancel: () => {
       if (requestedStatus || finished) return;
@@ -321,8 +344,11 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
       // Intentionally no shell, no phone-supplied working directory, and no permission-bypass flags.
       const childEnv = { ...env };
       delete childEnv.FORGELINK_TOKEN;
+      delete childEnv.FORGELINK_PUSH_TOKEN;
+      delete childEnv.FORGELINK_PUSH_TOKEN_FILE;
       for (const agent of agents.values()) if (agent.oracleSecret) for (const [name, value] of Object.entries(childEnv)) if (value === agent.oracleSecret) delete childEnv[name];
       delete childEnv.DEEPAI_WEBHOOK_URL;
+      for (const name of ['APNS_ENABLED', 'APNS_TEAM_ID', 'APNS_KEY_ID', 'APNS_BUNDLE_ID', 'APNS_KEY_FILE', 'APNS_PROFILE_FILE', 'APNS_ENVIRONMENT', 'FORGELINK_APNS_PROFILE']) delete childEnv[name];
       for (const item of agents.values()) if (item.kind === 'webhook') {
         delete childEnv[item.webhookURLEnv || 'DEEPAI_WEBHOOK_URL'];
         if (item.signature) delete childEnv[item.signature.secretEnv];
@@ -376,7 +402,31 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
       }
       const url = new URL(req.url, 'http://bridge');
       if (req.method === 'GET' && url.pathname === '/v1/status') {
-        send(200, { name: config.name || 'ForgeLink Bridge', version: '1.0.0', agents: [...agents].map(([id, a]) => ({ id, name: a.name, kind: a.kind, resumable: Boolean(a.resumable) })), projects: [...projects.values()].map(p => ({ id: p.id, name: p.name, actions: p.actions.map(a => ({ id: a.id, name: a.name })) })) }); return;
+        let pushConfigured = false;
+        let apnsEnabled = false;
+        if (pushToken.length >= 32) {
+          try {
+            const result = await fetch(`${pushURL}/health`, { headers: { Authorization: `Bearer ${pushToken}` }, signal: AbortSignal.timeout(1500) });
+            if (result.ok) { const health = await result.json(); pushConfigured = true; apnsEnabled = health.apnsEnabled === true; }
+          } catch {}
+        }
+        send(200, { name: config.name || 'ForgeLink Bridge', version: '1.1.0', pushConfigured, apnsEnabled, agents: [...agents].map(([id, a]) => ({ id, name: a.name, kind: a.kind, resumable: Boolean(a.resumable) })), projects: [...projects.values()].map(p => ({ id: p.id, name: p.name, actions: p.actions.map(a => ({ id: a.id, name: a.name })) })) }); return;
+      }
+
+      if (req.method === 'PATCH' && url.pathname === '/v1/push/register') {
+        const input = await readJsonBody(req, 8192);
+        if (typeof input.enabled !== 'boolean' || !validDeviceToken(input.deviceToken) || input.bundleId !== 'com.ross.forgelink') throw fail(400, 'A valid ForgeLink device token, bundle ID, and enabled flag are required.');
+        if (pushToken.length < 32) throw fail(503, 'Private push relay is not configured on this bridge.');
+        const relayResponse = await fetch(`${pushURL}/register`, { method: 'PATCH', headers: { Authorization: `Bearer ${pushToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(input), redirect: 'error', signal: AbortSignal.timeout(10000) });
+        const result = await relayResponse.json().catch(() => ({}));
+        if (!relayResponse.ok) throw fail(502, 'TrueNAS push relay could not register this device.');
+        let apnsEnabled = result.apnsEnabled === true;
+        try {
+          const healthResponse = await fetch(`${pushURL}/health`, { signal: AbortSignal.timeout(1500) });
+          if (healthResponse.ok) { const health = await healthResponse.json(); apnsEnabled = health.apnsEnabled === true; }
+        } catch {}
+        send(200, { enabled: input.enabled, registered: result.registered === true, apnsEnabled, pushConfigured: true });
+        return;
       }
       if (req.method === 'GET' && url.pathname === '/v1/runs') {
         send(200, [...runs.values()].reverse().map(publicRun)); return;
@@ -419,13 +469,8 @@ export async function createBridge(config, { baseDir = process.cwd(), env = proc
       }
       if (req.method === 'POST' && url.pathname === '/v1/runs') {
         if (!req.headers['content-type']?.startsWith('application/json')) throw fail(415, 'Use application/json.');
-        let body = '';
-        for await (const chunk of req) {
-          body += chunk.toString();
-          if (Buffer.byteLength(body) > 65536) throw fail(413, 'Request is too large.');
-        }
         let input;
-        try { input = JSON.parse(body); } catch { throw fail(400, 'Invalid JSON.'); }
+        try { input = await readJsonBody(req, 65536); } catch (error) { throw fail(error.status || 400, error.status ? error.message : 'Invalid JSON.'); }
         if (!input || typeof input !== 'object') throw fail(400, 'Expected a JSON object.');
         const project = projects.get(input.projectId);
         if (!project) throw fail(400, 'Choose a configured project.');

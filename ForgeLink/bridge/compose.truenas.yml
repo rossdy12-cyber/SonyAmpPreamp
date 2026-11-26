@@ -17,6 +17,8 @@ services:
       HOME: /home/node
       HOST: 0.0.0.0
       FORGELINK_CONFIG: /config/config.json
+      FORGELINK_PUSH_TOKEN_FILE: /run/secrets/forgelink-push-token
+      FORGELINK_PUSH_URL: http://forgelink-push:8788
       DBUS_SESSION_BUS_ADDRESS: unix:path=/tmp/forgelink-runtime/bus
       XDG_RUNTIME_DIR: /tmp/forgelink-runtime
       FORGELINK_TEMPLATE: truenas
@@ -28,6 +30,7 @@ services:
       - ./workspaces:/workspace
       - ./keyring-password:/run/secrets/keyring-password:ro
       - ./deepai-secret:/config/deepai-secret:ro
+      - ./push-token:/run/secrets/forgelink-push-token:ro
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
@@ -49,3 +52,47 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+  push:
+    container_name: forgelink-push
+    build:
+      context: .
+      dockerfile: Dockerfile.push
+    image: forgelink-push:1.0.0
+    restart: unless-stopped
+    init: true
+    user: "1000:1000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8788"
+      FORGELINK_PUSH_TOKEN_FILE: /run/secrets/forgelink-push-token
+      APNS_ENABLED: ${APNS_ENABLED:-false}
+      APNS_TEAM_ID: G42YL9QS8W
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      FORGELINK_USE_DEDICATED_APNS_KEY: ${FORGELINK_USE_DEDICATED_APNS_KEY:-false}
+      APNS_BUNDLE_ID: com.ross.forgelink
+      APNS_KEY_FILE: /run/secrets/apns-key
+      APNS_PROFILE_FILE: /run/secrets/forgelink-profile
+      APNS_ENVIRONMENT: ${APNS_ENVIRONMENT:-development}
+      FORGELINK_PUSH_DEVICES: /data/push-devices.json
+      APNS_PROFILE_CA_FILE: /etc/ssl/certs/ca-certificates.crt
+    command: [node, /app/push-relay.mjs]
+    ports:
+      - "127.0.0.1:8788:8788"
+    volumes:
+      - ./data:/data
+      - ./push-token:/run/secrets/forgelink-push-token:ro
+      # Mount a ForgeLink-only provider key/profile here only after their verification.
+      # Never mount the Nocturne key or profile.
+      # - /path/to/forgelink/AuthKey_<KEYID>.p8:/run/secrets/apns-key:ro
+      # - /path/to/forgelink/embedded.mobileprovision:/run/secrets/forgelink-profile:ro
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    cpus: 0.25
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8788/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

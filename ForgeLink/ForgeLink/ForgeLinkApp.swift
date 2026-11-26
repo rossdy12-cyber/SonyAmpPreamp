@@ -1,8 +1,101 @@
 import SwiftUI
+import UserNotifications
+import UIKit
+
+@MainActor
+final class PushRegistration: ObservableObject {
+    static let shared = PushRegistration()
+    @Published private(set) var registered = false
+    private var tokenHex: String?
+    private var endpoint = ""
+    private var pairingToken = ""
+    private var enabled = false
+
+    func configure(endpoint: String, pairingToken: String) {
+        self.endpoint = endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+        self.pairingToken = pairingToken
+        enabled = UserDefaults.standard.bool(forKey: "pushAlertsEnabled")
+        if enabled {
+            UIApplication.shared.registerForRemoteNotifications()
+            if let tokenHex { Task { await upload(tokenHex) } }
+        }
+    }
+
+    func register() async {
+        guard !endpoint.isEmpty, !pairingToken.isEmpty else { throw PushRegistrationError.bridgeUnavailable }
+        let center = UNUserNotificationCenter.current()
+        do {
+            let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            guard granted else { throw PushRegistrationError.permissionDenied }
+            enabled = true
+            await MainActor.run { UIApplication.shared.registerForRemoteNotifications() }
+            if let tokenHex {
+                await upload(tokenHex)
+                guard registered else { enabled = false; throw PushRegistrationError.pushUnavailable }
+            }
+            UserDefaults.standard.set(true, forKey: "pushAlertsEnabled")
+        } catch { throw error }
+    }
+
+    func disable() async {
+        enabled = false
+        UserDefaults.standard.set(false, forKey: "pushAlertsEnabled")
+        guard let tokenHex else { registered = false; return }
+        await upload(tokenHex, enabled: false)
+        registered = false
+    }
+
+    func receive(deviceToken: Data) async {
+        let hex = deviceToken.map { String(format: "%02x", $0) }.joined()
+        tokenHex = hex
+        guard enabled else { return }
+        await upload(hex)
+    }
+
+    private func upload(_ hex: String, enabled override: Bool? = nil) async {
+        guard let url = URL(string: "\(endpoint)/v1/push/register"), endpoint.hasPrefix("https://") || endpoint.contains("100.64.0.4") else { return }
+        var request = URLRequest(url: url, timeoutInterval: 15)
+        request.httpMethod = "PATCH"
+        request.setValue("Bearer \(pairingToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["deviceToken": hex, "bundleId": "com.ross.forgelink", "enabled": override ?? enabled])
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let status = response as? HTTPURLResponse, (200..<300).contains(status.statusCode) else { registered = false; return }
+            let result = try? JSONDecoder().decode(PushResponse.self, from: data)
+            registered = result?.enabled == true && result?.apnsEnabled == true
+        } catch { registered = false }
+    }
+}
+
+private struct PushResponse: Decodable { let registered: Bool?; let enabled: Bool?; let apnsEnabled: Bool?; let pushConfigured: Bool? }
+enum PushRegistrationError: LocalizedError {
+    case permissionDenied
+    case bridgeUnavailable
+    case pushUnavailable
+    var errorDescription: String? {
+        switch self {
+        case .permissionDenied: return "Allow ForgeLink notifications in iOS Settings, then try again."
+        case .bridgeUnavailable: return "Connect ForgeLink to your TrueNAS bridge first."
+        case .pushUnavailable: return "Push is not ready: the private notifier and a matching signed ForgeLink profile must both be enabled."
+        }
+    }
+}
+
+final class ForgeLinkAppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task { await PushRegistration.shared.receive(deviceToken: deviceToken) }
+    }
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NSLog("ForgeLink APNs registration failed: %@", error.localizedDescription)
+    }
+}
 
 @main
 struct ForgeLinkApp: App {
+    @UIApplicationDelegateAdaptor(ForgeLinkAppDelegate.self) private var appDelegate
     @StateObject private var model = AppModel()
+    @StateObject private var push = PushRegistration.shared
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -49,7 +142,10 @@ struct RootView: View {
             Button("OK") { model.error = nil }
         } message: { Text(model.error ?? "") }
         .task {
-            if !model.endpoint.isEmpty && !model.token.isEmpty { await model.connect() }
+            if !model.endpoint.isEmpty && !model.token.isEmpty {
+                push.configure(endpoint: model.endpoint, pairingToken: model.token)
+                await model.connect()
+            }
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(4)) } catch { return }
                 if scenePhase == .active { await model.refresh() }

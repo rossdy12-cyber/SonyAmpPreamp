@@ -21,7 +21,7 @@ final class PushRegistration: ObservableObject {
         }
     }
 
-    func register() async {
+    func register() async throws {
         guard !endpoint.isEmpty, !pairingToken.isEmpty else { throw PushRegistrationError.bridgeUnavailable }
         let center = UNUserNotificationCenter.current()
         do {
@@ -143,7 +143,7 @@ struct RootView: View {
         } message: { Text(model.error ?? "") }
         .task {
             if !model.endpoint.isEmpty && !model.token.isEmpty {
-                push.configure(endpoint: model.endpoint, pairingToken: model.token)
+                PushRegistration.shared.configure(endpoint: model.endpoint, pairingToken: model.token)
                 await model.connect()
             }
             while !Task.isCancelled {

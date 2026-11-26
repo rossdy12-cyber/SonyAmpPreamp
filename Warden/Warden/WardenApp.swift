@@ -43,31 +43,31 @@ struct PCTarget: Codable, Identifiable, Equatable {
     var unlockSecret: String    // optional PIN/password sent to bridge; stored locally
 
     static let homeDefault = PCTarget(
-        name: "Home PC",
-        subtitle: "Home workstation",
-        host: "100.102.4.54",
+        name: "Home PC (Aether-PC)",
+        subtitle: "Home Gaming & Workstation · 100.64.0.8",
+        host: "100.64.0.8",
         bridgePort: 9090,
-        macAddress: "",
+        macAddress: "B8:FB:B3:C6:0E:7D",
         platform: .windows,
-        wakeURL: "",
-        unlockURL: "",
-        lockURL: "",
-        wolBridgeHost: "100.85.127.42",
+        wakeURL: "http://100.64.0.8:9090/api/power/wake",
+        unlockURL: "http://100.64.0.8:9090/api/power/unlock?pin={pin}",
+        lockURL: "http://100.64.0.8:9090/api/power/lock",
+        wolBridgeHost: "100.64.0.4",
         wolBridgePort: 9092,
         unlockSecret: ""
     )
 
     static let workDefault = PCTarget(
-        name: "Work PC",
-        subtitle: "Work workstation",
-        host: "100.102.4.54",
+        name: "Work PC (ROSS-DYMOND-PC)",
+        subtitle: "Work Workstation · 100.64.0.3",
+        host: "100.64.0.3",
         bridgePort: 9090,
-        macAddress: "",
+        macAddress: "2C:56:DC:39:E5:DC",
         platform: .windows,
-        wakeURL: "",
-        unlockURL: "",
-        lockURL: "",
-        wolBridgeHost: "100.85.127.42",
+        wakeURL: "http://100.64.0.3:9090/api/power/wake",
+        unlockURL: "http://100.64.0.3:9090/api/power/unlock?pin={pin}",
+        lockURL: "http://100.64.0.3:9090/api/power/lock",
+        wolBridgeHost: "100.64.0.4",
         wolBridgePort: 9092,
         unlockSecret: ""
     )
@@ -115,9 +115,30 @@ final class WardenStore: NSObject, ObservableObject {
 
     func load() {
         if let data = UserDefaults.standard.data(forKey: defaultsKey),
-           let decoded = try? JSONDecoder().decode([PCTarget].self, from: data),
+           var decoded = try? JSONDecoder().decode([PCTarget].self, from: data),
            !decoded.isEmpty {
+            // Auto-migrate legacy 100.102.4.54 defaults to actual Headscale IPs (100.64.0.8 & 100.64.0.3)
+            var migrated = false
+            for idx in decoded.indices {
+                if decoded[idx].host == "100.102.4.54" {
+                    if decoded[idx].name.lowercased().contains("home") {
+                        let keepId = decoded[idx].id
+                        let keepPin = decoded[idx].unlockSecret
+                        decoded[idx] = .homeDefault
+                        decoded[idx].id = keepId
+                        decoded[idx].unlockSecret = keepPin
+                    } else {
+                        let keepId = decoded[idx].id
+                        let keepPin = decoded[idx].unlockSecret
+                        decoded[idx] = .workDefault
+                        decoded[idx].id = keepId
+                        decoded[idx].unlockSecret = keepPin
+                    }
+                    migrated = true
+                }
+            }
             targets = decoded
+            if migrated { save() }
         } else {
             targets = [.homeDefault, .workDefault]
         }

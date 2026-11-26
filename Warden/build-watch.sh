@@ -7,8 +7,8 @@ OUT=out
 APP_NAME=WardenWatch
 COMPANION_ID="${COMPANION_ID:-com.ross.warden}"
 BUNDLE_ID="${COMPANION_ID}.watchkitapp"
-VERSION="1.1.0"
-BUILD="2"
+VERSION="1.1.1"
+BUILD="3"
 
 if ! xcrun --sdk watchos --show-sdk-version >/dev/null 2>&1; then
   echo "watchOS SDK not found; downloading watchOS platform..."

@@ -42,6 +42,11 @@ final class WatchStore: NSObject, ObservableObject {
         if let data = UserDefaults.standard.data(forKey: key),
            let decoded = try? JSONDecoder().decode([WardenTarget].self, from: data), !decoded.isEmpty {
             targets = decoded
+        } else {
+            targets = [
+                WardenTarget(id: "home-pc", name: "Home PC", subtitle: "Aether-PC · 100.64.0.8", host: "100.64.0.8", bridgePort: 9090, macAddress: "B8:FB:B3:C6:0E:7D", platform: "Windows", wakeURL: "http://100.64.0.8:9090/api/power/wake", unlockURL: "http://100.64.0.8:9090/api/power/unlock?pin={pin}", lockURL: "http://100.64.0.8:9090/api/power/lock", wolBridgeHost: "100.64.0.4", wolBridgePort: 9092, unlockSecret: ""),
+                WardenTarget(id: "work-pc", name: "Work PC", subtitle: "ROSS-DYMOND-PC · 100.64.0.3", host: "100.64.0.3", bridgePort: 9090, macAddress: "2C:56:DC:39:E5:DC", platform: "Windows", wakeURL: "http://100.64.0.3:9090/api/power/wake", unlockURL: "http://100.64.0.3:9090/api/power/unlock?pin={pin}", lockURL: "http://100.64.0.3:9090/api/power/lock", wolBridgeHost: "100.64.0.4", wolBridgePort: 9092, unlockSecret: "")
+            ]
         }
         selectedID = UserDefaults.standard.string(forKey: selKey) ?? targets.first?.id ?? ""
     }

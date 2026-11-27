@@ -22,18 +22,14 @@ jobs:
 
       # The merge planner is the part worth proving: it must agree with the
       # Windows app (src/engine.js) or the two sides will fight over files.
+      # The merge planner only needs Foundation, so it is compiled and tested
+      # natively on the runner (no simulator runtime required).
       - name: Run merge engine tests
         working-directory: DuoSync
         run: |
           set -eo pipefail
           xcodegen generate
-          xcodebuild test \
-            -project DuoSync.xcodeproj \
-            -scheme DuoSync \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            2>&1 | tail -40
+          xcodebuild test             -project DuoSync.xcodeproj             -scheme DuoSyncTests             -destination 'platform=macOS'             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO
 
       - name: Build DuoSync (iOS)
         working-directory: DuoSync

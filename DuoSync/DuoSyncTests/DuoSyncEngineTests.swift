@@ -1,5 +1,4 @@
 import XCTest
-@testable import DuoSync
 
 /// Mirrors the desktop app's engine tests (test/engine.test.js) so both sides
 /// provably implement the same merge rules.

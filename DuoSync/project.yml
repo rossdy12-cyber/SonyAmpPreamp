@@ -30,9 +30,6 @@ targets:
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGNING_ALLOWED: "NO"
         DEVELOPMENT_TEAM: ""
-    scheme:
-      testTargets:
-        - DuoSyncTests
     info:
       path: DuoSync/Info.plist
       properties:
@@ -62,14 +59,24 @@ targets:
 
   DuoSyncTests:
     type: bundle.unit-test
-    platform: iOS
+    platform: macOS
     sources:
       - path: DuoSyncTests
-    dependencies:
-      - target: DuoSync
+      - path: DuoSync/Core/Engine.swift
+      - path: DuoSync/Core/Models.swift
+      - path: DuoSync/Core/Hasher.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ross.duosync.tests
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"
         GENERATE_INFOPLIST_FILE: "YES"
+
+schemes:
+  DuoSyncTests:
+    build:
+      targets:
+        DuoSyncTests: all
+    test:
+      targets:
+        - DuoSyncTests

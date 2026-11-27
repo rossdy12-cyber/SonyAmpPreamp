@@ -30,6 +30,9 @@ targets:
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGNING_ALLOWED: "NO"
         DEVELOPMENT_TEAM: ""
+    scheme:
+      testTargets:
+        - DuoSyncTests
     info:
       path: DuoSync/Info.plist
       properties:
@@ -56,3 +59,17 @@ targets:
           - fetch
         BGTaskSchedulerPermittedIdentifiers:
           - com.ross.duosync.refresh
+
+  DuoSyncTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: DuoSyncTests
+    dependencies:
+      - target: DuoSync
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ross.duosync.tests
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"
+        GENERATE_INFOPLIST_FILE: "YES"

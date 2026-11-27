@@ -11,7 +11,7 @@ on:
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
       - name: Checkout repository
@@ -19,6 +19,21 @@ jobs:
 
       - name: Install XcodeGen
         run: brew install xcodegen
+
+      # The merge planner is the part worth proving: it must agree with the
+      # Windows app (src/engine.js) or the two sides will fight over files.
+      - name: Run merge engine tests
+        working-directory: DuoSync
+        run: |
+          set -eo pipefail
+          xcodegen generate
+          xcodebuild test \
+            -project DuoSync.xcodeproj \
+            -scheme DuoSync \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tail -40
 
       - name: Build DuoSync (iOS)
         working-directory: DuoSync

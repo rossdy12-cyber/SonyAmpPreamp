@@ -61,6 +61,7 @@ struct ConnectView: View {
 
     // MARK: - Steps
 
+    @ViewBuilder
     private var connectionForm: some View {
         Section {
             TextField("Tailscale address", text: $address)

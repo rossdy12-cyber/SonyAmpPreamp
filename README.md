@@ -122,6 +122,7 @@ The endpoint returns JSON with the signed download URL, OTA manifest URL, and `i
 | **Sigil** | `com.ross.sigil` | iOS 17+ | [`Sigil/`](./Sigil) | [`build-sigil.yml`](./.github/workflows/build-sigil.yml) | 2FA TOTP authenticator and cryptographic key ring. |
 | **Coven** | `com.ross.coven` | iOS 17+ | [`Coven/`](./Coven) | [`build-coven.yml`](./.github/workflows/build-coven.yml) | Private household & family coordination hub. |
 | **Tether** | `com.ross.tether` | iOS 17+ | [`Tether/`](./Tether) | [`build-tether.yml`](./.github/workflows/build-tether.yml) | Cross-device clipboard, file drop, and link handoff utility. |
+| **DuoSync** | `com.ross.duosync` | iOS 17+ | [`DuoSync/`](./DuoSync) | [`build-duosync.yml`](./.github/workflows/build-duosync.yml) | iPhone companion for the DuoSync Windows app: three-way folder sync with your PCs over Tailscale, Files-app storage, and per-folder two-way / send-only / receive-only modes. |
 | **Vaultbook** | `com.ross.vaultbook` | iOS 17+ | [`Vaultbook/`](./Vaultbook) | [`build-vaultbook.yml`](./.github/workflows/build-vaultbook.yml) | Offline-first markdown codex and ledger. |
 | **ForgeLink** | `com.ross.forgelink` | iOS 17+ | [`ForgeLink/`](./ForgeLink) | [`build-forgelink.yml`](./.github/workflows/build-forgelink.yml) | CI/CD build monitor and one-tap deployment trigger. |
 | **Knell** | `com.ross.knell` | iOS 17+ | [`Knell/`](./Knell) | [`build-knell.yml`](./.github/workflows/build-knell.yml) | Countdown chronometer, ritual timer, and critical alert dispatcher. |

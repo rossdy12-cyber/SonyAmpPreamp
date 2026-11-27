@@ -1,0 +1,49 @@
+name: Build DuoSync iPhone IPA
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'DuoSync/**'
+      - '.github/workflows/build-duosync.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build DuoSync (iOS)
+        working-directory: DuoSync
+        run: |
+          set -e
+          xcodegen generate
+          xcodebuild \
+            -project DuoSync.xcodeproj \
+            -target DuoSync \
+            -configuration Release \
+            -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          mkdir -p out/Payload
+          cp -R build/Release-iphoneos/DuoSync.app out/Payload/
+          cd out
+          zip -qry DuoSync.ipa Payload
+          ls -lh DuoSync.ipa
+
+      - name: Upload DuoSync.ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: DuoSync-ipa
+          path: DuoSync/out/DuoSync.ipa
+          retention-days: 30

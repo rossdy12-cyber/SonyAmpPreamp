@@ -29,6 +29,7 @@ jobs:
           xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install "$DEVICE" "$APP"
           BUNDLE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Info.plist")
+          xcrun simctl privacy "$DEVICE" grant calendar "$BUNDLE" || true
           xcrun simctl launch "$DEVICE" "$BUNDLE"
           mkdir -p preview
           xcrun simctl io "$DEVICE" screenshot preview/vespers-initial.png

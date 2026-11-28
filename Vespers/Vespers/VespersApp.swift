@@ -157,7 +157,7 @@ struct VespersRootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 14)
             .padding(.bottom, 6)
-            .offset(y: -48)
+            .offset(y: -50)
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingSettings) { VespersSettingsSheet().environmentObject(settings) }
@@ -203,7 +203,7 @@ struct VespersRootView: View {
             .accessibilityLabel("Create event")
         }
         .padding(.top, 7)
-        .padding(.bottom, 10)
+        .padding(.bottom, 30)
     }
 
     private var monthHeader: some View {
@@ -276,7 +276,7 @@ struct VespersRootView: View {
                 }
             }
         }
-        .padding(.bottom, 2)
+        .padding(.bottom, 32)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Calendar month")
     }
@@ -334,7 +334,8 @@ struct VespersRootView: View {
                 .foregroundStyle(settings.theme.mutedText)
         }
         .padding(.horizontal, 2)
-        .padding(.vertical, 6)
+        .padding(.top, 6)
+        .padding(.bottom, 24)
         .overlay(alignment: .bottom) {
             Rectangle().fill(settings.theme.accent.opacity(0.28)).frame(height: 1)
         }

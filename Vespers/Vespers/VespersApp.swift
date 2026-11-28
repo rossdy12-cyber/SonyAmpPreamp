@@ -133,33 +133,32 @@ struct VespersRootView: View {
     private var displayedEvents: [EKEvent] { calendarStore.events(on: selectedDate) }
 
     var body: some View {
-        ZStack {
-            settings.theme.background
-                .ignoresSafeArea()
-            VespersPalette.ambient(theme: settings.theme)
-                .ignoresSafeArea()
-            VespersPalette.lowerAmbient(theme: settings.theme)
-                .ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                settings.theme.background
+                VespersPalette.ambient(theme: settings.theme)
+                VespersPalette.lowerAmbient(theme: settings.theme)
 
-            VStack(spacing: 0) {
-                topBar
-                    .padding(.top, 8)
-                if selectedTab == .month {
-                    monthHeader
-                    weekdayHeader
-                    monthGrid
-                    selectedDayHeading
-                    agendaList(events: displayedEvents, emptyText: "Nothing planned for this day")
-                } else {
-                    agendaHeader
-                    agendaList(events: upcomingEvents, emptyText: "No upcoming events")
+                VStack(spacing: 0) {
+                    topBar
+                    if selectedTab == .month {
+                        monthHeader
+                        weekdayHeader
+                        monthGrid
+                        selectedDayHeading
+                        agendaList(events: displayedEvents, emptyText: "Nothing planned for this day")
+                    } else {
+                        agendaHeader
+                        agendaList(events: upcomingEvents, emptyText: "No upcoming events")
+                    }
                 }
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 6)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, 14)
-            .padding(.bottom, 6)
-            .ignoresSafeArea(.container, edges: .top)
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
         }
+        .background(settings.theme.background.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingSettings) { VespersSettingsSheet().environmentObject(settings) }
         .sheet(isPresented: $showingNewEvent) {

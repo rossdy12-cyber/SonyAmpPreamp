@@ -138,6 +138,8 @@ struct VespersRootView: View {
                 .ignoresSafeArea()
             VespersPalette.ambient(theme: settings.theme)
                 .ignoresSafeArea()
+            VespersPalette.lowerAmbient(theme: settings.theme)
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 topBar
@@ -155,6 +157,7 @@ struct VespersRootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 14)
             .padding(.bottom, 6)
+            .offset(y: -48)
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingSettings) { VespersSettingsSheet().environmentObject(settings) }
@@ -616,6 +619,11 @@ private enum VespersPalette {
 
     static func ambient(theme: VespersTheme) -> some View {
         RadialGradient(colors: [theme.glow.opacity(0.45), .clear], center: .top, startRadius: 12, endRadius: 430)
+            .allowsHitTesting(false)
+    }
+
+    static func lowerAmbient(theme: VespersTheme) -> some View {
+        LinearGradient(colors: [theme.background.opacity(0), theme.background], startPoint: .center, endPoint: .bottom)
             .allowsHitTesting(false)
     }
 

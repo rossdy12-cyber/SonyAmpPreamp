@@ -134,13 +134,19 @@ struct VespersRootView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let topInset = geometry.safeAreaInsets.top
+            let bottomInset = geometry.safeAreaInsets.bottom
             ZStack(alignment: .top) {
-                settings.theme.background
+                Rectangle()
+                    .fill(settings.theme.background)
+                    .ignoresSafeArea()
                 VespersPalette.ambient(theme: settings.theme)
+                    .ignoresSafeArea()
                 VespersPalette.lowerAmbient(theme: settings.theme)
+                    .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    Color.clear.frame(height: geometry.safeAreaInsets.top + 8)
+                    Color.clear.frame(height: topInset)
                     topBar
                     if selectedTab == .month {
                         monthHeader
@@ -148,17 +154,20 @@ struct VespersRootView: View {
                         monthGrid
                         selectedDayHeading
                         agendaList(events: displayedEvents, emptyText: "Nothing planned for this day")
+                            .frame(maxHeight: .infinity)
                     } else {
                         agendaHeader
                         agendaList(events: upcomingEvents, emptyText: "No upcoming events")
+                            .frame(maxHeight: .infinity)
                     }
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+                .frame(width: geometry.size.width, height: geometry.size.height + topInset + bottomInset, alignment: .top)
                 .padding(.horizontal, 14)
-                .padding(.bottom, geometry.safeAreaInsets.bottom + 6)
+                .padding(.bottom, bottomInset + 6)
+                .offset(y: -topInset)
             }
-            .frame(width: geometry.size.width, height: geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom, alignment: .top)
-            .ignoresSafeArea(.container, edges: [.top, .bottom])
+            .frame(width: geometry.size.width, height: geometry.size.height + topInset + bottomInset, alignment: .top)
+            .background(settings.theme.background.ignoresSafeArea())
         }
         .background(settings.theme.background.ignoresSafeArea())
         .preferredColorScheme(.dark)

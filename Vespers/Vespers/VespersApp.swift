@@ -143,6 +143,7 @@ struct VespersRootView: View {
 
             VStack(spacing: 0) {
                 topBar
+                    .padding(.top, 8)
                 if selectedTab == .month {
                     monthHeader
                     weekdayHeader
@@ -157,6 +158,7 @@ struct VespersRootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 14)
             .padding(.bottom, 6)
+            .ignoresSafeArea(.container, edges: .top)
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingSettings) { VespersSettingsSheet().environmentObject(settings) }

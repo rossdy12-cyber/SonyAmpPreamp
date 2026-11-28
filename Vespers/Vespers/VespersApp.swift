@@ -140,6 +140,7 @@ struct VespersRootView: View {
                 VespersPalette.lowerAmbient(theme: settings.theme)
 
                 VStack(spacing: 0) {
+                    Color.clear.frame(height: geometry.safeAreaInsets.top + 8)
                     topBar
                     if selectedTab == .month {
                         monthHeader
@@ -154,9 +155,10 @@ struct VespersRootView: View {
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
                 .padding(.horizontal, 14)
-                .padding(.bottom, 6)
+                .padding(.bottom, geometry.safeAreaInsets.bottom + 6)
             }
-            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .top)
+            .frame(width: geometry.size.width, height: geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom, alignment: .top)
+            .ignoresSafeArea(.container, edges: [.top, .bottom])
         }
         .background(settings.theme.background.ignoresSafeArea())
         .preferredColorScheme(.dark)

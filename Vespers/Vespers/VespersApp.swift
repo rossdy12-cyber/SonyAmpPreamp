@@ -140,6 +140,7 @@ struct VespersRootView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
+                Color.clear.frame(height: 55)
                 topBar
                 if selectedTab == .month {
                     monthHeader
@@ -155,6 +156,7 @@ struct VespersRootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 14)
             .padding(.bottom, 6)
+            .ignoresSafeArea(edges: .top)
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingSettings) { VespersSettingsSheet().environmentObject(settings) }

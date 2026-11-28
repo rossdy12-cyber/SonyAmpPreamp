@@ -1,0 +1,35 @@
+name: Build and Publish Vespers Calendar
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Vespers/**'
+      - '.github/workflows/build-vespers.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish-vespers:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout Vespers source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build unsigned IPA and publish to Stark Store release relay
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash Vespers/build-and-publish.sh
+
+      - name: Upload unsigned IPA build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vespers-unsigned-ipa
+          path: Vespers/out/Vespers.ipa
+          if-no-files-found: error
+          retention-days: 14

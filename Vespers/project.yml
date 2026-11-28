@@ -1,0 +1,47 @@
+name: Vespers
+options:
+  bundleIdPrefix: app.keepwatch
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    SUPPORTS_MACCATALYST: NO
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: ""
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGNING_ALLOWED: "NO"
+    DEVELOPMENT_TEAM: ""
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+    INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleLightContent
+    INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+    INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "Vespers reads your calendars to show your month and daily agenda. Events stay in your Apple Calendar."
+    INFOPLIST_KEY_NSCalendarsUsageDescription: "Vespers reads your calendars to show your month and daily agenda. Events stay in your Apple Calendar."
+    INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+
+targets:
+  Vespers:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Vespers
+        excludes:
+          - "**/*.md"
+    settings:
+      base:
+        PRODUCT_NAME: Vespers
+        PRODUCT_BUNDLE_IDENTIFIER: app.keepwatch.vespers
+        MARKETING_VERSION: "1.2.0"
+        CURRENT_PROJECT_VERSION: "4"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        INFOPLIST_KEY_CFBundleDisplayName: Vespers
+        INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "Vespers reads your calendars to show your month and daily agenda. Events stay in your Apple Calendar."
+        INFOPLIST_KEY_NSCalendarsUsageDescription: "Vespers reads your calendars to show your month and daily agenda. Events stay in your Apple Calendar."

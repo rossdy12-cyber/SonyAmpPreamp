@@ -470,7 +470,7 @@ private struct VespersSettingsSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(VespersPalette.background.ignoresSafeArea())
+            .background(settings.theme.background.ignoresSafeArea())
             .tint(settings.theme.accent)
             .navigationTitle("Vespers Settings")
             .navigationBarTitleDisplayMode(.inline)

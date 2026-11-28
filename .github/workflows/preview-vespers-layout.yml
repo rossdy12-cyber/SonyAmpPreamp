@@ -1,0 +1,42 @@
+name: Preview Vespers Layout (Simulator Only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview-iphone:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd Vespers
+          xcodegen generate
+      - name: Build and render iPhone simulator screenshots
+        run: |
+          set -euo pipefail
+          cd Vespers
+          DEVICE=$(xcrun simctl list devices available | grep -m1 -E 'iPhone 17 Pro \(' | sed -E 's/.*\(([0-9A-F-]+)\).*/\1/')
+          test -n "$DEVICE"
+          xcodebuild build -project Vespers.xcodeproj -scheme Vespers -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE" -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+          APP="build/Build/Products/Debug-iphonesimulator/Vespers.app"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" "$APP"
+          BUNDLE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Info.plist")
+          xcrun simctl launch "$DEVICE" "$BUNDLE"
+          mkdir -p preview
+          xcrun simctl io "$DEVICE" screenshot preview/vespers-initial.png
+          sleep 2
+          xcrun simctl io "$DEVICE" screenshot preview/vespers-calendar.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vespers-layout-preview
+          path: Vespers/preview/*.png
+          if-no-files-found: error
+          retention-days: 7

@@ -1,5 +1,6 @@
 import SwiftUI
 import EventKit
+import UIKit
 
 @main
 struct VespersApp: App {
@@ -134,31 +135,45 @@ struct VespersRootView: View {
     private var cal: Calendar { Calendar.current }
     private var displayedEvents: [EKEvent] { calendarStore.events(on: selectedDate) }
 
+    private var windowScene: UIWindowScene? {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+    }
+    private var screenBounds: CGRect { windowScene?.screen.bounds ?? UIScreen.main.bounds }
+    private var topSafeInset: CGFloat {
+        windowScene?.windows.first(where: \.isKeyWindow)?.safeAreaInsets.top ?? 59
+    }
+    private var bottomSafeInset: CGFloat {
+        windowScene?.windows.first(where: \.isKeyWindow)?.safeAreaInsets.bottom ?? 34
+    }
+
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             settings.theme.background.ignoresSafeArea()
             VespersPalette.ambient(theme: settings.theme).ignoresSafeArea()
             VespersPalette.lowerAmbient(theme: settings.theme).ignoresSafeArea()
 
             VStack(spacing: 0) {
                 topBar
+                    .padding(.top, topSafeInset + 6)
                 if selectedTab == .month {
                     monthHeader
                     weekdayHeader
                     monthGrid
                     selectedDayHeading
                     agendaList(events: displayedEvents, emptyText: "Nothing planned for this day")
+                        .frame(maxHeight: .infinity, alignment: .top)
                 } else {
                     agendaHeader
                     agendaList(events: upcomingEvents, emptyText: "No upcoming events")
+                        .frame(maxHeight: .infinity, alignment: .top)
                 }
-                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(width: screenBounds.width, height: screenBounds.height, alignment: .top)
             .padding(.horizontal, 14)
-            .padding(.bottom, 6)
+            .padding(.bottom, bottomSafeInset + 6)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(width: screenBounds.width, height: screenBounds.height, alignment: .top)
+        .ignoresSafeArea(.container, edges: [.top, .bottom])
         .background(settings.theme.background.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingSettings) { VespersSettingsSheet().environmentObject(settings) }

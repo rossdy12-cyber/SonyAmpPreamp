@@ -14,6 +14,14 @@
       "iconURL": "https://navidrome.nas-server.co.uk/sidestore/AppIcon.png",
       "versions": [
         {
+          "version": "2.4.125",
+          "date": "2026-11-28",
+          "localizedDescription": "v2.4.125: Fix Vespers settings sheet theme background",
+          "downloadURL": "https://github.com/rossdy12-cyber/SonyAmpPreamp/releases/download/v2.4.125/SonyAmpPreamp.ipa",
+          "size": 668204,
+          "minOSVersion": "16.0"
+        },
+        {
           "version": "2.4.124",
           "date": "2026-11-28",
           "localizedDescription": "v2.4.124: Add Vespers calendar app with theme and readability settings",

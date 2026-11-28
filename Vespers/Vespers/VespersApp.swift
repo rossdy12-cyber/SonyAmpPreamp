@@ -152,6 +152,7 @@ struct VespersRootView: View {
                     agendaList(events: upcomingEvents, emptyText: "No upcoming events")
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 14)
             .padding(.bottom, 6)
         }

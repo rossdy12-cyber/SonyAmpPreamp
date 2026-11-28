@@ -11,6 +11,8 @@ struct VespersApp: App {
             VespersRootView()
                 .environmentObject(settings)
                 .environmentObject(calendar)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(settings.theme.background.ignoresSafeArea())
                 .preferredColorScheme(.dark)
                 .tint(settings.theme.accent)
                 .task { await calendar.refreshAuthorizationAndEvents() }
@@ -133,42 +135,30 @@ struct VespersRootView: View {
     private var displayedEvents: [EKEvent] { calendarStore.events(on: selectedDate) }
 
     var body: some View {
-        GeometryReader { geometry in
-            let topInset = geometry.safeAreaInsets.top
-            let bottomInset = geometry.safeAreaInsets.bottom
-            ZStack(alignment: .top) {
-                Rectangle()
-                    .fill(settings.theme.background)
-                    .ignoresSafeArea()
-                VespersPalette.ambient(theme: settings.theme)
-                    .ignoresSafeArea()
-                VespersPalette.lowerAmbient(theme: settings.theme)
-                    .ignoresSafeArea()
+        ZStack {
+            settings.theme.background.ignoresSafeArea()
+            VespersPalette.ambient(theme: settings.theme).ignoresSafeArea()
+            VespersPalette.lowerAmbient(theme: settings.theme).ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    Color.clear.frame(height: topInset)
-                    topBar
-                    if selectedTab == .month {
-                        monthHeader
-                        weekdayHeader
-                        monthGrid
-                        selectedDayHeading
-                        agendaList(events: displayedEvents, emptyText: "Nothing planned for this day")
-                            .frame(maxHeight: .infinity)
-                    } else {
-                        agendaHeader
-                        agendaList(events: upcomingEvents, emptyText: "No upcoming events")
-                            .frame(maxHeight: .infinity)
-                    }
+            VStack(spacing: 0) {
+                topBar
+                if selectedTab == .month {
+                    monthHeader
+                    weekdayHeader
+                    monthGrid
+                    selectedDayHeading
+                    agendaList(events: displayedEvents, emptyText: "Nothing planned for this day")
+                } else {
+                    agendaHeader
+                    agendaList(events: upcomingEvents, emptyText: "No upcoming events")
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height + topInset + bottomInset, alignment: .top)
-                .padding(.horizontal, 14)
-                .padding(.bottom, bottomInset + 6)
-                .offset(y: -topInset)
+                Spacer(minLength: 0)
             }
-            .frame(width: geometry.size.width, height: geometry.size.height + topInset + bottomInset, alignment: .top)
-            .background(settings.theme.background.ignoresSafeArea())
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 6)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(settings.theme.background.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingSettings) { VespersSettingsSheet().environmentObject(settings) }

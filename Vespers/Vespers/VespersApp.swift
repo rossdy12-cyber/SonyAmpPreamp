@@ -204,25 +204,46 @@ struct VespersRootView: View {
 
     private var monthHeader: some View {
         HStack {
-            Button { shiftMonth(-1) } label: { Image(systemName: "chevron.left").font(.system(size: 15, weight: .bold)).foregroundStyle(settings.theme.accent).frame(width: 40, height: 40) }
-                .accessibilityLabel("Previous month")
+            Button { shiftMonth(-1) } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(settings.theme.accent)
+                    .frame(width: 36, height: 34)
+            }
+            .accessibilityLabel("Previous month")
             Spacer()
-            VStack(spacing: 2) {
+            VStack(spacing: 1) {
                 Text(selectedDate.formatted(.dateTime.month(.wide)))
-                    .font(VespersPalette.display(29 * settings.bodyScale))
+                    .font(.system(size: 32 * settings.bodyScale, weight: .regular, design: .serif))
                     .foregroundStyle(VespersPalette.text)
                     .minimumScaleFactor(0.75)
                     .lineLimit(1)
-                Text(selectedDate.formatted(.dateTime.year()).uppercased())
-                    .font(VespersPalette.font(12 * settings.bodyScale, weight: .bold))
+                Text(romanYear(cal.component(.year, from: selectedDate)))
+                    .font(VespersPalette.font(10 * settings.bodyScale, weight: .bold))
                     .tracking(3)
                     .foregroundStyle(settings.theme.accent)
             }
             Spacer()
-            Button { shiftMonth(1) } label: { Image(systemName: "chevron.right").font(.system(size: 15, weight: .bold)).foregroundStyle(settings.theme.accent).frame(width: 40, height: 40) }
-                .accessibilityLabel("Next month")
+            Button { shiftMonth(1) } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(settings.theme.accent)
+                    .frame(width: 36, height: 34)
+            }
+            .accessibilityLabel("Next month")
         }
-        .padding(.bottom, 8)
+        .padding(.bottom, 1)
+    }
+
+    private func romanYear(_ year: Int) -> String {
+        guard year > 0 else { return String(year) }
+        let values: [(Int, String)] = [(1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"), (90, "XC"), (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I")]
+        var remaining = year
+        var result = ""
+        for (value, symbol) in values {
+            while remaining >= value { result += symbol; remaining -= value }
+        }
+        return result
     }
 
     private var weekdayHeader: some View {
@@ -231,27 +252,27 @@ struct VespersRootView: View {
         return HStack(spacing: 0) {
             ForEach(Array(rotated.enumerated()), id: \.offset) { item in
                 Text(item.element.uppercased())
-                    .font(VespersPalette.font(11 * settings.bodyScale, weight: .bold))
-                    .foregroundStyle(settings.theme.mutedText)
+                    .font(VespersPalette.font(10 * settings.bodyScale, weight: .bold))
+                    .foregroundStyle(settings.theme.mutedText.opacity(0.82))
                     .frame(maxWidth: .infinity)
                     .accessibilityLabel(item.element)
             }
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, 4)
     }
 
     private var monthGrid: some View {
         let dates = monthDates
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: 7), spacing: 4) {
-            ForEach(dates, id: \.self) { date in
-                if let date {
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 1), count: 7), spacing: 2) {
+            ForEach(Array(dates.enumerated()), id: \.offset) { item in
+                if let date = item.element {
                     dayCell(date)
                 } else {
-                    Color.clear.frame(height: 42)
+                    Color.clear.frame(height: 36)
                 }
             }
         }
-        .padding(.bottom, 9)
+        .padding(.bottom, 2)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Calendar month")
     }
@@ -268,7 +289,7 @@ struct VespersRootView: View {
                 Text(date.formatted(.dateTime.day()))
                     .font(VespersPalette.font(14 * settings.bodyScale, weight: isSelected || isToday ? .bold : .medium))
                     .foregroundStyle(isSelected ? VespersPalette.text : (inMonth ? VespersPalette.text : settings.theme.mutedText.opacity(0.52)))
-                    .frame(width: 31, height: 31)
+                    .frame(width: 30, height: 30)
                     .background {
                         if isSelected {
                             Circle().fill(settings.theme.accent.opacity(0.30)).overlay(Circle().stroke(settings.theme.accent, lineWidth: 1.5)).shadow(color: settings.theme.accent.opacity(0.45), radius: 7)
@@ -283,7 +304,7 @@ struct VespersRootView: View {
                 }
                 .frame(height: 5)
             }
-            .frame(maxWidth: .infinity, minHeight: 41)
+            .frame(maxWidth: .infinity, minHeight: 38)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -292,23 +313,27 @@ struct VespersRootView: View {
     }
 
     private var selectedDayHeading: some View {
-        HStack {
+        HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(selectedDate.formatted(.dateTime.weekday(.wide)).uppercased())
                     .font(VespersPalette.font(12 * settings.bodyScale, weight: .bold))
-                    .tracking(1.2)
+                    .tracking(1.0)
                     .foregroundStyle(settings.theme.accent)
                 Text(selectedDate.formatted(.dateTime.day().month(.wide)))
-                    .font(VespersPalette.font(17 * settings.bodyScale, weight: .semibold))
+                    .font(VespersPalette.font(18 * settings.bodyScale, weight: .semibold))
                     .foregroundStyle(VespersPalette.text)
             }
             Spacer()
             Text("\(displayedEvents.count) EVENTS")
                 .font(VespersPalette.font(10 * settings.bodyScale, weight: .bold))
+                .tracking(0.4)
                 .foregroundStyle(settings.theme.mutedText)
         }
         .padding(.horizontal, 2)
-        .padding(.vertical, 7)
+        .padding(.vertical, 6)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(settings.theme.accent.opacity(0.28)).frame(height: 1)
+        }
     }
 
     private var agendaHeader: some View {
@@ -379,42 +404,45 @@ struct VespersRootView: View {
     }
 
     private func eventCard(_ event: EKEvent) -> some View {
-        HStack(spacing: 11) {
+        HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 3)
                 .fill(colorFor(event))
                 .frame(width: 4)
-                .shadow(color: colorFor(event).opacity(0.35), radius: 5)
+                .shadow(color: colorFor(event).opacity(0.4), radius: 5)
             VStack(alignment: .leading, spacing: 4) {
                 Text((event.title?.isEmpty == false ? event.title : nil) ?? "Untitled event")
                     .font(VespersPalette.font(16 * settings.bodyScale, weight: .semibold))
                     .foregroundStyle(VespersPalette.text)
                     .lineLimit(2)
                 HStack(spacing: 5) {
-                    if !event.isAllDay {
-                        Text(event.startDate.formatted(date: .omitted, time: .shortened))
-                        Text("·")
+                    if let location = event.location, !location.isEmpty {
+                        Image(systemName: "location.fill").font(.system(size: 9, weight: .semibold))
+                        Text(location)
+                    } else {
+                        Text(event.calendar.title)
                     }
-                    Text(event.calendar.title)
                 }
-                .font(VespersPalette.font(12 * settings.bodyScale, weight: .medium))
+                .font(VespersPalette.font(11 * settings.bodyScale, weight: .medium))
                 .foregroundStyle(settings.theme.mutedText)
-                if let location = event.location, !location.isEmpty {
-                    Text(location)
-                        .font(VespersPalette.font(12 * settings.bodyScale))
+                .lineLimit(1)
+            }
+            Spacer(minLength: 6)
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(event.isAllDay ? "ALL DAY" : event.startDate.formatted(date: .omitted, time: .shortened))
+                    .font(VespersPalette.font(11 * settings.bodyScale, weight: .semibold))
+                    .foregroundStyle(settings.theme.accent)
+                    .lineLimit(1)
+                if !event.isAllDay {
+                    Text(event.endDate.formatted(date: .omitted, time: .shortened))
+                        .font(VespersPalette.font(10 * settings.bodyScale, weight: .medium))
                         .foregroundStyle(settings.theme.mutedText)
                         .lineLimit(1)
                 }
             }
-            Spacer(minLength: 0)
-            if event.isAllDay {
-                Text("ALL DAY")
-                    .font(VespersPalette.font(10 * settings.bodyScale, weight: .bold))
-                    .foregroundStyle(settings.theme.accent)
-            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(minHeight: 56)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .frame(minHeight: 54)
         .background(settings.theme.panel, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(settings.theme.border.opacity(0.75), lineWidth: 1))
     }
